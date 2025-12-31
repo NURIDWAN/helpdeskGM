@@ -12,13 +12,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RoleSeeder::class,
             PermissionSeeder::class,
+            RoleSeeder::class,
             RolePermissionSeeder::class,
             UserSeeder::class,
-            DummyDataSeeder::class,
-            // Uncomment untuk generate daily records data
-            // DailyRecordSeeder::class,
+            WhatsAppTemplateSeeder::class,
+            // DummyDataSeeder::class, // Disabled - use only for development
+            // DailyRecordSeeder::class, // Disabled - use only for development
         ]);
     }
 }

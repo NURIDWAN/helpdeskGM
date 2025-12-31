@@ -68,8 +68,8 @@ class TicketRepository implements TicketRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
-            // admins can see all tickets
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can see all tickets
         } elseif ($user && $user->hasRole('staff')) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('assignedStaff', function ($staffQuery) use ($user) {

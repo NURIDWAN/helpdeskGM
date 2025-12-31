@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Ticket extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'user_id',
         'code',
@@ -17,12 +19,14 @@ class Ticket extends Model
         'priority',
         'branch_id',
         'completed_at',
+        'unassigned_alert_sent_at',
     ];
 
     protected $casts = [
         'status' => TicketStatus::class,
         'priority' => TicketPriority::class,
         'completed_at' => 'datetime',
+        'unassigned_alert_sent_at' => 'datetime',
     ];
 
     public function user()

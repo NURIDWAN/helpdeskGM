@@ -27,7 +27,9 @@ class User extends Authenticatable
         'position',
         'identity_number',
         'phone_number',
-        'type'
+        'type',
+        'last_login_at',
+        'last_activity_at',
     ];
 
     /**
@@ -50,7 +52,29 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'last_activity_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get activity status based on last login
+     */
+    public function getActivityStatusAttribute(): string
+    {
+        if (!$this->last_login_at) {
+            return 'never';
+        }
+
+        $daysSinceLogin = $this->last_login_at->diffInDays(now());
+
+        if ($daysSinceLogin <= 7) {
+            return 'active';
+        } elseif ($daysSinceLogin <= 30) {
+            return 'rarely';
+        } else {
+            return 'inactive';
+        }
     }
 
     public function scopeSearch($query, $search)

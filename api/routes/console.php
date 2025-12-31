@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 
 use Illuminate\Support\Facades\Schedule;
 Schedule::command('tickets:auto-close')->hourly();
+Schedule::command('tickets:check-unassigned')->everyMinute();

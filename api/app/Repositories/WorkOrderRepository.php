@@ -27,8 +27,8 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                 }
             });
 
-        if ($user && $user->hasRole('admin')) {
-            // admins can see all work orders
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can see all work orders
         } elseif ($user && $user->hasRole('staff')) {
             $query->where('assigned_to', $user->id);
         } else {
@@ -75,8 +75,8 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $query = WorkOrder::with(['ticket', 'assignedUser'])
             ->where('id', $id);
 
-        if ($user && $user->hasRole('admin')) {
-            // admins can access any work order
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can access any work order
         } elseif ($user && $user->hasRole('staff')) {
             $query->where('assigned_to', $user->id);
         } else {
@@ -171,8 +171,8 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $query = WorkOrder::with(['ticket', 'assignedUser'])
             ->where('ticket_id', $ticketId);
 
-        if ($user && $user->hasRole('admin')) {
-            // admins can access any work order
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can access any work order
         } elseif ($user && $user->hasRole('staff')) {
             $query->where('assigned_to', $user->id);
         } else {
@@ -208,7 +208,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $countThisPeriod = WorkOrder::whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
             ->count() + 1;
-        $sequence = str_pad((string)$countThisPeriod, 3, '0', STR_PAD_LEFT);
+        $sequence = str_pad((string) $countThisPeriod, 3, '0', STR_PAD_LEFT);
 
         return $sequence . '/SPK-' . $branchCode . '/' . $month . '/' . $year;
     }

@@ -26,6 +26,25 @@ class PermissionSeeder extends Seeder
             'delete'
         ],
 
+        'role' => [
+            'menu',
+            'list',
+            'create',
+            'edit',
+            'delete'
+        ],
+
+        'whatsapp-setting' => [
+            'menu',
+            'list',
+            'edit'
+        ],
+
+        'user-activity' => [
+            'menu',
+            'list'
+        ],
+
         'branch' => [
             'menu',
             'list',

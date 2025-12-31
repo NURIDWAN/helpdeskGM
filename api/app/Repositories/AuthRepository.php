@@ -20,6 +20,11 @@ class AuthRepository implements AuthRepositoryInterface
             }
 
             $user = Auth::user()->load('roles');
+
+            // Update last login timestamp
+            $user->last_login_at = now();
+            $user->save();
+
             $user->token = $user->createToken('auth_token')->plainTextToken;
 
             DB::commit();

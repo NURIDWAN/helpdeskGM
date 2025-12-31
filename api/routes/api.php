@@ -32,6 +32,8 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('tickets', TicketController::class);
         Route::get('tickets/all/paginated', [TicketController::class, 'getAllPaginated']);
         Route::get('tickets/code/{code}', [TicketController::class, 'showByCode']);
+        Route::get('tickets/export/pdf', [TicketController::class, 'exportPdf']);
+        Route::get('tickets/export/excel', [TicketController::class, 'exportExcel']);
 
         Route::get('tickets/{ticketId}/attachments', [TicketAttachmentController::class, 'index']);
         Route::post('tickets/{ticketId}/attachments', [TicketAttachmentController::class, 'store']);
@@ -104,5 +106,21 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard/tickets-trend', [DashboardController::class, 'getTicketsTrend']);
         Route::get('dashboard/staff-reports-trend', [DashboardController::class, 'getStaffReportsTrend']);
         Route::get('dashboard/all', [DashboardController::class, 'getAllData']);
+
+        // Role Management routes
+        Route::apiResource('roles', \App\Http\Controllers\RoleController::class);
+        Route::get('permissions', [\App\Http\Controllers\RoleController::class, 'permissions']);
+
+        // WhatsApp Settings routes
+        Route::get('whatsapp-settings', [\App\Http\Controllers\WhatsAppSettingController::class, 'index']);
+        Route::put('whatsapp-settings', [\App\Http\Controllers\WhatsAppSettingController::class, 'updateSettings']);
+        Route::get('whatsapp-templates', [\App\Http\Controllers\WhatsAppSettingController::class, 'getTemplates']);
+        Route::put('whatsapp-templates/{id}', [\App\Http\Controllers\WhatsAppSettingController::class, 'updateTemplate']);
+        Route::get('whatsapp-placeholders/{type}', [\App\Http\Controllers\WhatsAppSettingController::class, 'getPlaceholders']);
+        Route::post('whatsapp-test', [\App\Http\Controllers\WhatsAppSettingController::class, 'testSend']);
+
+        // User Activity Monitoring routes
+        Route::get('user-activity', [\App\Http\Controllers\UserActivityController::class, 'index']);
+        Route::get('user-activity/statistics', [\App\Http\Controllers\UserActivityController::class, 'statistics']);
     });
 });

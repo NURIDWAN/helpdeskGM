@@ -35,7 +35,7 @@ class DailyRecordSeeder extends Seeder
 
         // Stove types
         $stoveTypes = ['SHINPO', 'RINNAI', 'MODENA', 'YAMAHA', 'COSMOS'];
-        
+
         // Gas types
         $gasTypes = ['LPG', 'PERTAMINA', 'ELPIJI'];
 
@@ -44,7 +44,7 @@ class DailyRecordSeeder extends Seeder
 
         // Generate data untuk 14 hari terakhir
         $daysToGenerate = 14;
-        
+
         foreach ($branches as $branch) {
             // Initialize meter values untuk branch ini
             $branchMeterValues[$branch->id] = [
@@ -62,7 +62,7 @@ class DailyRecordSeeder extends Seeder
 
             for ($day = $daysToGenerate; $day >= 1; $day--) {
                 $date = Carbon::now()->subDays($day);
-                
+
                 // Skip jika sudah ada daily record untuk branch ini di tanggal tersebut
                 $existingRecord = DailyRecord::where('branch_id', $branch->id)
                     ->whereDate('created_at', $date->toDateString())
@@ -76,8 +76,6 @@ class DailyRecordSeeder extends Seeder
                 $dailyRecord = DailyRecord::create([
                     'user_id' => $branchUser->id,
                     'branch_id' => $branch->id,
-                    'stove_type' => $stoveTypes[array_rand($stoveTypes)],
-                    'gas_type' => $gasTypes[array_rand($gasTypes)],
                     'total_customers' => rand(400, 500),
                     'created_at' => $date->copy()->setTime(rand(7, 9), rand(0, 59), rand(0, 59)),
                     'updated_at' => $date->copy()->setTime(rand(7, 9), rand(0, 59), rand(0, 59)),
@@ -87,7 +85,7 @@ class DailyRecordSeeder extends Seeder
                 $gasOpening = $branchMeterValues[$branch->id]['gas'];
                 $gasUsage = rand(15, 25) + (rand(0, 10) / 10); // 15-25 dengan 1 desimal
                 $gasClosing = $gasOpening + $gasUsage;
-                
+
                 UtilityReading::create([
                     'daily_record_id' => $dailyRecord->id,
                     'category' => UtilityCategory::GAS->value,
@@ -125,16 +123,16 @@ class DailyRecordSeeder extends Seeder
                 // Electricity Reading (bisa 1-3 per daily record)
                 $electricityCount = rand(1, 3);
                 $electricityLocations = ['Gardu', 'Depan Toko', 'Belakang Toko'];
-                
+
                 for ($i = 0; $i < $electricityCount; $i++) {
                     $location = $electricityLocations[$i] ?? 'Gardu';
-                    
+
                     // Untuk lokasi yang sama, gunakan nilai sebelumnya
                     if (!isset($branchMeterValues[$branch->id]['electricity'][$location])) {
-                        $branchMeterValues[$branch->id]['electricity'][$location] = 
+                        $branchMeterValues[$branch->id]['electricity'][$location] =
                             $branchMeterValues[$branch->id]['electricity']['Gardu'] + rand(0, 10);
                     }
-                    
+
                     $electricityValue = $branchMeterValues[$branch->id]['electricity'][$location];
                     $electricityIncrement = rand(3, 8) + (rand(0, 100) / 100); // 3-8 dengan 2 desimal
                     $electricityValue += $electricityIncrement;
@@ -142,8 +140,8 @@ class DailyRecordSeeder extends Seeder
                     UtilityReading::create([
                         'daily_record_id' => $dailyRecord->id,
                         'category' => UtilityCategory::ELECTRICITY->value,
-                        'sub_type' => $i === 0 ? UtilitySubType::GENERAL->value : 
-                                      ($i === 1 ? UtilitySubType::LUBP->value : UtilitySubType::UBP->value),
+                        'sub_type' => $i === 0 ? UtilitySubType::GENERAL->value :
+                            ($i === 1 ? UtilitySubType::LUBP->value : UtilitySubType::UBP->value),
                         'location' => $location,
                         'meter_value' => round($electricityValue, 2),
                         'photo' => null,

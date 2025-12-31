@@ -47,8 +47,8 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
-            // admins can see all daily records
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can see all daily records
         } elseif ($user && $user->hasRole('staff')) {
             // staff can only see their own daily records
             $query->where('user_id', $user->id);
@@ -101,7 +101,7 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->hasRole('staff')) {
+        if ($user && !$user->hasRole('admin') && !$user->hasRole('superadmin') && $user->hasRole('staff')) {
             $query->where('user_id', $user->id);
         }
 

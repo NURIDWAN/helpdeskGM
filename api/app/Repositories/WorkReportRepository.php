@@ -57,8 +57,8 @@ class WorkReportRepository implements WorkReportRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
-            // admins can see all work reports
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can see all work reports
         } elseif ($user && $user->hasRole('staff')) {
             // staff can only see their own work reports
             $query->where('user_id', $user->id);
@@ -115,7 +115,7 @@ class WorkReportRepository implements WorkReportRepositoryInterface
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->hasRole('staff')) {
+        if ($user && !$user->hasRole('admin') && !$user->hasRole('superadmin') && $user->hasRole('staff')) {
             $query->where('user_id', $user->id);
         }
 

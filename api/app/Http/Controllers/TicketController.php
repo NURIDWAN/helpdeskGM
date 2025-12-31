@@ -172,4 +172,102 @@ class TicketController extends Controller implements HasMiddleware
             return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
         }
     }
+
+    /**
+     * Export tickets to Excel
+     */
+    public function exportExcel(Request $request)
+    {
+        try {
+            $filters = [
+                'status' => $request->status,
+                'priority' => $request->priority,
+                'branch_id' => $request->branch_id,
+                'date_from' => $request->date_from ?? $request->start_date,
+                'date_to' => $request->date_to ?? $request->end_date,
+                'search' => $request->search,
+                'duration' => $request->duration,
+            ];
+
+            $export = new \App\Exports\TicketExport($filters);
+            return $export->download();
+        } catch (\Throwable $e) {
+            Log::error('Export Excel Error: ' . $e->getMessage());
+            return ResponseHelper::jsonResponse(false, 'Gagal export: ' . $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Export tickets to PDF
+     */
+    public function exportPdf(Request $request)
+    {
+        try {
+            $query = \App\Models\Ticket::with(['user', 'branch', 'assignedStaff']);
+
+            // Apply filters
+            if ($request->status) {
+                $query->where('status', $request->status);
+            }
+            if ($request->priority) {
+                $query->where('priority', $request->priority);
+            }
+            if ($request->branch_id) {
+                $query->where('branch_id', $request->branch_id);
+            }
+            if ($request->date_from ?? $request->start_date) {
+                $query->whereDate('created_at', '>=', $request->date_from ?? $request->start_date);
+            }
+            if ($request->date_to ?? $request->end_date) {
+                $query->whereDate('created_at', '<=', $request->date_to ?? $request->end_date);
+            }
+            if ($request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('code', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%");
+                });
+            }
+            if ($request->duration) {
+                $duration = $request->duration;
+                if ($duration === 'today') {
+                    $query->whereDate('created_at', now());
+                } elseif ($duration === 'week') {
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                } elseif ($duration === 'month') {
+                    $query->whereMonth('created_at', now()->month)
+                        ->whereYear('created_at', now()->year);
+                }
+            }
+
+            $tickets = $query->orderBy('created_at', 'desc')->get();
+
+            // Get branch name for filter display
+            $branchName = null;
+            if ($request->branch_id) {
+                $branch = \App\Models\Branch::find($request->branch_id);
+                $branchName = $branch?->name;
+            }
+
+            $filters = [
+                'status' => $request->status,
+                'priority' => $request->priority,
+                'branch' => $branchName,
+                'date_from' => $request->date_from ?? $request->start_date,
+                'date_to' => $request->date_to ?? $request->end_date,
+            ];
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.tickets-pdf', [
+                'tickets' => $tickets,
+                'filters' => $filters,
+            ]);
+
+            $pdf->setPaper('a4', 'landscape');
+
+            return $pdf->download('tickets_' . now()->format('Y-m-d_His') . '.pdf');
+        } catch (\Throwable $e) {
+            Log::error('Export PDF Error: ' . $e->getMessage());
+            return ResponseHelper::jsonResponse(false, 'Gagal export: ' . $e->getMessage(), null, 500);
+        }
+    }
 }

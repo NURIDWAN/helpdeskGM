@@ -1,0 +1,81 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\WhatsAppTemplate;
+use Illuminate\Database\Seeder;
+
+class WhatsAppTemplateSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        $templates = [
+            [
+                'type' => 'ticket_created',
+                'name' => 'Tiket Baru (Group)',
+                'content' => "🚨 *TIKET BARU DITERIMA* 🚨\n\nAda tiket baru masuk! Mohon segera dicek untuk ditentukan penanganannya.\n\n📋 *Kode:* {ticket_code}\n📝 *Judul:* {title}\n👤 *Pelapor:* {reporter_name}\n🏢 *Cabang:* {branch_name}\n⚡ *Prioritas:* {priority}\n📅 *Dibuat:* {created_at}\n\n📄 *Deskripsi:*\n{description}\n\n🔗 {ticket_url}",
+                'send_to_group' => true,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_assigned',
+                'name' => 'Tiket Ditugaskan (Staff)',
+                'content' => "Halo {staff_name},\n\nAnda telah ditugaskan untuk menangani tiket *{ticket_code}*.\nSilakan cek detail kendala dan mulai pengerjaan.\n\n📝 *Judul:* {title}\n👤 *Pelapor:* {reporter_name}\n🏢 *Cabang:* {branch_name}\n⚡ *Prioritas:* {priority}\n\n📄 *Deskripsi:*\n{description}\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_status_progress',
+                'name' => 'Status Progress (User)',
+                'content' => "Halo {reporter_name},\n\nKabar terbaru! Tiket Anda *{ticket_code}* saat ini sedang dalam proses pengerjaan oleh tim kami.\n\n📝 *Judul:* {title}\n📊 *Status:* {new_status}\n\nMohon ditunggu update selanjutnya.\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_status_resolved',
+                'name' => 'Status Resolved (User)',
+                'content' => "Halo {reporter_name},\n\nKabar baik! Kendala Anda pada tiket *{ticket_code}* sudah diperbaiki.\n\n📝 *Judul:* {title}\n📊 *Status:* {new_status}\n\nSilakan dicek kembali, jika sudah oke, tiket bisa ditutup.\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_reply',
+                'name' => 'Komentar Baru (User & Staff)',
+                'content' => "Ada komentar atau pesan baru di tiket *{ticket_code}*.\n\n💬 *Dari:* {replier_name}\n\n📄 *Pesan:*\n{reply_content}\n\nSilakan cek percakapan untuk informasi lebih lanjut.\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_closed',
+                'name' => 'Tiket Selesai (Group)',
+                'content' => "✅ *LAPORAN SELESAI* ✅\n\nLaporan selesai. Tiket *{ticket_code}* telah resmi ditutup dan dianggap tuntas.\n\n📝 *Judul:* {title}\n👤 *Pelapor:* {reporter_name}\n🏢 *Cabang:* {branch_name}\n👨‍🔧 *Teknisi:* {staff_name}\n⏰ *Waktu Selesai:* {completed_at}\n\nTerima kasih atas kerja kerasnya!",
+                'send_to_group' => true,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_unassigned_user_alert',
+                'name' => 'Alert Unassigned (User)',
+                'content' => "Halo {reporter_name},\n\nTiket Anda *{ticket_code}* belum mendapatkan penugasan teknisi. Mohon hubungi admin jika kendala ini sangat mendesak.\n\n📝 *Judul:* {title}\n🏢 *Cabang:* {branch_name}\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'ticket_unassigned_admin_alert',
+                'name' => 'Alert Unassigned (Admin)',
+                'content' => "⚠️ *ALERT: TIKET BELUM DI-ASSIGN* ⚠️\n\nTiket *{ticket_code}* belum ditugaskan ke teknisi selama lebih dari 1 jam.\nMohon segera assign staff teknisi.\n\n📝 *Judul:* {title}\n👤 *Pelapor:* {reporter_name}\n🏢 *Cabang:* {branch_name}\n⚡ *Prioritas:* {priority}\n\n🔗 {ticket_url}",
+                'send_to_group' => true, // Kirim ke group juga biar aware
+                'is_active' => true,
+            ],
+        ];
+
+        foreach ($templates as $template) {
+            WhatsAppTemplate::updateOrCreate(
+                ['type' => $template['type']],
+                $template
+            );
+        }
+    }
+}
