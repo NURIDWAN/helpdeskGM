@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Monitoring Coverage • TickTrack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+    <header class="bg-white border-b">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 class="text-lg font-semibold">Monitoring Coverage</h1>
+            <div class="flex gap-2">
+                <button class="px-3 py-2 rounded-lg border">Export Excel</button>
+                <button class="px-3 py-2 rounded-lg border">Export PDF</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+        <!-- Filters -->
+        <section class="bg-white border rounded-2xl p-4 grid md:grid-cols-6 gap-3 items-end">
+            <div class="md:col-span-2">
+                <label class="block text-sm mb-1">Frekuensi</label>
+                <div class="flex gap-2">
+                    <button id="btnDaily"
+                        class="flex-1 px-3 py-2 rounded-lg border bg-slate-900 text-white">Daily</button>
+                    <button id="btnWeekly" class="flex-1 px-3 py-2 rounded-lg border">Weekly</button>
+                    <button id="btnMonthly" class="flex-1 px-3 py-2 rounded-lg border">Monthly</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm mb-1">Cabang</label>
+                <select id="fltBranch" class="w-full border rounded-lg px-3 py-2">
+                    <option value="all">Semua</option>
+                    <option value="1">Jakarta Pusat</option>
+                    <option value="2">Bandung</option>
+                    <option value="3">Surabaya</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm mb-1">Dari</label>
+                <input id="fltFrom" type="date" class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm mb-1">Sampai</label>
+                <input id="fltTo" type="date" class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="flex gap-2">
+                <button id="btnApply" class="w-full px-3 py-2 rounded-lg bg-blue-600 text-white">Terapkan</button>
+                <button id="btnReset" class="w-full px-3 py-2 rounded-lg border">Reset</button>
+            </div>
+        </section>
+
+        <!-- Legend -->
+        <div class="flex items-center gap-4 text-sm text-slate-600">
+            <span class="inline-flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded bg-emerald-500"></span> Sudah ada laporan
+            </span>
+            <span class="inline-flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded bg-rose-500"></span> Belum ada laporan
+            </span>
+            <span class="inline-flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded bg-slate-300"></span> Tidak di-assign
+            </span>
+        </div>
+
+        <!-- Grid -->
+        <section class="bg-white border rounded-2xl overflow-auto">
+            <table class="min-w-full text-sm">
+                <thead id="thead" class="bg-slate-100 text-slate-600 sticky top-0">
+                    <!-- injected -->
+                </thead>
+                <tbody id="tbody">
+                    <!-- injected -->
+                </tbody>
+            </table>
+        </section>
+
+    </main>
+
+    <script>
+        // ===== Dummy data (ganti ke API-mu) =====
+        const BRANCHES = [
+            { id: 1, name: 'Jakarta Pusat' },
+            { id: 2, name: 'Bandung' },
+            { id: 3, name: 'Surabaya' },
+        ];
+        // template + mapping cabang aktif
+        const TEMPLATES = [
+            { id: 12, name: 'Cek suhu server room', frequency: 'daily', branches: [1, 2] },
+            { id: 18, name: 'Pembersihan AC Lantai 2', frequency: 'weekly', branches: [1] },
+            { id: 21, name: 'Backup Database', frequency: 'monthly', branches: [1, 3] },
+        ];
+        // laporan yang “ada” (dummy): key = `${templateId}-${branchId}-${periodKey}`
+        // periodKey:
+        // - daily: YYYY-MM-DD
+        // - weekly: YYYY-Www (ISO week)
+        // - monthly: YYYY-MM
+        const REPORTS = new Set([
+            // daily: 7 hari terakhir di Jakarta (template 12, branch 1)
+            // (nanti akan di-check saat render)
+        ]);
+
+        // ===== State =====
+        let freq = 'daily';
+        const from = document.getElementById('fltFrom');
+        const to = document.getElementById('fltTo');
+        const branchSel = document.getElementById('fltBranch');
+
+        // default date range (7 hari terakhir)
+        const today = new Date();
+        const dTo = today.toISOString().slice(0, 10);
+        const dFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6).toISOString().slice(0, 10);
+        from.value = dFrom; to.value = dTo;
+
+        // inject some dummy reports for demo
+        // mark Jakarta daily for last 4 days as done
+        for (let i = 0; i < 4; i++) {
+            const dt = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i).toISOString().slice(0, 10);
+            REPORTS.add(`12-1-${dt}`); // template 12, branch 1
+        }
+        // weekly: mark current week for template 18 branch 1 as done
+        REPORTS.add(`18-1-${isoWeekKey(today)}`);
+        // monthly: mark current month for template 21 branch 3 as done
+        REPORTS.add(`21-3-${today.toISOString().slice(0, 7)}`);
+
+        // ===== UI Handlers =====
+        document.getElementById('btnDaily').onclick = () => setFreq('daily');
+        document.getElementById('btnWeekly').onclick = () => setFreq('weekly');
+        document.getElementById('btnMonthly').onclick = () => setFreq('monthly');
+        document.getElementById('btnApply').onclick = render;
+        document.getElementById('btnReset').onclick = () => {
+            branchSel.value = 'all';
+            setFreq('daily');
+            from.value = dFrom; to.value = dTo;
+            render();
+        };
+
+        function setFreq(f) {
+            freq = f;
+            // toggle button styles
+            ['btnDaily', 'btnWeekly', 'btnMonthly'].forEach(id => {
+                const el = document.getElementById(id);
+                const active = id.toLowerCase().includes(f);
+                el.className = 'flex-1 px-3 py-2 rounded-lg border ' + (active ? 'bg-slate-900 text-white' : '');
+            });
+            // adjust default range for weekly/monthly
+            if (f === 'weekly') {
+                // 8 minggu ke belakang
+                const end = toDate(to.value);
+                const start = new Date(end); start.setDate(end.getDate() - 7 * 7);
+                from.value = start.toISOString().slice(0, 10);
+            }
+            if (f === 'monthly') {
+                const end = toDate(to.value);
+                const start = new Date(end.getFullYear(), end.getMonth() - 5, 1);
+                from.value = start.toISOString().slice(0, 10);
+            }
+            render();
+        }
+
+        // ===== Render =====
+        function render() {
+            const thead = document.getElementById('thead');
+            const tbody = document.getElementById('tbody');
+            thead.innerHTML = ''; tbody.innerHTML = '';
+
+            const periods = buildPeriods(freq, from.value, to.value); // [{key,label}]
+            // header
+            const thCols = periods.map(p => `<th class="p-2 text-center whitespace-nowrap">${p.label}</th>`).join('');
+            thead.innerHTML = `
+      <tr>
+        <th class="text-left p-2 w-64">Template</th>
+        <th class="text-left p-2 w-40">Cabang</th>
+        ${thCols}
+      </tr>
+    `;
+
+            // rows
+            const filteredTemplates = TEMPLATES.filter(t => t.frequency === freq);
+            filteredTemplates.forEach(t => {
+                const branches = (branchSel.value === 'all')
+                    ? t.branches
+                    : t.branches.filter(id => String(id) === branchSel.value);
+
+                if (branches.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-t';
+                    tr.innerHTML = `
+          <td class="p-2 align-top">
+            <div class="font-medium">${t.name}</div>
+            <div class="text-xs text-slate-500 capitalize">${t.frequency}</div>
+          </td>
+          <td class="p-2 text-slate-400">Tidak di-assign</td>
+          ${periods.map(() => `<td class="p-2 text-center">
+            <span class="inline-block w-3 h-3 rounded bg-slate-300"></span>
+          </td>`).join('')}
+        `;
+                    tbody.appendChild(tr);
+                    return;
+                }
+
+                branches.forEach(bid => {
+                    const bname = BRANCHES.find(b => b.id === bid)?.name || '-';
+                    const cells = periods.map(p => {
+                        const has = REPORTS.has(`${t.id}-${bid}-${p.key}`);
+                        return `<td class="p-2 text-center">
+            <span class="inline-block w-3 h-3 rounded ${has ? 'bg-emerald-500' : 'bg-rose-500'}" title="${has ? 'Sudah' : 'Belum'}"></span>
+          </td>`;
+                    }).join('');
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-t';
+                    tr.innerHTML = `
+          <td class="p-2 align-top">
+            <div class="font-medium">${t.name}</div>
+            <div class="text-xs text-slate-500 capitalize">${t.frequency}</div>
+          </td>
+          <td class="p-2">${bname}</td>
+          ${cells}
+        `;
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        // ===== Period helpers =====
+        function buildPeriods(type, fromStr, toStr) {
+            const start = toDate(fromStr);
+            const end = toDate(toStr);
+            const out = [];
+            if (type === 'daily') {
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+                    const label = key.slice(8, 10) + '/' + key.slice(5, 7);
+                    out.push({ key, label });
+                }
+            } else if (type === 'weekly') {
+                // ambil minggu ISO untuk setiap 7 hari, unique
+                const seen = new Set();
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)) {
+                    const key = isoWeekKey(d); // YYYY-Www
+                    if (!seen.has(key)) { seen.add(key); out.push({ key, label: key }); }
+                }
+            } else {
+                // monthly
+                const s = new Date(start.getFullYear(), start.getMonth(), 1);
+                const e = new Date(end.getFullYear(), end.getMonth(), 1);
+                for (let d = new Date(s); d <= e; d.setMonth(d.getMonth() + 1)) {
+                    const key = d.toISOString().slice(0, 7); // YYYY-MM
+                    const label = key;
+                    out.push({ key, label });
+                }
+            }
+            return out;
+        }
+        function toDate(yyyy_mm_dd) {
+            const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+        function isoWeekKey(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            const weekStr = String(weekNum).padStart(2, '0');
+            return `${d.getUTCFullYear()}-W${weekStr}`;
+        }
+
+        // init
+        render();
+    </script>
+</body>
+
+</html>
