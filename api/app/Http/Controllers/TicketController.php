@@ -14,8 +14,7 @@ use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use App\Models\User;
+use OpenApi\Annotations as OA;
 
 class TicketController extends Controller implements HasMiddleware
 {
@@ -40,6 +39,39 @@ class TicketController extends Controller implements HasMiddleware
     /**
      * Display a listing of the resource.
      */
+    /**
+     * @OA\Get(
+     *     path="/tickets",
+     *     tags={"Tickets"},
+     *     summary="Get all tickets",
+     *     description="Get a list of all tickets with optional filtering",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="limit", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="priority", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="assigned_to", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/Ticket")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function index(Request $request)
     {
         try {
@@ -61,6 +93,36 @@ class TicketController extends Controller implements HasMiddleware
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/tickets/all/paginated",
+     *     tags={"Tickets"},
+     *     summary="Get paginated tickets",
+     *     description="Get a paginated list of tickets with optional filtering",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="priority", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="category_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="assigned_to", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function getAllPaginated(Request $request)
     {
         $request = $request->validate([
@@ -69,6 +131,7 @@ class TicketController extends Controller implements HasMiddleware
             'status' => 'nullable|string',
             'priority' => 'nullable|string',
             'branch_id' => 'nullable|integer',
+            'category_id' => 'nullable|integer',
             'assigned_to' => 'nullable|integer',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date'
@@ -83,7 +146,8 @@ class TicketController extends Controller implements HasMiddleware
                 $request['branch_id'] ?? null,
                 $request['assigned_to'] ?? null,
                 $request['start_date'] ?? null,
-                $request['end_date'] ?? null
+                $request['end_date'] ?? null,
+                $request['category_id'] ?? null
             );
 
             return ResponseHelper::jsonResponse(true, 'Data Tiket Berhasil Diambil', PaginateResource::make($tickets, TicketResource::class), 200);
@@ -93,7 +157,41 @@ class TicketController extends Controller implements HasMiddleware
     }
 
     /**
-     * Store a newly created resource in storage.
+     * @OA\Post(
+     *     path="/tickets",
+     *     tags={"Tickets"},
+     *     summary="Create ticket",
+     *     description="Create a new ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"title", "description", "category_id", "priority"},
+     *             @OA\Property(property="title", type="string"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="category_id", type="integer"),
+     *             @OA\Property(property="priority", type="string", enum={"low", "medium", "high", "urgent"}),
+     *             @OA\Property(property="branch_id", type="integer")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Ticket created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/Ticket")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Bad Request",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function store(TicketStoreRequest $request)
     {
@@ -110,7 +208,31 @@ class TicketController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display the specified resource by ID (for apiResource).
+     * @OA\Get(
+     *     path="/tickets/{id}",
+     *     tags={"Tickets"},
+     *     summary="Get ticket by ID",
+     *     description="Get a specific ticket by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/Ticket")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Ticket not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $id)
     {
@@ -140,7 +262,42 @@ class TicketController extends Controller implements HasMiddleware
     }
 
     /**
-     * Update the specified resource in storage.
+     * @OA\Put(
+     *     path="/tickets/{id}",
+     *     tags={"Tickets"},
+     *     summary="Update ticket",
+     *     description="Update an existing ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="title", type="string"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="category_id", type="integer"),
+     *             @OA\Property(property="priority", type="string", enum={"low", "medium", "high", "urgent"}),
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="status", type="string", enum={"open", "in_progress", "resolved", "closed"})
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Ticket updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/Ticket")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Ticket not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function update(TicketUpdateRequest $request, string $id)
     {
@@ -158,7 +315,24 @@ class TicketController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @OA\Delete(
+     *     path="/tickets/{id}",
+     *     tags={"Tickets"},
+     *     summary="Delete ticket",
+     *     description="Delete a ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Ticket deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Ticket not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $id)
     {
@@ -203,7 +377,7 @@ class TicketController extends Controller implements HasMiddleware
     public function exportPdf(Request $request)
     {
         try {
-            $query = \App\Models\Ticket::with(['user', 'branch', 'assignedStaff']);
+            $query = \App\Models\Ticket::with(['user', 'branch', 'assignedStaff', 'category']);
 
             // Apply filters
             if ($request->status) {

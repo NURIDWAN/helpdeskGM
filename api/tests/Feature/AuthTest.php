@@ -9,7 +9,7 @@ test('user can login with valid credentials', function () {
         'password' => bcrypt('password'),
     ]);
 
-    postJson('/api/v1/login', [
+    postJson('/api/v1/auth/login', [
         'email' => 'test@example.com',
         'password' => 'password',
     ])->assertOk()
@@ -26,14 +26,14 @@ test('user cannot login with invalid credentials', function () {
         'password' => bcrypt('password'),
     ]);
 
-    postJson('/api/v1/login', [
+    postJson('/api/v1/auth/login', [
         'email' => 'test@example.com',
         'password' => 'wrong-password',
     ])->assertStatus(401);
 });
 
 test('user cannot login with non-existent email', function () {
-    postJson('/api/v1/login', [
+    postJson('/api/v1/auth/login', [
         'email' => 'nobody@example.com',
         'password' => 'password',
     ])->assertStatus(401);
@@ -43,7 +43,7 @@ test('authenticated user can access protected route', function () {
     $user = User::factory()->create();
 
     actingAs($user)
-        ->getJson('/api/v1/me')
+        ->getJson('/api/v1/auth/me')
         ->assertOk()
         ->assertJsonPath('data.email', $user->email);
 });

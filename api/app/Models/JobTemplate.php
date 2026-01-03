@@ -22,7 +22,9 @@ class JobTemplate extends Model
 
     public function branches()
     {
-        return $this->belongsToMany(Branch::class, 'branch_job_templates');
+        return $this->belongsToMany(Branch::class, 'branch_job_templates')
+            ->withPivot(['is_active', 'started_at', 'ended_at'])
+            ->withTimestamps();
     }
 
     public function workReports()

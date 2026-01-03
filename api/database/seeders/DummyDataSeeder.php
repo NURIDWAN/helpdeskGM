@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\JobTemplate;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
+use App\Models\TicketCategory;
 use App\Models\TicketReply;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -29,6 +30,14 @@ class DummyDataSeeder extends Seeder
         // Create Branches
         $branches = $this->createBranches();
         $this->command->info('✓ Created ' . count($branches) . ' branches');
+
+        // Fix default staff branch assignment (from UserSeeder)
+        $defaultStaff = User::where('email', 'staff@gmail.com')->first();
+        if ($defaultStaff && count($branches) > 0) {
+            $defaultStaff->branch_id = $branches[0]->id;
+            $defaultStaff->save();
+            $this->command->info('✓ Assigned default staff to branch ' . $branches[0]->name);
+        }
 
         // Create Users
         $users = $this->createUsers($branches);
@@ -224,26 +233,26 @@ class DummyDataSeeder extends Seeder
     private function createTickets(array $users, array $branches): array
     {
         $ticketTemplates = [
-            ['title' => 'AC tidak dingin', 'description' => 'AC di ruang meeting lantai 2 tidak dingin, sudah dicoba restart tapi tetap tidak dingin.'],
-            ['title' => 'Lampu mati di lobby', 'description' => 'Beberapa lampu di area lobby depan tidak menyala sejak kemarin.'],
-            ['title' => 'Kran air bocor', 'description' => 'Kran wastafel di toilet lantai 1 bocor dan mengeluarkan air terus menerus.'],
-            ['title' => 'Pintu otomatis rusak', 'description' => 'Pintu otomatis di pintu masuk utama tidak merespon sensor dengan baik.'],
-            ['title' => 'Lift tidak berfungsi', 'description' => 'Lift di gedung A tidak beroperasi, terjadi bunyi aneh saat ditekan tombol.'],
-            ['title' => 'WiFi lambat', 'description' => 'Koneksi WiFi di area kerja sangat lambat sejak 2 hari terakhir.'],
-            ['title' => 'Komputer error', 'description' => 'Komputer di bagian kasir sering restart sendiri dan menampilkan blue screen.'],
-            ['title' => 'Printer tidak bisa print', 'description' => 'Printer di ruang admin tidak bisa mencetak, lampu power menyala tapi tidak merespon.'],
-            ['title' => 'Stop kontak tidak berfungsi', 'description' => 'Stop kontak di meja kerja area marketing tidak ada aliran listrik.'],
-            ['title' => 'Atap bocor', 'description' => 'Ada kebocoran di atap gudang saat hujan, air menetes ke area penyimpanan barang.'],
-            ['title' => 'Kipas angin rusak', 'description' => 'Kipas angin di ruang istirahat karyawan tidak berputar meskipun sudah dinyalakan.'],
-            ['title' => 'Mesin kasir error', 'description' => 'Mesin kasir menampilkan error dan tidak bisa memproses transaksi.'],
-            ['title' => 'CCTV tidak merekam', 'description' => 'Beberapa CCTV di area parkir tidak merekam dan layar hitam.'],
-            ['title' => 'Alarm kebakaran bunyi sendiri', 'description' => 'Alarm kebakaran berbunyi sendiri padahal tidak ada tanda kebakaran.'],
-            ['title' => 'Genset tidak menyala', 'description' => 'Saat listrik padam, genset tidak otomatis menyala seperti biasa.'],
-            ['title' => 'Kulkas tidak dingin', 'description' => 'Kulkas di pantry karyawan tidak dingin, makanan menjadi basi.'],
-            ['title' => 'Telepon kantor mati', 'description' => 'Telepon kantor tidak ada nada sambung, tidak bisa menerima atau melakukan panggilan.'],
-            ['title' => 'Kursi kerja rusak', 'description' => 'Hidrolik kursi kerja rusak, kursi tidak bisa dinaikkan atau diturunkan.'],
-            ['title' => 'Plafon hampir jatuh', 'description' => 'Ada bagian plafon di koridor lantai 3 yang terlihat akan jatuh, sangat berbahaya.'],
-            ['title' => 'Kunci pintu macet', 'description' => 'Kunci pintu ruang arsip macet dan susah dibuka atau dikunci.'],
+            ['title' => 'AC tidak dingin', 'description' => 'AC di ruang meeting lantai 2 tidak dingin, sudah dicoba restart tapi tetap tidak dingin.', 'category_name' => 'AC / HVAC'],
+            ['title' => 'Lampu mati di lobby', 'description' => 'Beberapa lampu di area lobby depan tidak menyala sejak kemarin.', 'category_name' => 'Kelistrikan'],
+            ['title' => 'Kran air bocor', 'description' => 'Kran wastafel di toilet lantai 1 bocor dan mengeluarkan air terus menerus.', 'category_name' => 'Plumbing / Air'],
+            ['title' => 'Pintu otomatis rusak', 'description' => 'Pintu otomatis di pintu masuk utama tidak merespon sensor dengan baik.', 'category_name' => 'Bangunan / Sipil'],
+            ['title' => 'Lift tidak berfungsi', 'description' => 'Lift di gedung A tidak beroperasi, terjadi bunyi aneh saat ditekan tombol.', 'category_name' => 'Bangunan / Sipil'],
+            ['title' => 'WiFi lambat', 'description' => 'Koneksi WiFi di area kerja sangat lambat sejak 2 hari terakhir.', 'category_name' => 'IT / Jaringan'],
+            ['title' => 'Komputer error', 'description' => 'Komputer di bagian kasir sering restart sendiri dan menampilkan blue screen.', 'category_name' => 'IT / Jaringan'],
+            ['title' => 'Printer tidak bisa print', 'description' => 'Printer di ruang admin tidak bisa mencetak, lampu power menyala tapi tidak merespon.', 'category_name' => 'IT / Jaringan'],
+            ['title' => 'Stop kontak tidak berfungsi', 'description' => 'Stop kontak di meja kerja area marketing tidak ada aliran listrik.', 'category_name' => 'Kelistrikan'],
+            ['title' => 'Atap bocor', 'description' => 'Ada kebocoran di atap gudang saat hujan, air menetes ke area penyimpanan barang.', 'category_name' => 'Bangunan / Sipil'],
+            ['title' => 'Kipas angin rusak', 'description' => 'Kipas angin di ruang istirahat karyawan tidak berputar meskipun sudah dinyalakan.', 'category_name' => 'Kelistrikan'],
+            ['title' => 'Mesin kasir error', 'description' => 'Mesin kasir menampilkan error dan tidak bisa memproses transaksi.', 'category_name' => 'IT / Jaringan'],
+            ['title' => 'CCTV tidak merekam', 'description' => 'Beberapa CCTV di area parkir tidak merekam dan layar hitam.', 'category_name' => 'Keamanan'],
+            ['title' => 'Alarm kebakaran bunyi sendiri', 'description' => 'Alarm kebakaran berbunyi sendiri padahal tidak ada tanda kebakaran.', 'category_name' => 'Keamanan'],
+            ['title' => 'Genset tidak menyala', 'description' => 'Saat listrik padam, genset tidak otomatis menyala seperti biasa.', 'category_name' => 'Kelistrikan'],
+            ['title' => 'Kulkas tidak dingin', 'description' => 'Kulkas di pantry karyawan tidak dingin, makanan menjadi basi.', 'category_name' => 'AC / HVAC'],
+            ['title' => 'Telepon kantor mati', 'description' => 'Telepon kantor tidak ada nada sambung, tidak bisa menerima atau melakukan panggilan.', 'category_name' => 'IT / Jaringan'],
+            ['title' => 'Kursi kerja rusak', 'description' => 'Hidrolik kursi kerja rusak, kursi tidak bisa dinaikkan atau diturunkan.', 'category_name' => 'Furnitur'],
+            ['title' => 'Plafon hampir jatuh', 'description' => 'Ada bagian plafon di koridor lantai 3 yang terlihat akan jatuh, sangat berbahaya.', 'category_name' => 'Bangunan / Sipil'],
+            ['title' => 'Kunci pintu macet', 'description' => 'Kunci pintu ruang arsip macet dan susah dibuka atau dikunci.', 'category_name' => 'Keamanan'],
         ];
 
         $priorities = [TicketPriority::LOW, TicketPriority::MEDIUM, TicketPriority::HIGH, TicketPriority::URGENT];
@@ -262,15 +271,19 @@ class DummyDataSeeder extends Seeder
             $status = $statuses[array_rand($statuses)];
             $priority = $priorities[array_rand($priorities)];
 
+            // Get category by name
+            $category = TicketCategory::where('name', $template['category_name'])->first();
+
             $ticketCode = "T-NO." . strtoupper(Str::random(3)) . "/SPK/" . ($branch->code ?? 'XXXX') . "/" . $this->getRomanMonth(now()->month) . "/" . now()->year;
 
             $ticket = Ticket::firstOrCreate(
-                ['title' => $template['title'], 'user_id' => $user->id], // Use title and user to find existing, or use code if you want exact match but random code makes it hard
+                ['code' => $ticketCode],
                 [
                     'user_id' => $user->id,
                     'branch_id' => $branch->id,
+                    'category_id' => $category?->id,
                     'code' => $ticketCode,
-                    'title' => $template['title'],
+                    'title' => $template['title'], // Title from template
                     'description' => $template['description'],
                     'status' => $status,
                     'priority' => $priority,

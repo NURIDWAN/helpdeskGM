@@ -38,4 +38,10 @@ interface DashboardRepositoryInterface
      * Get staff reports trend data
      */
     public function getStaffReportsTrend(string $period = 'day'): array;
+
+    public function getUnconfirmedTickets(): array;
+
+    public function getUnconfirmedWorkOrders(): array;
+
+    public function getUserRecentTickets(): array;
 }

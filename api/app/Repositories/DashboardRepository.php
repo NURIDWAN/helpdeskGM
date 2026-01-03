@@ -27,16 +27,26 @@ class DashboardRepository implements DashboardRepositoryInterface
         $ticketQuery = DB::table('tickets');
         $workOrderQuery = DB::table('work_orders');
 
-        // For staff users, filter by their assigned tickets and work orders
-        if ($this->currentUser && $this->currentUser->hasRole('staff')) {
+        // Role-based filtering
+        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
+            // No filter for admins
+        } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
+            // Staff: Assigned tickets
             $ticketQuery->whereExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('ticket_staff')
                     ->whereColumn('ticket_staff.ticket_id', 'tickets.id')
                     ->where('ticket_staff.user_id', $this->currentUser->id);
             });
-
+            // Staff: Assigned work orders
             $workOrderQuery->where('assigned_to', $this->currentUser->id);
+        } else {
+            // Regular User: Own tickets only
+            if ($this->currentUser) {
+                $ticketQuery->where('user_id', $this->currentUser->id);
+                // Regular users typically don't see work orders in dashboard metrics, keep WO count 0 for now
+                $workOrderQuery->whereRaw('1=0');
+            }
         }
 
         // Total tickets today
@@ -90,54 +100,74 @@ class DashboardRepository implements DashboardRepositoryInterface
     {
         $query = DB::table('tickets');
 
-        // For staff users, filter by their assigned tickets
-        if ($this->currentUser && $this->currentUser->hasRole('staff')) {
+        // Role-based filtering
+        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
+            // No filter
+        } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))
                     ->from('ticket_staff')
                     ->whereColumn('ticket_staff.ticket_id', 'tickets.id')
                     ->where('ticket_staff.user_id', $this->currentUser->id);
             });
+        } else {
+            // Regular user
+            if ($this->currentUser) {
+                $query->where('user_id', $this->currentUser->id);
+            }
         }
 
-        $statusData = $query
+        $rawStatusData = $query
             ->select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->get()
             ->pluck('count', 'status')
             ->toArray();
 
+        // Normalize keys to ensure matching with frontend expectations
+        $statusData = [];
+        foreach ($rawStatusData as $key => $value) {
+            $statusData[strtolower($key)] = $value;
+        }
+
         return [
-            'open' => $statusData[TicketStatus::OPEN->value] ?? 0,
-            'in_progress' => $statusData[TicketStatus::IN_PROGRESS->value] ?? 0,
-            'resolved' => $statusData[TicketStatus::RESOLVED->value] ?? 0,
-            'closed' => $statusData[TicketStatus::CLOSED->value] ?? 0,
+            'open' => $statusData['open'] ?? 0,
+            'in_progress' => $statusData['in_progress'] ?? 0,
+            'resolved' => $statusData['resolved'] ?? 0,
+            'closed' => $statusData['closed'] ?? 0,
         ];
     }
 
     public function getTicketsPerBranch(): array
     {
         $query = DB::table('tickets')
-            ->join('branches', 'tickets.branch_id', '=', 'branches.id');
+            ->leftJoin('branches', 'tickets.branch_id', '=', 'branches.id');
 
-        // For staff users, filter by their assigned tickets
-        if ($this->currentUser && $this->currentUser->hasRole('staff')) {
+        // Role-based filtering
+        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
+            // No filter
+        } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))
                     ->from('ticket_staff')
                     ->whereColumn('ticket_staff.ticket_id', 'tickets.id')
                     ->where('ticket_staff.user_id', $this->currentUser->id);
             });
+        } else {
+            // Regular user
+            if ($this->currentUser) {
+                $query->where('tickets.user_id', $this->currentUser->id);
+            }
         }
 
         return $query
-            ->select('branches.name', DB::raw('count(tickets.id) as count'))
-            ->groupBy('branches.id', 'branches.name')
+            ->select(DB::raw('COALESCE(branches.name, "Tanpa Cabang") as branch_name'), DB::raw('count(tickets.id) as count'))
+            ->groupBy('branch_name', 'branches.id') // Group by the coalesced name or ID
             ->orderBy('count', 'desc')
             ->get()
             ->map(function ($item) {
                 return [
-                    'branch' => $item->name,
+                    'branch' => $item->branch_name,
                     'count' => $item->count,
                 ];
             })
@@ -200,14 +230,21 @@ class DashboardRepository implements DashboardRepositoryInterface
         $query = DB::table('tickets')
             ->where('created_at', '>=', $startDate);
 
-        // For staff users, filter by their assigned tickets
-        if ($this->currentUser && $this->currentUser->hasRole('staff')) {
+        // Role-based filtering
+        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
+            // No filter
+        } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))
                     ->from('ticket_staff')
                     ->whereColumn('ticket_staff.ticket_id', 'tickets.id')
                     ->where('ticket_staff.user_id', $this->currentUser->id);
             });
+        } else {
+            // Regular User
+            if ($this->currentUser) {
+                $query->where('user_id', $this->currentUser->id);
+            }
         }
 
         if ($period === 'week') {
@@ -288,5 +325,52 @@ class DashboardRepository implements DashboardRepositoryInterface
         }
 
         return $data->toArray();
+    }
+
+    public function getUnconfirmedTickets(): array
+    {
+        if (!$this->currentUser || !$this->currentUser->hasRole('staff')) {
+            return [];
+        }
+
+        return DB::table('tickets')
+            ->join('ticket_staff', 'tickets.id', '=', 'ticket_staff.ticket_id')
+            ->where('ticket_staff.user_id', $this->currentUser->id)
+            ->where('tickets.status', TicketStatus::OPEN->value)
+            ->select('tickets.*')
+            ->orderBy('tickets.created_at', 'asc') // Oldest first to prioritize
+            ->limit(5)
+            ->get()
+            ->toArray();
+    }
+
+    public function getUnconfirmedWorkOrders(): array
+    {
+        if (!$this->currentUser || !$this->currentUser->hasRole('staff')) {
+            return [];
+        }
+
+        return DB::table('work_orders')
+            ->where('assigned_to', $this->currentUser->id)
+            ->where('status', WorkOrderStatus::PENDING->value)
+            ->orderBy('created_at', 'asc')
+            ->limit(5)
+            ->get()
+            ->toArray();
+    }
+
+    public function getUserRecentTickets(): array
+    {
+        if (!$this->currentUser) {
+            return [];
+        }
+
+        return DB::table('tickets')
+            ->where('user_id', $this->currentUser->id)
+            ->select('tickets.*')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->toArray();
     }
 }

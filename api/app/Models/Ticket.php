@@ -18,8 +18,11 @@ class Ticket extends Model
         'status',
         'priority',
         'branch_id',
+        'category_id',
         'completed_at',
         'unassigned_alert_sent_at',
+        'notif_staff_sent',
+        'notif_group_sent',
     ];
 
     protected $casts = [
@@ -27,6 +30,8 @@ class Ticket extends Model
         'priority' => TicketPriority::class,
         'completed_at' => 'datetime',
         'unassigned_alert_sent_at' => 'datetime',
+        'notif_staff_sent' => 'boolean',
+        'notif_group_sent' => 'boolean',
     ];
 
     public function user()
@@ -52,6 +57,11 @@ class Ticket extends Model
     public function replies()
     {
         return $this->hasMany(TicketReply::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(TicketCategory::class, 'category_id');
     }
 
     public function workOrder()

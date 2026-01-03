@@ -17,8 +17,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use App\Services\DailyUsageReportService;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -29,10 +29,14 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 class DailyRecordController extends Controller implements HasMiddleware
 {
     protected $dailyRecordRepository;
+    protected $reportService;
 
-    public function __construct(DailyRecordRepositoryInterface $dailyRecordRepository)
-    {
+    public function __construct(
+        DailyRecordRepositoryInterface $dailyRecordRepository,
+        DailyUsageReportService $reportService
+    ) {
         $this->dailyRecordRepository = $dailyRecordRepository;
+        $this->reportService = $reportService;
     }
 
     public static function middleware()
@@ -46,7 +50,35 @@ class DailyRecordController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display a listing of the resource.
+     * @OA\Get(
+     *     path="/daily-records",
+     *     tags={"Daily Records"},
+     *     summary="Get all daily records",
+     *     description="Get a list of all daily records",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="limit", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="user_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/DailyRecord")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function index(Request $request)
     {
@@ -67,6 +99,60 @@ class DailyRecordController extends Controller implements HasMiddleware
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/daily-records/all/paginated",
+     *     tags={"Daily Records"},
+     *     summary="Get paginated daily records",
+     *     description="Get a paginated list of daily records",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="user_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
+    /**
+     * @OA\Get(
+     *     path="/daily-records/all/paginated",
+     *     tags={"Daily Records"},
+     *     summary="Get paginated daily records",
+     *     description="Get a paginated list of daily records",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="user_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function getAllPaginated(Request $request)
     {
         $request = $request->validate([
@@ -97,6 +183,39 @@ class DailyRecordController extends Controller implements HasMiddleware
     /**
      * Store a newly created resource in storage.
      */
+    /**
+     * @OA\Post(
+     *     path="/daily-records",
+     *     tags={"Daily Records"},
+     *     summary="Create daily record",
+     *     description="Create a new daily record",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"branch_id", "date", "total_passenger", "total_vehicle"},
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="date", type="string", format="date"),
+     *             @OA\Property(property="total_passenger", type="integer"),
+     *             @OA\Property(property="total_vehicle", type="integer"),
+     *             @OA\Property(property="electricity_readings", type="array", @OA\Items(type="object")),
+     *             @OA\Property(property="utility_records", type="array", @OA\Items(type="object"))
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Daily Record created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/DailyRecord")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function store(DailyRecordStoreRequest $request)
     {
         $request = $request->validated();
@@ -112,6 +231,33 @@ class DailyRecordController extends Controller implements HasMiddleware
 
     /**
      * Display the specified resource.
+     */
+    /**
+     * @OA\Get(
+     *     path="/daily-records/{id}",
+     *     tags={"Daily Records"},
+     *     summary="Get daily record by ID",
+     *     description="Get a specific daily record by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/DailyRecord")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Daily Record not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $id)
     {
@@ -146,6 +292,22 @@ class DailyRecordController extends Controller implements HasMiddleware
     /**
      * Get previous readings for a branch to determine opening values for a new record.
      */
+    /**
+     * @OA\Get(
+     *     path="/daily-records/previous-readings",
+     *     tags={"Daily Records"},
+     *     summary="Get previous readings",
+     *     description="Get previous readings for a branch to determine opening values for a new record",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="branch_id", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Previous readings fetched",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     )
+     * )
+     */
     public function getPreviousReadings(Request $request)
     {
         $request->validate([
@@ -177,6 +339,42 @@ class DailyRecordController extends Controller implements HasMiddleware
     /**
      * Update the specified resource in storage.
      */
+    /**
+     * @OA\Put(
+     *     path="/daily-records/{id}",
+     *     tags={"Daily Records"},
+     *     summary="Update daily record",
+     *     description="Update an existing daily record",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="date", type="string", format="date"),
+     *             @OA\Property(property="total_passenger", type="integer"),
+     *             @OA\Property(property="total_vehicle", type="integer")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Daily Record updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/DailyRecord")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Daily Record not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
     public function update(DailyRecordUpdateRequest $request, string $id)
     {
         $request = $request->validated();
@@ -193,7 +391,24 @@ class DailyRecordController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @OA\Delete(
+     *     path="/daily-records/{id}",
+     *     tags={"Daily Records"},
+     *     summary="Delete daily record",
+     *     description="Delete a daily record",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Daily Record deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Daily Record not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $id)
     {
@@ -1194,97 +1409,10 @@ class DailyRecordController extends Controller implements HasMiddleware
     }
     /**
      * Initialize previous closing readings based on the last record before the selected start date.
+     * Delegates to DailyUsageReportService for the actual logic.
      */
     private function initializePreviousClosings(array $filters): array
     {
-        $previousClosings = [
-            'gas' => null,
-            'water' => [],
-            'electricity' => [],
-        ];
-
-        if (empty($filters['branch_id']) || empty($filters['start_date'])) {
-            return $previousClosings;
-        }
-
-        $baseQuery = UtilityReading::query()
-            ->select('utility_readings.*', 'daily_records.created_at as daily_record_created_at')
-            ->join('daily_records', 'utility_readings.daily_record_id', '=', 'daily_records.id')
-            ->where('daily_records.branch_id', $filters['branch_id'])
-            ->whereDate('daily_records.created_at', '<', $filters['start_date'])
-            ->orderBy('daily_records.created_at', 'desc')
-            ->orderBy('utility_readings.id', 'desc');
-
-        if (!empty($filters['user_id'])) {
-            $baseQuery->where('daily_records.user_id', $filters['user_id']);
-        }
-
-        // Gas: ambil pembacaan terakhir sebelum start_date
-        $gasReadingQuery = clone $baseQuery;
-        $gasReading = $gasReadingQuery
-            ->where('utility_readings.category', UtilityCategory::GAS->value)
-            ->first();
-        if ($gasReading && $gasReading->meter_value !== null) {
-            $previousClosings['gas'] = [
-                'value' => round((float) $gasReading->meter_value, 2),
-                'location' => $gasReading->location ?? ''
-            ];
-        }
-
-        // Water: ambil pembacaan terakhir per lokasi sebelum start_date
-        // Group by location dan ambil yang terakhir (karena sudah diurutkan desc)
-        $waterReadingsQuery = clone $baseQuery;
-        $waterReadings = $waterReadingsQuery
-            ->where('utility_readings.category', UtilityCategory::WATER->value)
-            ->with('dailyRecord')
-            ->get()
-            ->groupBy(function ($reading) {
-                return $reading->location ?? 'default';
-            });
-
-        foreach ($waterReadings as $location => $readings) {
-            // Query sudah diurutkan desc, tapi setelah groupBy urutan bisa berubah
-            // Sort lagi berdasarkan daily_record_created_at untuk memastikan yang terbaru diambil
-            $sortedReadings = $readings->sortByDesc(function ($reading) {
-                // Coba akses daily_record_created_at dari select, atau dari relationship
-                if ($reading->getAttribute('daily_record_created_at')) {
-                    return strtotime($reading->getAttribute('daily_record_created_at'));
-                }
-                if ($reading->dailyRecord && $reading->dailyRecord->created_at) {
-                    return $reading->dailyRecord->created_at->timestamp;
-                }
-                return $reading->created_at ? $reading->created_at->timestamp : 0;
-            });
-            // Ambil reading pertama (yang terbaru)
-            $waterReading = $sortedReadings->first();
-            if ($waterReading && $waterReading->meter_value !== null) {
-                $previousClosings['water'][$location] = round((float) $waterReading->meter_value, 2);
-            }
-        }
-
-        // Electricity: ambil pembacaan terakhir per lokasi sebelum start_date
-        // Group by location dan ambil yang terakhir (karena sudah diurutkan desc)
-        // Electricity: ambil pembacaan terakhir per meter sebelum start_date
-        $electricityReadings = \App\Models\ElectricityReading::query()
-            ->select('electricity_readings.*', 'daily_records.created_at as daily_record_created_at')
-            ->join('daily_records', 'electricity_readings.daily_record_id', '=', 'daily_records.id')
-            ->where('daily_records.branch_id', $filters['branch_id'])
-            ->whereDate('daily_records.created_at', '<', $filters['start_date'])
-            ->orderBy('daily_records.created_at', 'desc')
-            ->get()
-            ->groupBy('electricity_meter_id');
-
-        foreach ($electricityReadings as $meterId => $readings) {
-            $latest = $readings->sortByDesc('daily_record_created_at')->first();
-
-            if ($latest) {
-                $previousClosings['electricity'][$meterId] = [
-                    'wbp' => $latest->meter_value_wbp !== null ? round((float) $latest->meter_value_wbp, 2) : 0,
-                    'lwbp' => $latest->meter_value_lwbp !== null ? round((float) $latest->meter_value_lwbp, 2) : 0,
-                ];
-            }
-        }
-
-        return $previousClosings;
+        return $this->reportService->initializePreviousClosings($filters);
     }
 }

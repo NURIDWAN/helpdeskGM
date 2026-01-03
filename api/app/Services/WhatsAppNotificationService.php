@@ -6,6 +6,8 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
+use App\Models\WorkReport;
+use App\Models\WorkOrder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -22,13 +24,13 @@ class WhatsAppNotificationService
         // Load settings from database, fallback to config if not set
         $this->apiUrl = config('services.whatsapp.api_url', 'https://api.fonnte.com/send');
 
-        $this->token = WhatsAppSetting::getValue('api_token')
+        $this->token = WhatsAppSetting::getValue('token')
             ?: config('services.whatsapp.token');
 
-        $this->delay = (int) (WhatsAppSetting::getValue('message_delay')
+        $this->delay = (int) (WhatsAppSetting::getValue('delay')
             ?: config('services.whatsapp.delay', 2));
 
-        $this->groupId = WhatsAppSetting::getValue('target_group')
+        $this->groupId = WhatsAppSetting::getValue('group_id')
             ?: config('services.whatsapp.group_id');
 
         $this->appUrl = config('app.frontend_url', config('app.url'));
@@ -36,33 +38,96 @@ class WhatsAppNotificationService
 
     /**
      * Send notification for new ticket creation
+     * @return array ['group' => bool|null, 'staff' => bool|null]
      */
-    public function sendNewTicketNotification(Ticket $ticket): void
+    public function sendNewTicketNotification(Ticket $ticket): array
     {
+        $result = ['group' => null, 'staff' => null];
+
         try {
             if (!$this->token)
-                return;
+                return $result;
 
             // Template: ticket_created (for Group)
             $templateType = 'ticket_created';
             $message = $this->buildMessage($templateType, $ticket);
 
-            // Priority: Group
+            // Send to Group
             if ($this->groupId) {
-                $this->sendMessageToGroup($message);
-                Log::info('WhatsApp notification sent to group for new ticket', [
-                    'ticket_id' => $ticket->id,
-                    'group_id' => $this->groupId
-                ]);
-            } else {
-                // Fallback to admins if no group configured
-                $recipients = $this->getAdminRecipients();
-                if (!empty($recipients)) {
-                    $this->sendMessage($message, $recipients);
+                try {
+                    $this->sendMessageToGroup($message);
+                    $result['group'] = true;
+                    Log::info('WhatsApp notification sent to group for new ticket', [
+                        'ticket_id' => $ticket->id,
+                        'group_id' => $this->groupId
+                    ]);
+                } catch (\Exception $e) {
+                    $result['group'] = false;
+                    Log::error('Failed to send WhatsApp to group', [
+                        'ticket_id' => $ticket->id,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
+
+            // Send to Assigned Staff
+            if ($ticket->assignedStaff && $ticket->assignedStaff->count() > 0) {
+                try {
+                    $staffRecipients = [];
+                    foreach ($ticket->assignedStaff as $staff) {
+                        if ($staff->phone_number) {
+                            $phone = $this->formatPhoneNumber($staff->phone_number);
+                            if ($phone)
+                                $staffRecipients[] = $phone;
+                        }
+                    }
+
+                    if (!empty($staffRecipients)) {
+                        $staffMessage = $this->buildMessage('ticket_assigned', $ticket);
+                        $this->sendMessage($staffMessage, $staffRecipients);
+                        $result['staff'] = true;
+                        Log::info('WhatsApp notification sent to staff for new ticket', [
+                            'ticket_id' => $ticket->id,
+                            'staff_count' => count($staffRecipients)
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    $result['staff'] = false;
+                    Log::error('Failed to send WhatsApp to staff', [
+                        'ticket_id' => $ticket->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return $result;
         } catch (\Exception $e) {
             Log::error('Failed to send WhatsApp notification for new ticket', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+            return $result;
+        }
+    }
+
+    /**
+     * Send notification to User (Reporter) when ticket is created
+     */
+    public function sendTicketCreatedUser(Ticket $ticket): void
+    {
+        try {
+            if (!$this->token || !$ticket->user || !$ticket->user->phone_number)
+                return;
+
+            $message = $this->buildMessage('ticket_created_user', $ticket);
+            $phone = $this->formatPhoneNumber($ticket->user->phone_number);
+
+            if ($phone) {
+                $this->sendMessage($message, [$phone]);
+                Log::info('WhatsApp confirmation sent to user', ['ticket_id' => $ticket->id]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send WhatsApp confirmation to user', [
                 'ticket_id' => $ticket->id,
                 'error' => $e->getMessage()
             ]);
@@ -238,6 +303,192 @@ class WhatsAppNotificationService
     }
 
     /**
+     * Send notification for new work order (SPK) creation
+     * @return bool|null true if sent, false if failed, null if not attempted
+     */
+    public function sendWorkOrderNotification(\App\Models\WorkOrder $workOrder): ?bool
+    {
+        try {
+            if (!$this->token)
+                return null;
+
+            // Get assigned technician
+            $technician = $workOrder->assignedUser;
+            if (!$technician || !$technician->phone_number) {
+                Log::info('Work order notification skipped - no technician phone', [
+                    'work_order_id' => $workOrder->id,
+                    'assigned_to' => $workOrder->assigned_to
+                ]);
+                return null;
+            }
+
+            $phone = $this->formatPhoneNumber($technician->phone_number);
+            if (!$phone) {
+                Log::info('Work order notification skipped - invalid phone format', [
+                    'work_order_id' => $workOrder->id,
+                    'phone' => $technician->phone_number
+                ]);
+                return null;
+            }
+
+            // Build message
+            $ticket = $workOrder->ticket;
+            $ticketInfo = $ticket ? "Tiket: {$ticket->code} - {$ticket->title}" : "SPK Standalone";
+            $branchName = $ticket && $ticket->branch ? $ticket->branch->name : 'Tidak ditentukan';
+
+            $message = "📋 *SPK BARU* 📋\n\n" .
+                "Halo {$technician->name},\n\n" .
+                "Anda ditugaskan untuk SPK baru:\n\n" .
+                "🔢 No. SPK: {$workOrder->number}\n" .
+                "📌 {$ticketInfo}\n" .
+                "🏢 Cabang: {$branchName}\n" .
+                ($workOrder->description ? "📝 Deskripsi: {$workOrder->description}\n" : "") .
+                ($workOrder->damage_unit ? "🔧 Unit: {$workOrder->damage_unit}\n" : "") .
+                ($workOrder->contact_person ? "👤 Kontak: {$workOrder->contact_person}\n" : "") .
+                ($workOrder->contact_phone ? "📱 HP: {$workOrder->contact_phone}\n" : "") .
+                "\nSilakan buka aplikasi untuk detail.\n" .
+                $this->appUrl . '/admin/work-order/' . $workOrder->id;
+
+            $this->sendMessage($message, [$phone]);
+
+            Log::info('Work order notification sent to technician', [
+                'work_order_id' => $workOrder->id,
+                'technician_id' => $technician->id,
+                'phone' => $phone
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send work order notification', [
+                'work_order_id' => $workOrder->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send notification for Work Report Created (to Admin/Group)
+     */
+    public function sendWorkReportNotification(WorkReport $report): void
+    {
+        try {
+            if (!$this->token || !$this->groupId)
+                return;
+
+            $workOrder = $report->workOrder;
+            $ticket = $workOrder ? $workOrder->ticket : null;
+
+            // Prepare Data for Template
+            $data = [
+                'ticket_code' => $workOrder ? $workOrder->number : ($report->custom_job ?? '-'),
+                'staff_name' => $report->user->name,
+                'branch_name' => $report->branch ? $report->branch->name : '-',
+                'status' => $report->status->value,
+                'description' => $report->description ?? '-',
+            ];
+
+            // Manually replace for non-ticket aware buildMessage function, or we create a specific one.
+            // But let's try to reuse buildMessage logic or load template directly.
+            $template = WhatsAppTemplate::getActiveByType('work_report_created');
+            if ($template) {
+                $message = $template->renderContent($data);
+                $this->sendMessageToGroup($message);
+                Log::info('Work Report notification sent to group', ['report_id' => $report->id]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send work report notification', [
+                'report_id' => $report->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Send notification when Work Order is completed (to User)
+     */
+    public function sendWorkOrderCompletedUser(WorkOrder $workOrder): void
+    {
+        try {
+            if (!$this->token)
+                return;
+
+            $ticket = $workOrder->ticket;
+            if (!$ticket || !$ticket->user || !$ticket->user->phone_number)
+                return;
+
+            $message = $this->buildMessage('work_order_completed_user', $ticket, [
+                'staff_name' => $workOrder->assignedUser ? $workOrder->assignedUser->name : 'Teknisi',
+            ]);
+
+            $phone = $this->formatPhoneNumber($ticket->user->phone_number);
+            if ($phone) {
+                $this->sendMessage($message, [$phone]);
+                Log::info('Work Order completion notification sent to user', ['work_order_id' => $workOrder->id]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send SPK complete notification', [
+                'work_order_id' => $workOrder->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Send SLA Warning
+     */
+    public function sendSLAWarning(Ticket $ticket, int $hours): void
+    {
+        try {
+            if (!$this->token || !$this->groupId)
+                return;
+
+            $message = $this->buildMessage('sla_warning', $ticket, [
+                'duration_hours' => (string) $hours,
+                'staff_name' => $ticket->assignedStaff->first()->name ?? 'Belum ada',
+            ]);
+
+            $this->sendMessageToGroup($message);
+            Log::info('SLA Warning sent', ['ticket_id' => $ticket->id]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send SLA Warning', ['ticket_id' => $ticket->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Send Routine Maintenance Reminder
+     */
+    public function sendRoutineMaintenanceReminder(User $staff, \App\Models\JobTemplate $job): void
+    {
+        try {
+            if (!$this->token || !$staff->phone_number)
+                return;
+
+            $template = WhatsAppTemplate::getActiveByType('routine_maintenance_reminder');
+            if ($template) {
+                $data = [
+                    'staff_name' => $staff->name,
+                    'job_name' => $job->name,
+                    'branch_name' => 'Semua Cabang', // Or specific logic
+                ];
+                $message = $template->renderContent($data);
+                $phone = $this->formatPhoneNumber($staff->phone_number);
+                if ($phone) {
+                    $this->sendMessage($message, [$phone]);
+                    Log::info('Maintenance reminder sent', ['user_id' => $staff->id]);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send maintenance reminder', ['user_id' => $staff->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+
+    /**
      * Build message from template with fallback
      */
     private function buildMessage(string $templateType, Ticket $ticket, array $extraData = []): string
@@ -267,7 +518,7 @@ class WhatsAppNotificationService
                 '{branch_name}' => $branchName,
                 '{priority}' => $priorityText,
                 '{status}' => $statusText,
-                '{description}' => $ticket->description,
+                '{description}' => $ticket->description ?? '-',
                 '{created_at}' => $ticket->created_at->format('d/m/Y H:i'),
                 '{updated_at}' => $ticket->updated_at->format('d/m/Y H:i'),
                 '{completed_at}' => $ticket->completed_at ? $ticket->completed_at->format('d/m/Y H:i') : '-',
@@ -278,6 +529,7 @@ class WhatsAppNotificationService
                 '{new_status}' => $extraData['new_status'] ?? $statusText,
                 '{replier_name}' => $extraData['replier_name'] ?? '',
                 '{reply_content}' => $extraData['reply_content'] ?? '',
+                '{duration_hours}' => $extraData['duration_hours'] ?? '0',
             ];
 
             return str_replace(array_keys($replacements), array_values($replacements), $content);

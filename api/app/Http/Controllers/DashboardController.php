@@ -138,6 +138,9 @@ class DashboardController extends Controller implements HasMiddleware
                 'fastest_staff' => $this->dashboardRepository->getFastestStaff(),
                 'tickets_trend' => $this->dashboardRepository->getTicketsTrend($period),
                 'staff_reports_trend' => $this->dashboardRepository->getStaffReportsTrend($period),
+                'unconfirmed_tickets' => $this->dashboardRepository->getUnconfirmedTickets(),
+                'unconfirmed_work_orders' => $this->dashboardRepository->getUnconfirmedWorkOrders(),
+                'user_recent_tickets' => $this->dashboardRepository->getUserRecentTickets(),
             ];
 
             return ResponseHelper::jsonResponse(true, 'Dashboard data berhasil diambil', $data, 200);

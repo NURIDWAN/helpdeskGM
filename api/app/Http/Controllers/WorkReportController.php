@@ -14,9 +14,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Response;
 
-class WorkReportController extends Controller  implements HasMiddleware
+class WorkReportController extends Controller implements HasMiddleware
 {
     protected $workReportRepository;
 
@@ -36,7 +35,31 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Display a listing of the resource.
+     * @OA\Get(
+     *     path="/work-reports",
+     *     tags={"Work Reports"},
+     *     summary="Get all work reports",
+     *     description="Get a list of all work reports",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="limit", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/WorkReport")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function index(Request $request)
     {
@@ -53,6 +76,35 @@ class WorkReportController extends Controller  implements HasMiddleware
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/work-reports/all/paginated",
+     *     tags={"Work Reports"},
+     *     summary="Get paginated work reports",
+     *     description="Get a paginated list of work reports with filters",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="branch_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="user_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="job_template_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function getAllPaginated(Request $request)
     {
         $request = $request->validate([
@@ -85,7 +137,35 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Store a newly created resource in storage.
+     * @OA\Post(
+     *     path="/work-reports",
+     *     tags={"Work Reports"},
+     *     summary="Create work report",
+     *     description="Create a new work report",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"work_order_id", "description", "work_date"},
+     *             @OA\Property(property="work_order_id", type="integer"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="work_date", type="string", format="date"),
+     *             @OA\Property(property="custom_job", type="string", description="Optional custom job description")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Work Report created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkReport")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function store(WorkReportStoreRequest $request)
     {
@@ -101,7 +181,31 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Display the specified resource.
+     * @OA\Get(
+     *     path="/work-reports/{id}",
+     *     tags={"Work Reports"},
+     *     summary="Get work report by ID",
+     *     description="Get a specific work report by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkReport")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Report not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $id)
     {
@@ -117,7 +221,40 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Update the specified resource in storage.
+     * @OA\Put(
+     *     path="/work-reports/{id}",
+     *     tags={"Work Reports"},
+     *     summary="Update work report",
+     *     description="Update an existing work report",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="work_order_id", type="integer"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="work_date", type="string", format="date"),
+     *             @OA\Property(property="custom_job", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Work Report updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkReport")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Report not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function update(WorkReportUpdateRequest $request, string $id)
     {
@@ -135,7 +272,24 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @OA\Delete(
+     *     path="/work-reports/{id}",
+     *     tags={"Work Reports"},
+     *     summary="Delete work report",
+     *     description="Delete a work report",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Work Report deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Report not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $id)
     {
@@ -151,7 +305,30 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Export work reports to PDF
+     * @OA\Post(
+     *     path="/work-reports/export-pdf",
+     *     tags={"Work Reports"},
+     *     summary="Export work reports to PDF",
+     *     description="Export filtered work reports to PDF",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="search", type="string"),
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="user_id", type="integer"),
+     *             @OA\Property(property="job_template_id", type="integer"),
+     *             @OA\Property(property="start_date", type="string", format="date"),
+     *             @OA\Property(property="end_date", type="string", format="date")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="PDF Download",
+     *         @OA\MediaType(mediaType="application/pdf")
+     *     )
+     * )
      */
     public function exportPdf(Request $request)
     {
@@ -190,7 +367,30 @@ class WorkReportController extends Controller  implements HasMiddleware
     }
 
     /**
-     * Export work reports to Excel (CSV)
+     * @OA\Post(
+     *     path="/work-reports/export-excel",
+     *     tags={"Work Reports"},
+     *     summary="Export work reports to Excel",
+     *     description="Export filtered work reports to Excel",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="search", type="string"),
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="user_id", type="integer"),
+     *             @OA\Property(property="job_template_id", type="integer"),
+     *             @OA\Property(property="start_date", type="string", format="date"),
+     *             @OA\Property(property="end_date", type="string", format="date")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Excel Download",
+     *         @OA\MediaType(mediaType="text/csv")
+     *     )
+     * )
      */
     public function exportExcel(Request $request)
     {

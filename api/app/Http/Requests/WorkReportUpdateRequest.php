@@ -24,6 +24,7 @@ class WorkReportUpdateRequest extends FormRequest
     {
         return [
             'branch_id' => ['sometimes', 'exists:branches,id'],
+            'work_order_id' => ['nullable', 'exists:work_orders,id'],
             'job_template_id' => ['sometimes', 'nullable', 'exists:job_templates,id'],
             'description' => ['sometimes', 'nullable', 'string'],
             'custom_job' => ['sometimes', 'nullable', 'string', 'max:255'],

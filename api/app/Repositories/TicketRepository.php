@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Models\User;
 
 class TicketRepository implements TicketRepositoryInterface
 {
@@ -24,12 +23,13 @@ class TicketRepository implements TicketRepositoryInterface
         ?int $branchId = null,
         ?int $assignedTo = null,
         ?string $startDate = null,
-        ?string $endDate = null
+        ?string $endDate = null,
+        ?int $categoryId = null
     ) {
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = Ticket::with(['user', 'branch', 'assignedStaff', 'workOrder'])
+        $query = Ticket::with(['user', 'branch', 'category', 'assignedStaff', 'workOrder'])
             ->withCount('replies')
             ->orderBy('created_at', 'desc')
             ->where(function ($query) use ($search) {
@@ -67,15 +67,16 @@ class TicketRepository implements TicketRepositoryInterface
             $query->whereDate('created_at', '<=', $endDate);
         }
 
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
         // Role-based visibility
         if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
             // admins and superadmins can see all tickets
         } elseif ($user && $user->hasRole('staff')) {
-            $query->where(function ($q) use ($user) {
-                $q->whereHas('assignedStaff', function ($staffQuery) use ($user) {
-                    $staffQuery->where('user_id', $user->id);
-                })
-                    ->orWhere('branch_id', $user->branch_id);
+            $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
+                $staffQuery->where('user_id', $user->id);
             });
         } else {
             // default: regular user can only see own tickets
@@ -106,7 +107,8 @@ class TicketRepository implements TicketRepositoryInterface
         ?int $branchId = null,
         ?int $assignedTo = null,
         ?string $startDate = null,
-        ?string $endDate = null
+        ?string $endDate = null,
+        ?int $categoryId = null
     ) {
         $query = $this->getAll(
             $search,
@@ -117,7 +119,8 @@ class TicketRepository implements TicketRepositoryInterface
             $branchId,
             $assignedTo,
             $startDate,
-            $endDate
+            $endDate,
+            $categoryId
         );
 
         return $query->paginate($rowPerPage);
@@ -129,7 +132,7 @@ class TicketRepository implements TicketRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = Ticket::with(['user', 'branch', 'assignedStaff', 'workOrder'])
+        $query = Ticket::with(['user', 'branch', 'category', 'assignedStaff', 'workOrder'])
             ->withCount('replies')
             ->where('code', $code);
 
@@ -156,18 +159,15 @@ class TicketRepository implements TicketRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = Ticket::with(['user', 'branch', 'assignedStaff', 'workOrder'])
+        $query = Ticket::with(['user', 'branch', 'category', 'assignedStaff', 'workOrder'])
             ->withCount('replies')
             ->where('id', $id);
 
         if ($user && $user->hasRole('admin')) {
             // admins can access any ticket
         } elseif ($user && $user->hasRole('staff')) {
-            $query->where(function ($q) use ($user) {
-                $q->whereHas('assignedStaff', function ($staffQuery) use ($user) {
-                    $staffQuery->where('user_id', $user->id);
-                })
-                    ->orWhere('branch_id', $user->branch_id);
+            $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
+                $staffQuery->where('user_id', $user->id);
             });
         } else {
             if ($user) {
@@ -183,22 +183,17 @@ class TicketRepository implements TicketRepositoryInterface
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // Validate staff availability in branch
-            if (isset($data['branch_id']) && $data['branch_id']) {
-                $hasStaff = User::role('staff')->where('branch_id', $data['branch_id'])->exists();
-                if (!$hasStaff) {
-                    throw new \Exception('Cabang ini belum memiliki staff teknisi, tidak dapat membuat tiket.');
-                }
-            }
+            // Note: Staff from any branch can be assigned to tickets
 
             $ticket = new Ticket();
             $ticket->user_id = $data['user_id'];
             $ticket->code = $this->generateTicketCode($data['branch_id'] ?? null);
-            $ticket->title = $data['title'];
+            $ticket->title = $data['title'] ?? null;
             $ticket->description = $data['description'];
             $ticket->status = $data['status'] ?? TicketStatus::OPEN;
             $ticket->priority = $data['priority'] ?? TicketPriority::LOW;
             $ticket->branch_id = $data['branch_id'] ?? null;
+            $ticket->category_id = $data['category_id'] ?? null;
             $ticket->completed_at = $data['completed_at'] ?? null;
             $ticket->save();
 
@@ -207,12 +202,27 @@ class TicketRepository implements TicketRepositoryInterface
                 $ticket->assignedStaff()->sync($data['assigned_staff']);
             }
 
-            $ticket = $ticket->load(['user', 'branch', 'assignedStaff'])->loadCount('replies');
+            $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
             // Send WhatsApp notification for new ticket
             try {
                 $whatsappService = app(WhatsAppNotificationService::class);
-                $whatsappService->sendNewTicketNotification($ticket);
+                $notifResult = $whatsappService->sendNewTicketNotification($ticket);
+
+                // Save notification status to ticket
+                $ticket->notif_group_sent = $notifResult['group'];
+                $ticket->notif_staff_sent = $notifResult['staff'];
+                $ticket->save();
+
+                Log::info('Ticket notification status saved', [
+                    'ticket_id' => $ticket->id,
+                    'notif_group_sent' => $notifResult['group'],
+                    'notif_staff_sent' => $notifResult['staff'],
+                ]);
+
+                // Send Confirmation to User
+                $whatsappService->sendTicketCreatedUser($ticket);
+
             } catch (\Exception $e) {
                 // Log error but don't fail the ticket creation
                 Log::error('Failed to send WhatsApp notification for new ticket', [
@@ -265,6 +275,7 @@ class TicketRepository implements TicketRepositoryInterface
                     'status' => $data['status'] ?? $ticket->status,
                     'priority' => $data['priority'] ?? $ticket->priority,
                     'branch_id' => $data['branch_id'] ?? $ticket->branch_id,
+                    'category_id' => $data['category_id'] ?? $ticket->category_id,
                 ];
 
                 $newStatus = $data['status'] ?? $ticket->status;
@@ -282,7 +293,7 @@ class TicketRepository implements TicketRepositoryInterface
                 }
             }
 
-            $ticket = $ticket->load(['user', 'branch', 'assignedStaff'])->loadCount('replies');
+            $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
             // Send WhatsApp notification for status update if status changed
             if ($oldStatus !== $ticket->status) {
@@ -339,7 +350,7 @@ class TicketRepository implements TicketRepositoryInterface
             $oldAssignedStaff = $ticket->assignedStaff->pluck('id')->toArray(); // Store old assigned staff
 
             $ticket->assignedStaff()->sync($staffIds);
-            $ticket = $ticket->load(['user', 'branch', 'assignedStaff'])->loadCount('replies');
+            $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
             // Send WhatsApp notification for staff assignment changes
             $newAssignedStaff = $ticket->assignedStaff->pluck('id')->toArray();

@@ -15,6 +15,7 @@ use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
+use OpenApi\Annotations as OA;
 
 class TicketReplyController extends Controller implements HasMiddleware
 {
@@ -37,7 +38,35 @@ class TicketReplyController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display a listing of replies for a specific ticket.
+     * @OA\Get(
+     *     path="/tickets/{ticketId}/replies",
+     *     tags={"Ticket Replies"},
+     *     summary="Get all replies for a ticket",
+     *     description="Get a list of all replies for a specific ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/TicketReply")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function index(Request $request, string $ticketId)
     {
@@ -58,7 +87,38 @@ class TicketReplyController extends Controller implements HasMiddleware
     }
 
     /**
-     * Store a newly created reply.
+     * @OA\Post(
+     *     path="/tickets/{ticketId}/replies",
+     *     tags={"Ticket Replies"},
+     *     summary="Create ticket reply",
+     *     description="Create a new reply for a ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"content"},
+     *             @OA\Property(property="content", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Reply created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/TicketReply")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function store(TicketReplyStoreRequest $request, string $ticketId)
     {
@@ -86,7 +146,32 @@ class TicketReplyController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display the specified reply.
+     * @OA\Get(
+     *     path="/tickets/{ticketId}/replies/{id}",
+     *     tags={"Ticket Replies"},
+     *     summary="Get ticket reply by ID",
+     *     description="Get a specific ticket reply by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/TicketReply")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Reply not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $ticketId, string $id)
     {
@@ -112,7 +197,39 @@ class TicketReplyController extends Controller implements HasMiddleware
     }
 
     /**
-     * Update the specified reply.
+     * @OA\Put(
+     *     path="/tickets/{ticketId}/replies/{id}",
+     *     tags={"Ticket Replies"},
+     *     summary="Update ticket reply",
+     *     description="Update an existing ticket reply",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"content"},
+     *             @OA\Property(property="content", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reply updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/TicketReply")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function update(TicketReplyUpdateRequest $request, string $ticketId, string $id)
     {
@@ -147,7 +264,25 @@ class TicketReplyController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified reply.
+     * @OA\Delete(
+     *     path="/tickets/{ticketId}/replies/{id}",
+     *     tags={"Ticket Replies"},
+     *     summary="Delete ticket reply",
+     *     description="Delete a ticket reply",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reply deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $ticketId, string $id)
     {
@@ -181,7 +316,8 @@ class TicketReplyController extends Controller implements HasMiddleware
 
     private function canAccessTicket($user, string $ticketId): bool
     {
-        if (!$user) return false;
+        if (!$user)
+            return false;
 
         if ($user->hasRole('admin')) {
             return true;

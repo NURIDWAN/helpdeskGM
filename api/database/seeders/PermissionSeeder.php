@@ -70,6 +70,14 @@ class PermissionSeeder extends Seeder
             'update-status'
         ],
 
+        'ticket-category' => [
+            'menu',
+            'list',
+            'create',
+            'edit',
+            'delete'
+        ],
+
         'ticket-reply' => [
             'list',
             'create',

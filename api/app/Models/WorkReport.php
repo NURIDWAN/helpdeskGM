@@ -12,6 +12,7 @@ class WorkReport extends Model
     protected $fillable = [
         'user_id',
         'branch_id',
+        'work_order_id',
         'job_template_id',
         'description',
         'custom_job',
@@ -35,6 +36,9 @@ class WorkReport extends Model
                 ->orWhereHas('branch', function ($branchQuery) use ($search) {
                     $branchQuery->where('name', 'like', '%' . $search . '%');
                 })
+                ->orWhereHas('workOrder', function ($workOrderQuery) use ($search) {
+                    $workOrderQuery->where('number', 'like', '%' . $search . '%');
+                })
                 ->orWhereHas('jobTemplate', function ($jobTemplateQuery) use ($search) {
                     $jobTemplateQuery->where('name', 'like', '%' . $search . '%');
                 });
@@ -47,6 +51,14 @@ class WorkReport extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the work order that owns the work report.
+     */
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrder::class);
     }
 
     /**

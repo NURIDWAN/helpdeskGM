@@ -5,6 +5,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\TicketAttachmentController;
 use App\Http\Controllers\TicketReplyController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkReportController;
@@ -18,16 +19,22 @@ use App\Http\Controllers\ElectricityReadingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    Route::prefix('auth')->group(function () {
+        Route::post('login', [AuthController::class, 'login']);
+
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::get('me', [AuthController::class, 'me']);
+            Route::put('me', [AuthController::class, 'updateProfile']);
+            Route::post('logout', [AuthController::class, 'logout']);
+        });
+    });
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('me', [AuthController::class, 'me']);
-        Route::put('me', [AuthController::class, 'updateProfile']);
-        Route::post('logout', [AuthController::class, 'logout']);
-
         Route::apiResource('branches', BranchController::class);
         Route::get('branches/all/paginated', [BranchController::class, 'getAllPaginated']);
 
+        // Ticket Categories
+        Route::apiResource('ticket-categories', TicketCategoryController::class);
 
         Route::apiResource('tickets', TicketController::class);
         Route::get('tickets/all/paginated', [TicketController::class, 'getAllPaginated']);
@@ -118,6 +125,11 @@ Route::prefix('v1')->group(function () {
         Route::put('whatsapp-templates/{id}', [\App\Http\Controllers\WhatsAppSettingController::class, 'updateTemplate']);
         Route::get('whatsapp-placeholders/{type}', [\App\Http\Controllers\WhatsAppSettingController::class, 'getPlaceholders']);
         Route::post('whatsapp-test', [\App\Http\Controllers\WhatsAppSettingController::class, 'testSend']);
+        Route::post('whatsapp-test-group', [\App\Http\Controllers\WhatsAppSettingController::class, 'testSendGroup']);
+
+        // Job Schedule routes (Calendar)
+        Route::get('job-schedules', [\App\Http\Controllers\JobScheduleController::class, 'getSchedule']);
+        Route::get('job-schedules/today', [\App\Http\Controllers\JobScheduleController::class, 'getTodaysSummary']);
 
         // User Activity Monitoring routes
         Route::get('user-activity', [\App\Http\Controllers\UserActivityController::class, 'index']);

@@ -170,4 +170,74 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
             return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
         }
     }
+
+    /**
+     * Test send WhatsApp message to Group
+     */
+    public function testSendGroup(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'message' => 'sometimes|string',
+            ]);
+
+            $token = WhatsAppSetting::getValue('token', config('services.whatsapp.token'));
+            $groupId = WhatsAppSetting::getValue('group_id', config('services.whatsapp.group_id'));
+            $delay = WhatsAppSetting::getValue('delay', '2');
+
+            if (empty($token)) {
+                return ResponseHelper::jsonResponse(false, 'Token WhatsApp belum dikonfigurasi', null, 400);
+            }
+
+            if (empty($groupId)) {
+                return ResponseHelper::jsonResponse(false, 'Group ID WhatsApp belum dikonfigurasi', null, 400);
+            }
+
+            $message = $validated['message'] ?? '🔔 *Test Message* 🔔' . PHP_EOL .
+                'Ini adalah pesan test dari sistem GA Maintenance.' . PHP_EOL .
+                'Waktu: ' . now()->format('d/m/Y H:i:s');
+
+            \Illuminate\Support\Facades\Log::info('Testing WhatsApp Group Send', [
+                'group_id' => $groupId,
+                'message_length' => strlen($message),
+            ]);
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                ->withHeaders([
+                    'Authorization' => $token,
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ])
+                ->asForm()
+                ->post('https://api.fonnte.com/send', [
+                    'target' => $groupId,
+                    'message' => $message,
+                    'delay' => $delay,
+                ]);
+
+            $responseData = $response->json();
+
+            \Illuminate\Support\Facades\Log::info('WhatsApp Group Send Response', [
+                'status' => $response->status(),
+                'response' => $responseData,
+            ]);
+
+            if ($response->successful() && isset($responseData['status']) && $responseData['status'] === true) {
+                return ResponseHelper::jsonResponse(true, 'Pesan berhasil dikirim ke grup', [
+                    'group_id' => $groupId,
+                    'response' => $responseData,
+                ], 200);
+            } else {
+                return ResponseHelper::jsonResponse(false, 'Gagal mengirim pesan ke grup: ' . ($responseData['reason'] ?? $responseData['message'] ?? 'Unknown error'), [
+                    'group_id' => $groupId,
+                    'response' => $responseData,
+                ], 400);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('WhatsApp Group Send Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
+        }
+    }
 }

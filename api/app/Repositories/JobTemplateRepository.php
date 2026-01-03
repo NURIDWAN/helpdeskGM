@@ -35,7 +35,7 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
             // admins can see all job templates
         } elseif ($user && $user->hasRole('staff')) {
             // staff can only see job templates assigned to their branch
@@ -126,7 +126,7 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
         $query = JobTemplate::with(['branches'])->where('id', $id);
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
             // admins can access any job template
         } elseif ($user && $user->hasRole('staff')) {
             // staff can only access job templates assigned to their branch
@@ -159,8 +159,14 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
 
             // Handle branch assignments
             if (isset($data['branches']) && is_array($data['branches'])) {
-                $branchIds = array_column($data['branches'], 'branch_id');
-                $jobTemplate->branches()->sync($branchIds);
+                $syncData = [];
+                foreach ($data['branches'] as $branch) {
+                    $syncData[$branch['branch_id']] = [
+                        'started_at' => now(),
+                        'is_active' => true,
+                    ];
+                }
+                $jobTemplate->branches()->sync($syncData);
             }
 
             return $jobTemplate->load(['branches']);
@@ -183,8 +189,14 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
 
             // Handle branch assignments
             if (isset($data['branches']) && is_array($data['branches'])) {
-                $branchIds = array_column($data['branches'], 'branch_id');
-                $jobTemplate->branches()->sync($branchIds);
+                $syncData = [];
+                foreach ($data['branches'] as $branch) {
+                    $syncData[$branch['branch_id']] = [
+                        'started_at' => now(),
+                        'is_active' => true,
+                    ];
+                }
+                $jobTemplate->branches()->sync($syncData);
             }
 
             return $jobTemplate->load(['branches']);

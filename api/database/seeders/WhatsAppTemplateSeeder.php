@@ -69,6 +69,42 @@ class WhatsAppTemplateSeeder extends Seeder
                 'send_to_group' => true, // Kirim ke group juga biar aware
                 'is_active' => true,
             ],
+            // --- NEW TEMPLATES ---
+            [
+                'type' => 'ticket_created_user',
+                'name' => 'Tiket Diterima (User)',
+                'content' => "Halo {reporter_name}, 👋\n\nKami telah menerima tiket laporan Anda:\n📋 *Kode:* {ticket_code}\n📝 *Judul:* {title}\n\nTim kami akan segera menindaklanjuti laporan ini. Mohon ditunggu updatenya.\n\nTerima kasih.\n\n🔗 {ticket_url}",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'work_report_created',
+                'name' => 'Laporan Kerja Baru (Group)',
+                'content' => "📝 *LAPORAN KERJA BARU* 📝\n\nTeknisi baru saja mengirimkan laporan pekerjaan.\n\n👤 *Teknisi:* {staff_name}\n📋 *Tiket/SPK:* {ticket_code}\n🏢 *Cabang:* {branch_name}\n📊 *Status:* {status}\n\n📄 *Laporan:*\n{description}\n\n🔗 Silakan cek foto & detail di dashboard.",
+                'send_to_group' => true,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'work_order_completed_user',
+                'name' => 'Pekerjaan Selesai (User)',
+                'content' => "Halo {reporter_name}, 👋\n\nPekerjaan untuk tiket *{ticket_code}* telah diselesaikan oleh teknisi kami.\n\n📝 *Judul:* {title}\n👨‍🔧 *Teknisi:* {staff_name}\n\nMohon periksa hasilnya. Jika sudah sesuai, tiket akan kami tutup.\n\nTerima kasih.",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'sla_warning',
+                'name' => 'SLA Warning (Admin)',
+                'content' => "⚠️ *SLA WARNING* ⚠️\n\nTiket *{ticket_code}* dengan prioritas *{priority}* belum diselesaikan!\n\n⏰ *Dibuat:* {created_at}\n⏳ *Durasi:* Sudah berjalan > {duration_hours} jam\n📝 *Judul:* {title}\n👨‍🔧 *Teknisi:* {staff_name}\n\nMohon segera di-follow up!",
+                'send_to_group' => true,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'routine_maintenance_reminder',
+                'name' => 'Reminder Maintenance (Staff)',
+                'content' => "🔔 *REMINDER JADWAL RUTIN* 🔔\n\nHalo {staff_name},\nJangan lupa hari ini ada jadwal maintenance rutin:\n\n🔧 *Pekerjaan:* {job_name}\n🏢 *Cabang:* {branch_name}\n\nSilakan buat SPK/Laporan sesuai jadwal. Semangat! 💪",
+                'send_to_group' => false,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($templates as $template) {

@@ -28,8 +28,11 @@ class TicketResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'replies_count' => $this->replies_count ?? 0,
+            'notif_staff_sent' => $this->notif_staff_sent,
+            'notif_group_sent' => $this->notif_group_sent,
             'user' => new UserResource($this->whenLoaded('user')),
             'branch' => new BranchResource($this->whenLoaded('branch')),
+            'category' => $this->whenLoaded('category'),
             'assigned_staff' => UserResource::collection($this->whenLoaded('assignedStaff')),
             'work_order' => WorkOrderResource::make($this->whenLoaded('workOrder')),
         ];

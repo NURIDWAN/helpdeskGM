@@ -32,7 +32,9 @@ class TicketExport
         $headers = [
             'No',
             'Kode Tiket',
+            'Kategori',
             'Judul',
+            'Deskripsi',
             'Pelapor',
             'Cabang',
             'Status',
@@ -61,7 +63,7 @@ class TicketExport
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN],
             ],
         ];
-        $sheet->getStyle('A1:K1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:M1')->applyFromArray($headerStyle);
 
         // Data rows
         $row = 2;
@@ -78,15 +80,17 @@ class TicketExport
 
             $sheet->setCellValue('A' . $row, $no);
             $sheet->setCellValue('B' . $row, $ticket->code);
-            $sheet->setCellValue('C' . $row, $ticket->title);
-            $sheet->setCellValue('D' . $row, $ticket->user->name ?? '-');
-            $sheet->setCellValue('E' . $row, $ticket->branch->name ?? '-');
-            $sheet->setCellValue('F' . $row, $this->getStatusLabel($status));
-            $sheet->setCellValue('G' . $row, $this->getPriorityLabel($priority));
-            $sheet->setCellValue('H' . $row, $staffNames);
-            $sheet->setCellValue('I' . $row, $ticket->created_at->format('d/m/Y H:i'));
-            $sheet->setCellValue('J' . $row, $ticket->completed_at ? $ticket->completed_at->format('d/m/Y H:i') : '-');
-            $sheet->setCellValue('K' . $row, $duration ?? '-');
+            $sheet->setCellValue('C' . $row, $ticket->category->name ?? '-');
+            $sheet->setCellValue('D' . $row, $ticket->title);
+            $sheet->setCellValue('E' . $row, $ticket->description);
+            $sheet->setCellValue('F' . $row, $ticket->user->name ?? '-');
+            $sheet->setCellValue('G' . $row, $ticket->branch->name ?? '-');
+            $sheet->setCellValue('H' . $row, $this->getStatusLabel($status));
+            $sheet->setCellValue('I' . $row, $this->getPriorityLabel($priority));
+            $sheet->setCellValue('J' . $row, $staffNames);
+            $sheet->setCellValue('K' . $row, $ticket->created_at->format('d/m/Y H:i'));
+            $sheet->setCellValue('L' . $row, $ticket->completed_at ? $ticket->completed_at->format('d/m/Y H:i') : '-');
+            $sheet->setCellValue('M' . $row, $duration ?? '-');
 
             $row++;
             $no++;
@@ -98,10 +102,10 @@ class TicketExport
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN],
             ],
         ];
-        $sheet->getStyle('A2:K' . ($row - 1))->applyFromArray($dataStyle);
+        $sheet->getStyle('A2:M' . ($row - 1))->applyFromArray($dataStyle);
 
         // Auto-size columns
-        foreach (range('A', 'K') as $columnID) {
+        foreach (range('A', 'M') as $columnID) {
             $sheet->getColumnDimension($columnID)->setAutoSize(true);
         }
 
@@ -120,7 +124,7 @@ class TicketExport
 
     protected function getTickets()
     {
-        $query = Ticket::with(['user', 'branch', 'assignedStaff']);
+        $query = Ticket::with(['user', 'branch', 'assignedStaff', 'category']);
 
         if (!empty($this->filters['status'])) {
             $query->where('status', $this->filters['status']);

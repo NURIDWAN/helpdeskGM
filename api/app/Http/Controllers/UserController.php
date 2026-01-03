@@ -13,6 +13,7 @@ use Spatie\Permission\Middleware\PermissionMiddleware;
 use App\Http\Resources\UserResource;
 use App\Http\Resources\PaginateResource;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use OpenApi\Annotations as OA;
 
 class UserController extends Controller implements HasMiddleware
 {
@@ -26,16 +27,41 @@ class UserController extends Controller implements HasMiddleware
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['branch-list|branch-create|branch-edit|branch-delete']), only: ['index', 'getAllPaginated', 'show']),
-            new Middleware(PermissionMiddleware::using(['branch-create']), only: ['store']),
-            new Middleware(PermissionMiddleware::using(['branch-edit']), only: ['update']),
-            new Middleware(PermissionMiddleware::using(['branch-delete']), only: ['destroy']),
+            new Middleware(PermissionMiddleware::using(['user-list|user-create|user-edit|user-delete']), only: ['index', 'getAllPaginated', 'show']),
+            new Middleware(PermissionMiddleware::using(['user-create']), only: ['store']),
+            new Middleware(PermissionMiddleware::using(['user-edit']), only: ['update']),
+            new Middleware(PermissionMiddleware::using(['user-delete']), only: ['destroy']),
         ];
     }
 
 
     /**
-     * Display a listing of the resource.
+     * @OA\Get(
+     *     path="/users",
+     *     tags={"Users"},
+     *     summary="Get all users",
+     *     description="Get a list of all users with optional filtering",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="limit", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="roles", in="query", required=false, @OA\Schema(type="array", @OA\Items(type="string"))),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/User")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function index(Request $request)
     {
@@ -53,6 +79,29 @@ class UserController extends Controller implements HasMiddleware
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/users/all/paginated",
+     *     tags={"Users"},
+     *     summary="Get paginated users",
+     *     description="Get a paginated list of users",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function getAllPaginated(Request $request)
     {
         $request = $request->validate([
@@ -73,7 +122,38 @@ class UserController extends Controller implements HasMiddleware
     }
 
     /**
-     * Store a newly created resource in storage.
+     * @OA\Post(
+     *     path="/users",
+     *     tags={"Users"},
+     *     summary="Create user",
+     *     description="Create a new user",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"name", "email", "password", "password_confirmation", "roles"},
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="email", type="string", format="email"),
+     *             @OA\Property(property="password", type="string", format="password", minLength=8),
+     *             @OA\Property(property="password_confirmation", type="string", format="password"),
+     *             @OA\Property(property="phone_number", type="string"),
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="roles", type="array", @OA\Items(type="string"))
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="User created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/User")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function store(UserStoreRequest $request)
     {
@@ -89,7 +169,31 @@ class UserController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display the specified resource.
+     * @OA\Get(
+     *     path="/users/{id}",
+     *     tags={"Users"},
+     *     summary="Get user by ID",
+     *     description="Get a specific user by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/User")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="User not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $id)
     {
@@ -105,7 +209,43 @@ class UserController extends Controller implements HasMiddleware
     }
 
     /**
-     * Update the specified resource in storage.
+     * @OA\Put(
+     *     path="/users/{id}",
+     *     tags={"Users"},
+     *     summary="Update user",
+     *     description="Update an existing user",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="email", type="string", format="email"),
+     *             @OA\Property(property="password", type="string", format="password", minLength=8),
+     *             @OA\Property(property="password_confirmation", type="string", format="password"),
+     *             @OA\Property(property="phone_number", type="string"),
+     *             @OA\Property(property="branch_id", type="integer"),
+     *             @OA\Property(property="roles", type="array", @OA\Items(type="string"))
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="User updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/User")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="User not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function update(UserUpdateRequest $request, string $id)
     {
@@ -123,7 +263,24 @@ class UserController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @OA\Delete(
+     *     path="/users/{id}",
+     *     tags={"Users"},
+     *     summary="Delete user",
+     *     description="Delete a user",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="User deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="User not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $id)
     {

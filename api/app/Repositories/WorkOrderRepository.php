@@ -114,7 +114,21 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
 
             $workOrder->save();
 
-            return $workOrder->load(['ticket', 'assignedUser']);
+            $workOrder = $workOrder->load(['ticket.branch', 'assignedUser']);
+
+            // Send WhatsApp notification to assigned technician
+            try {
+                $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
+                $whatsappService->sendWorkOrderNotification($workOrder);
+            } catch (\Exception $e) {
+                // Log error but don't fail the work order creation
+                \Illuminate\Support\Facades\Log::error('Failed to send WhatsApp notification for work order', [
+                    'work_order_id' => $workOrder->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            return $workOrder;
         });
     }
 

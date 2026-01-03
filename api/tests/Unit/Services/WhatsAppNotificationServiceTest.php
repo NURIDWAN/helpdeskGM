@@ -20,8 +20,8 @@ beforeEach(function () {
     $this->seed(RoleSeeder::class);
 
     // Seed default WhatsApp settings
-    WhatsAppSetting::updateOrCreate(['key' => 'api_token'], ['value' => 'test-token']);
-    WhatsAppSetting::updateOrCreate(['key' => 'target_group'], ['value' => '120363xxx@g.us']);
+    WhatsAppSetting::updateOrCreate(['key' => 'token'], ['value' => 'test-token']);
+    WhatsAppSetting::updateOrCreate(['key' => 'group_id'], ['value' => '120363xxx@g.us']);
     WhatsAppSetting::updateOrCreate(['key' => 'message_delay'], ['value' => '1']);
 
     // Seed templates
@@ -122,7 +122,7 @@ test('progress status notification sends to user', function () {
 
 test('service does not send if token is missing', function () {
     // Clear token from both DB and config
-    WhatsAppSetting::where('key', 'api_token')->delete();
+    WhatsAppSetting::where('key', 'token')->delete();
     config(['services.whatsapp.token' => null]);
 
     Http::fake();

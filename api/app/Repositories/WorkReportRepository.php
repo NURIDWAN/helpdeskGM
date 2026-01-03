@@ -23,7 +23,7 @@ class WorkReportRepository implements WorkReportRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = WorkReport::with(['user', 'branch', 'jobTemplate'])
+        $query = WorkReport::with(['user', 'branch', 'jobTemplate', 'workOrder'])
             ->orderBy('created_at', 'desc')
             ->where(function ($query) use ($search) {
                 if ($search) {
@@ -110,7 +110,7 @@ class WorkReportRepository implements WorkReportRepositoryInterface
 
     public function getById($id)
     {
-        $query = WorkReport::with(['user', 'branch', 'jobTemplate']);
+        $query = WorkReport::with(['user', 'branch', 'jobTemplate', 'workOrder']);
 
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -126,7 +126,25 @@ class WorkReportRepository implements WorkReportRepositoryInterface
     {
         return DB::transaction(function () use ($data) {
             $data['user_id'] = Auth::id();
-            return WorkReport::create($data);
+            $workReport = WorkReport::create($data);
+
+            // Send WhatsApp Notifications
+            try {
+                $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
+
+                // 1. Send Report Notification to Group/Admin
+                $whatsappService->sendWorkReportNotification($workReport);
+
+                // Removed auto-complete and completion notification logic as per request
+            } catch (\Exception $e) {
+                // Log but don't fail
+                \Illuminate\Support\Facades\Log::error('Failed to send work report notifications', [
+                    'report_id' => $workReport->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            return $workReport;
         });
     }
 

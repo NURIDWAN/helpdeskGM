@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
+use OpenApi\Annotations as OA;
 
 class WorkOrderController extends Controller implements HasMiddleware
 {
@@ -36,7 +37,31 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display a listing of the resource.
+     * @OA\Get(
+     *     path="/work-orders",
+     *     tags={"Work Orders"},
+     *     summary="Get all work orders",
+     *     description="Get a list of all work orders",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="limit", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/WorkOrder")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function index(Request $request)
     {
@@ -53,6 +78,29 @@ class WorkOrderController extends Controller implements HasMiddleware
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/work-orders/all/paginated",
+     *     tags={"Work Orders"},
+     *     summary="Get paginated work orders",
+     *     description="Get a paginated list of work orders",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="row_per_page", in="query", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/PaginationMeta")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
+     */
     public function getAllPaginated(Request $request)
     {
         $request = $request->validate([
@@ -73,7 +121,35 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Store a newly created resource in storage.
+     * @OA\Post(
+     *     path="/work-orders",
+     *     tags={"Work Orders"},
+     *     summary="Create work order",
+     *     description="Create a new work order",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"ticket_id", "status"},
+     *             @OA\Property(property="ticket_id", type="string", description="UUID of the ticket"),
+     *             @OA\Property(property="status", type="string", enum={"pending", "in_progress", "done", "cancelled"}),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="user_id", type="integer", description="Assigned user ID")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Work Order created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkOrder")
+     *                 )
+     *             }
+     *         )
+     *     )
+     * )
      */
     public function store(WorkOrderStoreRequest $request)
     {
@@ -89,7 +165,31 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display the specified resource.
+     * @OA\Get(
+     *     path="/work-orders/{id}",
+     *     tags={"Work Orders"},
+     *     summary="Get work order by ID",
+     *     description="Get a specific work order by its ID",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkOrder")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Order not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function show(string $id)
     {
@@ -105,7 +205,39 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Update the specified resource in storage.
+     * @OA\Put(
+     *     path="/work-orders/{id}",
+     *     tags={"Work Orders"},
+     *     summary="Update work order",
+     *     description="Update an existing work order",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", enum={"pending", "in_progress", "done", "cancelled"}),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="user_id", type="integer")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Work Order updated successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkOrder")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Order not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function update(WorkOrderUpdateRequest $request, string $id)
     {
@@ -123,7 +255,24 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @OA\Delete(
+     *     path="/work-orders/{id}",
+     *     tags={"Work Orders"},
+     *     summary="Delete work order",
+     *     description="Delete a work order",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Work Order deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Order not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $id)
     {
@@ -139,7 +288,31 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Get work order by ticket ID.
+     * @OA\Get(
+     *     path="/work-orders/ticket/{ticketId}",
+     *     tags={"Work Orders"},
+     *     summary="Get work order by ticket ID",
+     *     description="Get work order associated with a ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/WorkOrder")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Order not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function getByTicketId(string $ticketId)
     {
@@ -157,7 +330,27 @@ class WorkOrderController extends Controller implements HasMiddleware
     }
 
     /**
-     * Generate and download PDF for work order.
+     * @OA\Get(
+     *     path="/work-orders/{id}/pdf",
+     *     tags={"Work Orders"},
+     *     summary="Download Work Order PDF",
+     *     description="Generate and download PDF for work order",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="PDF file",
+     *         @OA\MediaType(
+     *             mediaType="application/pdf",
+     *             @OA\Schema(type="string", format="binary")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Work Order not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function downloadPdf(string $id)
     {

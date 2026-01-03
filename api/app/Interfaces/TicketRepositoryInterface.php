@@ -13,7 +13,8 @@ interface TicketRepositoryInterface
         ?int $branchId = null,
         ?int $assignedTo = null,
         ?string $startDate = null,
-        ?string $endDate = null
+        ?string $endDate = null,
+        ?int $categoryId = null
     );
 
     public function getAllPaginated(
@@ -24,7 +25,8 @@ interface TicketRepositoryInterface
         ?int $branchId = null,
         ?int $assignedTo = null,
         ?string $startDate = null,
-        ?string $endDate = null
+        ?string $endDate = null,
+        ?int $categoryId = null
     );
 
     public function getById(

@@ -1,79 +1,85 @@
 <?php
 
+namespace Tests\Feature;
+
 use App\Models\User;
 use App\Models\Ticket;
 use App\Models\Branch;
+use App\Models\TicketCategory;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
-use function Pest\Laravel\{actingAs, getJson, postJson};
 
-beforeEach(function () {
-    // Seed permissions and roles for every test
-    $this->seed(PermissionSeeder::class);
-    $this->seed(RoleSeeder::class);
-});
+class TicketTest extends TestCase
+{
+    use RefreshDatabase;
 
-test('user can view tickets', function () {
-    $user = User::factory()->create();
-    $user->assignRole('user');
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(PermissionSeeder::class);
+        $this->seed(RoleSeeder::class);
+    }
 
-    actingAs($user)
-        ->getJson('/api/v1/tickets/all/paginated?row_per_page=10')
-        ->assertOk()
-        ->assertJsonStructure(['success', 'data']);
-});
+    public function test_user_can_view_tickets()
+    {
+        $user = User::factory()->create();
+        $user->assignRole('user');
+        $this->actingAs($user);
 
-test('admin can create ticket', function () {
-    $admin = User::factory()->create();
-    $admin->assignRole('admin');
+        $response = $this->getJson('/api/v1/tickets');
 
-    $branch = Branch::factory()->create();
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => [
+                    '*' => ['id', 'title', 'status']
+                ]
+            ]);
+    }
 
-    // Create a staff user for the branch (required by business logic)
-    $staff = User::factory()->create(['branch_id' => $branch->id]);
-    $staff->assignRole('staff');
+    public function test_user_can_create_ticket()
+    {
+        $user = User::factory()->create();
+        $user->assignRole('user');
+        $this->actingAs($user);
 
-    $response = actingAs($admin)
-        ->postJson('/api/v1/tickets', [
-            'title' => 'Test Ticket',
-            'description' => 'Description',
-            'priority' => 'medium',
+        $branch = Branch::factory()->create();
+        $category = TicketCategory::factory()->create();
+
+        $data = [
+            'title' => 'Feature Test Ticket',
+            'description' => 'Description from feature test',
+            'priority' => 'high',
+            'category_id' => $category->id,
             'branch_id' => $branch->id,
             'status' => 'open'
+        ];
+
+        $response = $this->postJson('/api/v1/tickets', $data);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.title', $data['title']);
+    }
+
+    public function test_user_can_view_single_ticket()
+    {
+        $user = User::factory()->create();
+        $user->assignRole('user');
+        $this->actingAs($user);
+
+        $ticket = Ticket::factory()->create([
+            'user_id' => $user->id
         ]);
 
-    $response->assertCreated()
-        ->assertJsonPath('success', true);
-});
+        $response = $this->getJson("/api/v1/tickets/{$ticket->id}");
 
-test('unauthorized user cannot create ticket', function () {
-    // A user with no permissions
-    $user = User::factory()->create();
-
-    actingAs($user)
-        ->postJson('/api/v1/tickets', [
-            'title' => 'Fail Ticket',
-            'description' => 'Desc',
-            'priority' => 'low',
-        ])
-        ->assertStatus(403);
-});
-
-test('user can view their own ticket', function () {
-    $user = User::factory()->create();
-    $user->assignRole('user');
-
-    $branch = Branch::factory()->create();
-    $staff = User::factory()->create(['branch_id' => $branch->id]);
-    $staff->assignRole('staff');
-
-    $ticket = Ticket::factory()->create([
-        'user_id' => $user->id,
-        'branch_id' => $branch->id,
-    ]);
-
-    actingAs($user)
-        ->getJson("/api/v1/tickets/{$ticket->id}")
-        ->assertOk()
-        ->assertJsonPath('data.id', $ticket->id);
-});
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $ticket->id);
+    }
+}

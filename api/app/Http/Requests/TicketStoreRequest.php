@@ -17,11 +17,12 @@ class TicketStoreRequest extends FormRequest
     {
         return [
             'user_id' => ['required', 'exists:users,id'],
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'description' => ['required', 'string'],
             'status' => ['sometimes', 'string', 'in:' . implode(',', TicketStatus::values())],
             'priority' => ['sometimes', 'string', 'in:' . implode(',', TicketPriority::values())],
             'branch_id' => ['sometimes', 'exists:branches,id'],
+            'category_id' => ['required', 'exists:ticket_categories,id'],
             'assigned_staff' => ['sometimes', 'array'],
             'assigned_staff.*' => ['exists:users,id'],
             'completed_at' => ['sometimes', 'nullable', 'date'],
@@ -37,6 +38,7 @@ class TicketStoreRequest extends FormRequest
             'status' => 'Status',
             'priority' => 'Prioritas',
             'branch_id' => 'Cabang',
+            'category_id' => 'Kategori',
             'assigned_staff' => 'Staff yang Ditugaskan',
             'completed_at' => 'Tanggal Selesai',
         ];
@@ -48,10 +50,15 @@ class TicketStoreRequest extends FormRequest
             'user_id' => $this->user()->id,
         ]);
 
-        if ($this->user()->branch) {
-            $this->merge([
-                'branch_id' => $this->user()->branch->id,
-            ]);
+        // Only auto-assign branch_id for non-admin users when not provided
+        // Admins can select any branch from the form
+        $user = $this->user();
+        if (!$this->has('branch_id') || !$this->branch_id) {
+            if ($user->branch) {
+                $this->merge([
+                    'branch_id' => $user->branch->id,
+                ]);
+            }
         }
     }
 }

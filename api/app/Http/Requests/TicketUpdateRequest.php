@@ -22,6 +22,7 @@ class TicketUpdateRequest extends FormRequest
             'status' => ['sometimes', 'string', 'in:' . implode(',', TicketStatus::values())],
             'priority' => ['sometimes', 'string', 'in:' . implode(',', TicketPriority::values())],
             'branch_id' => ['sometimes', 'nullable', 'exists:branches,id'],
+            'category_id' => ['sometimes', 'exists:ticket_categories,id'],
             'assigned_staff' => ['sometimes', 'array'],
             'assigned_staff.*' => ['exists:users,id'],
             'completed_at' => ['sometimes', 'nullable', 'date'],
@@ -37,6 +38,7 @@ class TicketUpdateRequest extends FormRequest
             'status' => 'Status',
             'priority' => 'Prioritas',
             'branch_id' => 'Cabang',
+            'category_id' => 'Kategori',
             'assigned_staff' => 'Staff yang Ditugaskan',
             'completed_at' => 'Tanggal Selesai',
         ];

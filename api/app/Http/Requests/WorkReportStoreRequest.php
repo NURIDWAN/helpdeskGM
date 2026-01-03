@@ -24,6 +24,7 @@ class WorkReportStoreRequest extends FormRequest
     {
         return [
             'branch_id' => ['required', 'exists:branches,id'],
+            'work_order_id' => ['nullable', 'exists:work_orders,id'],
             'job_template_id' => ['nullable', 'exists:job_templates,id'],
             'description' => ['nullable', 'string'],
             'custom_job' => ['nullable', 'string', 'max:255'],

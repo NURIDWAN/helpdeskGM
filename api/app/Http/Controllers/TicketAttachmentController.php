@@ -14,6 +14,7 @@ use Spatie\Permission\Middleware\PermissionMiddleware;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use OpenApi\Annotations as OA;
 
 class TicketAttachmentController extends Controller implements HasMiddleware
 {
@@ -39,7 +40,35 @@ class TicketAttachmentController extends Controller implements HasMiddleware
     }
 
     /**
-     * Display a listing of attachments for a specific ticket.
+     * @OA\Get(
+     *     path="/tickets/{ticketId}/attachments",
+     *     tags={"Ticket Attachments"},
+     *     summary="Get all attachments for a ticket",
+     *     description="Get a list of all attachments for a specific ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         type="array",
+     *                         @OA\Items(ref="#/components/schemas/TicketAttachment")
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal Server Error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function index(Request $request, string $ticketId)
     {
@@ -53,7 +82,40 @@ class TicketAttachmentController extends Controller implements HasMiddleware
     }
 
     /**
-     * Store a newly created attachment.
+     * @OA\Post(
+     *     path="/tickets/{ticketId}/attachments",
+     *     tags={"Ticket Attachments"},
+     *     summary="Create ticket attachment",
+     *     description="Upload a new attachment for a ticket",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="file", type="string", format="binary")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Attachment created successfully",
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/SuccessResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="data", ref="#/components/schemas/TicketAttachment")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal Server Error",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function store(TicketAttachmentStoreRequest $request, string $ticketId)
     {
@@ -86,7 +148,25 @@ class TicketAttachmentController extends Controller implements HasMiddleware
     }
 
     /**
-     * Remove the specified attachment.
+     * @OA\Delete(
+     *     path="/tickets/{ticketId}/attachments/{id}",
+     *     tags={"Ticket Attachments"},
+     *     summary="Delete ticket attachment",
+     *     description="Delete a ticket attachment",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="ticketId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Attachment deleted successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/SuccessResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Attachment not found",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function destroy(string $ticketId, string $id)
     {
