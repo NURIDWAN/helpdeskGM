@@ -17,6 +17,8 @@ import {
   X,
   Calendar,
   FileSpreadsheet,
+  Shield,
+  MessageSquare,
 } from "lucide-vue-next";
 import { can } from "@/helpers/permissionHelper";
 
@@ -103,7 +105,7 @@ const closeSidebar = () => {
       <!-- Master Data Section -->
       <div
         class="mb-4 lg:mb-6"
-        v-if="can('branch-menu') || can('job-template-menu')"
+        v-if="can('branch-menu') || can('job-template-menu') || can('whatsapp-setting-menu') || can('ticket-category-menu')"
       >
         <div class="px-4 lg:px-6 py-2">
           <h3
@@ -119,9 +121,11 @@ const closeSidebar = () => {
           :class="{
             'bg-blue-50 border-l-4 border-blue-600':
               $route.name?.startsWith('admin.branch') ||
-              $route.name?.startsWith('admin.job-template'),
+              $route.name?.startsWith('admin.job-template') ||
+              $route.name?.startsWith('admin.ticket-categor') ||
+              $route.name?.startsWith('admin.whatsapp'),
           }"
-          v-if="can('branch-menu') || can('job-template-menu')"
+          v-if="can('branch-menu') || can('job-template-menu') || can('whatsapp-setting-menu') || can('ticket-category-menu')"
         >
           <div class="flex items-center">
             <Settings :size="18" class="lg:w-5 lg:h-5 mr-3" />
@@ -161,6 +165,32 @@ const closeSidebar = () => {
           >
             <Tag :size="16" class="mr-3" />
             <span class="text-sm lg:text-base">Template Job</span>
+          </RouterLink>
+          <RouterLink
+            v-if="can('ticket-category-menu')"
+            :to="{ name: 'admin.ticket-categories' }"
+            @click="closeSidebar"
+            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
+            :class="{
+              'bg-blue-50 border-l-4 border-blue-600':
+                $route.name?.startsWith('admin.ticket-categor'),
+            }"
+          >
+            <Tag :size="16" class="mr-3" />
+            <span class="text-sm lg:text-base">Kategori Tiket</span>
+          </RouterLink>
+          <RouterLink
+            v-if="can('whatsapp-setting-menu')"
+            :to="{ name: 'admin.whatsapp-settings' }"
+            @click="closeSidebar"
+            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
+            :class="{
+              'bg-blue-50 border-l-4 border-blue-600':
+                $route.name?.startsWith('admin.whatsapp'),
+            }"
+          >
+            <MessageSquare :size="16" class="mr-3" />
+            <span class="text-sm lg:text-base">Pengaturan WhatsApp</span>
           </RouterLink>
         </div>
       </div>
@@ -283,7 +313,7 @@ const closeSidebar = () => {
       </div>
 
       <!-- Management Section -->
-      <div class="mb-4 lg:mb-6" v-if="can('user-menu')">
+      <div class="mb-4 lg:mb-6" v-if="can('user-menu') || can('role-menu') || can('user-activity-menu')">
         <div class="px-4 lg:px-6 py-2">
           <h3
             class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
@@ -297,9 +327,10 @@ const closeSidebar = () => {
           class="flex items-center justify-between w-full px-4 lg:px-6 py-3 text-gray-600 hover:bg-gray-50 hover:border-l-4 hover:border-gray-200"
           :class="{
             'bg-blue-50 border-l-4 border-blue-600':
-              $route.name?.startsWith('admin.user'),
+              $route.name?.startsWith('admin.user') ||
+              $route.name?.startsWith('admin.role'),
           }"
-          v-if="can('user-menu')"
+          v-if="can('user-menu') || can('role-menu') || can('user-activity-menu')"
         >
           <div class="flex items-center">
             <Users :size="18" class="lg:w-5 lg:h-5 mr-3" />
@@ -321,11 +352,37 @@ const closeSidebar = () => {
             class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
             :class="{
               'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.user'),
+                $route.name === 'admin.users' || $route.name?.startsWith('admin.user.'),
             }"
           >
             <Users :size="16" class="mr-3" />
             <span class="text-sm lg:text-base">Data User</span>
+          </RouterLink>
+          <RouterLink
+            v-if="can('role-menu')"
+            :to="{ name: 'admin.roles' }"
+            @click="closeSidebar"
+            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
+            :class="{
+              'bg-blue-50 border-l-4 border-blue-600':
+                $route.name?.startsWith('admin.role'),
+            }"
+          >
+            <Shield :size="16" class="mr-3" />
+            <span class="text-sm lg:text-base">Data Role</span>
+          </RouterLink>
+          <RouterLink
+            v-if="can('user-activity-menu')"
+            :to="{ name: 'admin.user-activity' }"
+            @click="closeSidebar"
+            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
+            :class="{
+              'bg-blue-50 border-l-4 border-blue-600':
+                $route.name === 'admin.user-activity',
+            }"
+          >
+            <Activity :size="16" class="mr-3" />
+            <span class="text-sm lg:text-base">Monitoring Aktivitas</span>
           </RouterLink>
         </div>
       </div>

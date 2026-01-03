@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, ref, computed } from "vue";
-import { Chart } from "chart.js/auto";
 import { useDashboardStore } from "@/stores/dashboard";
 import { useAuthStore } from "@/stores/auth";
+import { useUserActivityStore } from "@/stores/userActivity";
 import { storeToRefs } from "pinia";
 import { can } from "@/helpers/permissionHelper";
 import {
@@ -18,7 +18,11 @@ import {
   Calendar,
   Building,
   Activity,
+  ArrowRight,
+  Plus,
 } from "lucide-vue-next";
+import Chart from 'chart.js/auto';
+import JobCalendar from "@/components/common/JobCalendar.vue";
 
 const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
@@ -30,12 +34,16 @@ const {
   fastestStaff,
   ticketsTrend,
   staffReportsTrend,
+  unconfirmedTickets,
+  unconfirmedWorkOrders,
+  userRecentTickets,
   loading,
 } = storeToRefs(dashboardStore);
 
 // Computed properties for user role
 const isStaff = computed(() => authStore.user?.roles?.includes("staff"));
-const isAdmin = computed(() => authStore.user?.roles?.includes("admin"));
+const isAdmin = computed(() => authStore.user?.roles?.includes("admin") || authStore.user?.roles?.includes("superadmin"));
+const isRegularUser = computed(() => !isStaff.value && !isAdmin.value);
 
 const selectedPeriod = ref("day");
 const statusChart = ref(null);
@@ -43,13 +51,37 @@ const branchChart = ref(null);
 const ticketsTrendChart = ref(null);
 const reportsTrendChart = ref(null);
 
+// Inactive Users Logic
+const userActivityStore = useUserActivityStore();
+const inactiveUsers = ref([]);
+const loadingInactive = ref(false);
+
+const loadInactiveUsers = async () => {
+  if (can('user-activity-list') && !isStaff.value) {
+    loadingInactive.value = true;
+    try {
+      // Fetch inactive users (30+ days or never logged in)
+      const users = await userActivityStore.fetchUsers({ activity_status: 'inactive' });
+      inactiveUsers.value = users.slice(0, 5); // Show top 5
+    } catch (e) {
+      console.error("Failed to load inactive users", e);
+    } finally {
+      loadingInactive.value = false;
+    }
+  }
+};
+
+
 const periodOptions = [
   { value: "day", label: "Harian" },
   { value: "week", label: "Mingguan" },
 ];
 
 const loadDashboardData = async () => {
-  await dashboardStore.fetchAllData(selectedPeriod.value);
+  await Promise.all([
+    dashboardStore.fetchAllData(selectedPeriod.value),
+    loadInactiveUsers()
+  ]);
 };
 
 const initializeCharts = () => {
@@ -277,11 +309,22 @@ onMounted(async () => {
           {{
             isStaff
               ? "Dashboard pribadi - Tiket dan laporan kerja Anda"
+              : isRegularUser
+              ? "Selamat datang, pantau status tiket Anda di sini"
               : "Overview sistem GA Maintenance dan laporan kerja"
           }}
         </p>
       </div>
       <div class="flex items-center gap-3">
+        <RouterLink 
+            v-if="isRegularUser" 
+            :to="{ name: 'admin.ticket.create' }" 
+            class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+            <Plus :size="18" />
+            <span>Buat Tiket</span>
+        </RouterLink>
+
         <select
           v-model="selectedPeriod"
           @change="handlePeriodChange"
@@ -383,8 +426,8 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Active Work Orders -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <!-- Active Work Orders (Hide for Regular User) -->
+        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-gray-600">
@@ -406,11 +449,88 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Job Calendar Section -->
+      <div v-if="!isAdmin" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center gap-2">
+                <Calendar :size="20" class="text-blue-600" />
+                <h3 class="text-lg font-semibold text-gray-800">Kalender Pekerjaan Rutin</h3>
+            </div>
+            <p class="text-gray-500 text-sm mt-1">Jadwal maintenance dan pekerjaan rutin bulanan</p>
+        </div>
+        <div class="p-6">
+            <JobCalendar />
+        </div>
+      </div>
+
+      <!-- Action Items for Staff -->
+      <div v-if="isStaff" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Unconfirmed Tickets -->
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <Tag :size="20" class="text-blue-600" />
+                    <h3 class="text-lg font-semibold text-gray-800">Tiket Perlu Konfirmasi</h3>
+                </div>
+                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ unconfirmedTickets.length }}</span>
+            </div>
+            
+            <div v-if="unconfirmedTickets.length > 0" class="space-y-3">
+                <div v-for="ticket in unconfirmedTickets" :key="ticket.id" class="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">{{ ticket.code }}</span>
+                        <span class="text-xs text-gray-500">{{ new Date(ticket.created_at).toLocaleDateString('id-ID') }}</span>
+                    </div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.title }}</h4>
+                    <div class="flex justify-end mt-2">
+                        <RouterLink :to="{ name: 'admin.ticket.detail', params: { id: ticket.id } }" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            Lihat Detail <ArrowRight :size="12" />
+                        </RouterLink>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-8 text-gray-500">
+                <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
+                <p class="text-sm">Tidak ada tiket perlu konfirmasi</p>
+            </div>
+        </div>
+
+        <!-- Unconfirmed Work Orders -->
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <FileText :size="20" class="text-yellow-600" />
+                    <h3 class="text-lg font-semibold text-gray-800">SPK Perlu Konfirmasi</h3>
+                </div>
+                <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ unconfirmedWorkOrders.length }}</span>
+            </div>
+            
+            <div v-if="unconfirmedWorkOrders.length > 0" class="space-y-3">
+                <div v-for="spk in unconfirmedWorkOrders" :key="spk.id" class="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-1 rounded">{{ spk.number }}</span>
+                        <span class="text-xs text-gray-500">{{ new Date(spk.created_at).toLocaleDateString('id-ID') }}</span>
+                    </div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ spk.title }}</h4>
+                    <div class="flex justify-end mt-2">
+                        <RouterLink :to="{ name: 'admin.workorder.detail', params: { id: spk.id } }" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            Lihat Detail <ArrowRight :size="12" />
+                        </RouterLink>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-8 text-gray-500">
+                <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
+                <p class="text-sm">Tidak ada SPK perlu konfirmasi</p>
+            </div>
+        </div>
+      </div>
+
       <!-- Charts Row - Different layout for staff vs admin -->
       <div
         v-if="can('dashboard-view-charts')"
         :class="
-          isStaff
+          isStaff || isRegularUser
             ? 'grid grid-cols-1 lg:grid-cols-2 gap-6'
             : 'grid grid-cols-1 lg:grid-cols-3 gap-6'
         "
@@ -432,8 +552,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Tickets Per Branch Chart -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+
+
+        <!-- Tickets Per Branch Chart (Hide for Regular User) -->
+        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div class="flex items-center gap-2 mb-4">
             <Building :size="20" class="text-green-600" />
             <h3 class="text-lg font-semibold text-gray-800">
@@ -443,6 +565,47 @@ onMounted(async () => {
           <div class="h-64">
             <canvas id="branchChart"></canvas>
           </div>
+        </div>
+
+        <!-- Recent Tickets for Regular User -->
+        <div v-if="isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <Clock :size="20" class="text-blue-600" />
+                    <h3 class="text-lg font-semibold text-gray-800">Tiket Tercepat Saya</h3>
+                </div>
+                <RouterLink :to="{ name: 'admin.tickets' }" class="text-sm text-blue-600 hover:text-blue-700">Lihat Semua</RouterLink>
+            </div>
+            
+            <div v-if="userRecentTickets.length > 0" class="space-y-3">
+                <div v-for="ticket in userRecentTickets" :key="ticket.id" class="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <span 
+                            class="text-xs font-medium px-2 py-1 rounded"
+                            :class="{
+                                'bg-blue-100 text-blue-800': ticket.status === 'open',
+                                'bg-yellow-100 text-yellow-800': ticket.status === 'in_progress',
+                                'bg-green-100 text-green-800': ticket.status === 'resolved',
+                                'bg-gray-100 text-gray-800': ticket.status === 'closed'
+                            }"
+                        >
+                            {{ ticket.status.replace('_', ' ').toUpperCase() }}
+                        </span>
+                        <span class="text-xs text-gray-500">{{ new Date(ticket.created_at).toLocaleDateString('id-ID') }}</span>
+                    </div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.title }}</h4>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs text-gray-500">{{ ticket.ticket_number }}</span>
+                        <RouterLink :to="{ name: 'admin.ticket.detail', params: { id: ticket.id } }" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            Detail <ArrowRight :size="12" />
+                        </RouterLink>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-8 text-gray-500">
+                <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
+                <p class="text-sm">Anda belum membuat tiket</p>
+            </div>
         </div>
 
         <!-- Top Staff Resolved - Only for Admin -->
@@ -487,11 +650,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Trends Row - Compact layout for staff -->
+      <!-- Trends Row -->
       <div
         v-if="can('dashboard-view-trends')"
         :class="
-          isStaff
+          isStaff || isRegularUser
             ? 'grid grid-cols-1 lg:grid-cols-2 gap-6'
             : 'grid grid-cols-1 lg:grid-cols-2 gap-6'
         "
@@ -501,17 +664,22 @@ onMounted(async () => {
           <div class="flex items-center gap-2 mb-4">
             <TrendingUp :size="20" class="text-blue-600" />
             <h3 class="text-lg font-semibold text-gray-800">
-              {{ isStaff ? "Trend Tiket Saya" : "Trend Tiket" }}
+
+              {{ isStaff || isRegularUser ? "Trend Tiket Saya" : "Trend Tiket" }}
               {{ selectedPeriod === "day" ? "Harian" : "Mingguan" }}
             </h3>
           </div>
           <div class="h-64">
-            <canvas id="ticketsTrendChart"></canvas>
+            <canvas v-if="ticketsTrend.length > 0" id="ticketsTrendChart"></canvas>
+            <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
+                <TrendingUp :size="48" class="mb-2 opacity-20" />
+                <span class="text-sm">Belum ada data trend tiket</span>
+            </div>
           </div>
         </div>
 
-        <!-- Staff Reports Trend -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <!-- Staff Reports Trend (Hide for Regular User) -->
+        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div class="flex items-center gap-2 mb-4">
             <Calendar :size="20" class="text-purple-600" />
             <h3 class="text-lg font-semibold text-gray-800">
@@ -520,7 +688,11 @@ onMounted(async () => {
             </h3>
           </div>
           <div class="h-64">
-            <canvas id="reportsTrendChart"></canvas>
+            <canvas v-if="staffReportsTrend.length > 0" id="reportsTrendChart"></canvas>
+            <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
+                <Calendar :size="48" class="mb-2 opacity-20" />
+                <span class="text-sm">Belum ada data laporan</span>
+            </div>
           </div>
         </div>
       </div>
@@ -568,6 +740,47 @@ onMounted(async () => {
               <Clock :size="32" class="mx-auto mb-2 text-gray-300" />
               <p class="text-sm">Belum ada data</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inactive Users Widget -->
+      <div
+        v-if="can('user-activity-list') && !isStaff && inactiveUsers.length > 0"
+        class="grid grid-cols-1 lg:grid-cols-2 gap-6"
+      >
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <Users :size="20" class="text-red-500" />
+              <h3 class="text-lg font-semibold text-gray-800">User Tidak Aktif (30 Hari+)</h3>
+            </div>
+            <RouterLink :to="{ name: 'admin.user-activity' }" class="text-sm text-blue-600 hover:text-blue-700">
+              Lihat Semua
+            </RouterLink>
+          </div>
+          
+          <div class="space-y-3">
+             <div 
+               v-for="user in inactiveUsers" 
+               :key="user.id"
+               class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100"
+             >
+                <div class="flex items-center gap-3">
+                   <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-red-600 font-bold text-xs border border-red-200">
+                      {{ user.name.charAt(0).toUpperCase() }}
+                   </div>
+                   <div>
+                      <p class="text-sm font-medium text-gray-900">{{ user.name }}</p>
+                      <p class="text-xs text-gray-500 capitalize">{{ user.roles[0] || 'User' }}</p>
+                   </div>
+                </div>
+                <div class="text-right">
+                   <span class="text-xs font-medium text-red-600">
+                      {{ user.days_since_login ? user.days_since_login + ' hari' : 'Belum pernah' }}
+                   </span>
+                </div>
+             </div>
           </div>
         </div>
       </div>

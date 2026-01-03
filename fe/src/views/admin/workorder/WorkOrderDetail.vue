@@ -172,28 +172,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Staff Status Update Controls -->
-        <div v-if="isStaff && workOrder" class="lg:col-span-2">
-          <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <label class="text-sm font-medium text-gray-700"
-              >Update Status:</label
-            >
-            <select
-              v-model="statusForm.status"
-              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-            <button
-              @click="handleStatusUpdate"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Update Status
-            </button>
-          </div>
-        </div>
+
 
         <!-- Ticket -->
         <div>

@@ -185,7 +185,20 @@ onMounted(() => {
           </p>
         </div>
 
-        <!-- Branch removed - using default branch -->
+        <!-- Work Order (SPK) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            <FileText :size="16" class="inline mr-2" />
+            Nomor SPK
+          </label>
+          <div v-if="workReport.work_order" class="flex items-center gap-2">
+             <span class="text-gray-900 font-medium">{{ workReport.work_order.number }}</span>
+             <span v-if="workReport.work_order.ticket" class="text-xs text-gray-500">
+               ({{ workReport.work_order.ticket.title }})
+             </span>
+          </div>
+          <p v-else class="text-gray-400">Bukan dari SPK</p>
+        </div>
 
         <!-- Job Template -->
         <div>

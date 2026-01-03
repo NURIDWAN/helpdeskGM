@@ -21,7 +21,7 @@ export const useAuthStore = defineStore("auth", {
             this.error = null
 
             try {
-                const response = await axiosInstance.post('/login', credentials)
+                const response = await axiosInstance.post('/auth/login', credentials)
 
                 const token = response.data.data.token
 
@@ -30,6 +30,7 @@ export const useAuthStore = defineStore("auth", {
                 this.success = response.data.message
 
                 if (
+                    response.data.data.roles.includes('superadmin') ||
                     response.data.data.roles.includes('admin') ||
                     response.data.data.roles.includes('staff')
                 ) {
@@ -47,7 +48,7 @@ export const useAuthStore = defineStore("auth", {
         async checkAuth() {
             this.loading = true;
             try {
-                const response = await axiosInstance.get('/me');
+                const response = await axiosInstance.get('/auth/me');
                 this.user = response.data.data;
                 return this.user;
             } catch (error) {
@@ -65,7 +66,7 @@ export const useAuthStore = defineStore("auth", {
             this.loading = true
 
             try {
-                await axiosInstance.post('/logout')
+                await axiosInstance.post('/auth/logout')
 
                 Cookies.remove('token')
 
@@ -86,7 +87,7 @@ export const useAuthStore = defineStore("auth", {
             this.success = null
 
             try {
-                const response = await axiosInstance.put('/me', payload)
+                const response = await axiosInstance.put('/auth/me', payload)
                 this.success = response.data.message || 'Profil berhasil diperbarui'
                 // refresh user
                 await this.checkAuth()

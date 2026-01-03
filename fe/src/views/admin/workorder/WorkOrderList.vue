@@ -4,15 +4,17 @@ import { useWorkOrderStore } from "@/stores/workOrder";
 import SearchInput from "@/components/common/SearchInput.vue";
 import DataTable from "@/components/common/DataTable.vue";
 import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
-import { Plus, Edit, Trash2, ClipboardList, Eye } from "lucide-vue-next";
+import { Plus, Edit, Trash2, ClipboardList, Eye, PlayCircle, CheckCircle } from "lucide-vue-next";
 import { formatToClientTimezone } from "@/helpers/format";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
-import { can } from "@/helpers/permissionHelper";
+import { can, hasRole } from "@/helpers/permissionHelper";
+import { useToast } from "vue-toastification";
 
+const toast = useToast();
 const workOrderStore = useWorkOrderStore();
 const { workOrders, meta, loading, error, success } = storeToRefs(workOrderStore);
-const { fetchWorkOrdersPaginated, deleteWorkOrder } = workOrderStore;
+const { fetchWorkOrdersPaginated, deleteWorkOrder, updateWorkOrder } = workOrderStore;
 
 // Table columns configuration
 const tableColumns = [
@@ -73,6 +75,35 @@ const handleDeleteWorkOrder = async () => {
 const closeDeleteModal = () => {
   showDeleteModal.value = false;
   workOrderToDelete.value = null;
+};
+
+// Confirm SPK (update status to in_progress)
+const confirmingId = ref(null);
+const handleConfirmSPK = async (workOrder) => {
+  confirmingId.value = workOrder.id;
+  try {
+    await updateWorkOrder(workOrder.id, { status: 'in_progress' });
+    toast.success(`SPK ${workOrder.number} berhasil dikonfirmasi`);
+    fetchWorkOrders();
+  } catch (e) {
+    toast.error('Gagal mengkonfirmasi SPK');
+  } finally {
+    confirmingId.value = null;
+  }
+};
+
+// Mark SPK as Done
+const handleCompleteSPK = async (workOrder) => {
+  confirmingId.value = workOrder.id;
+  try {
+    await updateWorkOrder(workOrder.id, { status: 'done' });
+    toast.success(`SPK ${workOrder.number} berhasil diselesaikan`);
+    fetchWorkOrders();
+  } catch (e) {
+    toast.error('Gagal menyelesaikan SPK');
+  } finally {
+    confirmingId.value = null;
+  }
 };
 
 // Lifecycle
@@ -151,22 +182,60 @@ onMounted(() => {
       </template>
 
       <template #cell-ticket_info="{ item }">
-        <div class="text-sm">
-          <span v-if="item.ticket" class="text-gray-900">
-            {{ item.ticket.code }} - {{ item.ticket.title }}
-          </span>
-          <span v-else class="text-gray-500 italic"> SPK Standalone </span>
+        <div v-if="item.ticket" class="flex flex-col gap-1 py-1">
+          <div class="flex items-center gap-2">
+            <span class="font-medium text-gray-900 text-sm">{{ item.ticket.code }}</span>
+            <span v-if="item.ticket.category" 
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+              {{ item.ticket.category.name }}
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 line-clamp-2 max-w-sm">
+            {{ item.ticket.title || item.ticket.description || '-' }}
+          </p>
         </div>
+        <span v-else class="text-gray-500 italic text-sm"> SPK Standalone </span>
       </template>
 
       <template #cell-status="{ value }">
-        <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">{{
-          value
-        }}</span>
+        <span 
+          class="px-2 py-0.5 text-xs rounded font-medium"
+          :class="{
+            'bg-yellow-100 text-yellow-800': value === 'pending',
+            'bg-blue-100 text-blue-800': value === 'in_progress',
+            'bg-green-100 text-green-800': value === 'done'
+          }"
+        >
+          {{ value === 'pending' ? 'Pending' : value === 'in_progress' ? 'In Progress' : 'Done' }}
+        </span>
       </template>
 
       <template #actions="{ item }">
         <div class="flex justify-end gap-2">
+          <!-- Konfirmasi Button (Pending -> In Progress) -->
+          <button
+            v-if="item.status === 'pending' && can('work-order-update-status') && hasRole('staff')"
+            @click="handleConfirmSPK(item)"
+            :disabled="confirmingId === item.id"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+            title="Konfirmasi & Mulai Kerja"
+          >
+            <PlayCircle :size="14" />
+            Konfirmasi
+          </button>
+          
+          <!-- Selesai Button (In Progress -> Done) -->
+          <button
+            v-if="item.status === 'in_progress' && can('work-order-update-status') && hasRole('staff')"
+            @click="handleCompleteSPK(item)"
+            :disabled="confirmingId === item.id"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+            title="Tandai Selesai"
+          >
+            <CheckCircle :size="14" />
+            Selesai
+          </button>
+          
           <RouterLink
             v-if="can('work-order-list')"
             :to="{ name: 'admin.workorder.detail', params: { id: item.id } }"

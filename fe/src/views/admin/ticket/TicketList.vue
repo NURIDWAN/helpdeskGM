@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { useTicketStore } from "@/stores/ticket";
 import { useBranchStore } from "@/stores/branch";
 import { useUserStore } from "@/stores/user";
+import { useTicketCategoryStore } from "@/stores/ticketCategory";
 import SearchInput from "@/components/common/SearchInput.vue";
 import DataTable from "@/components/common/DataTable.vue";
 import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
@@ -15,18 +16,31 @@ import {
   Eye,
   Filter,
   X,
+  FileText,
+  FileSpreadsheet,
+  Download,
+  CheckCircle2,
+  Tag,
+  XCircle,
+  User,
+  Users,
+  Minus,
 } from "lucide-vue-next";
 import { formatToClientTimezone } from "@/helpers/format";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
-import { can } from "@/helpers/permissionHelper";
+import { can, hasRole } from "@/helpers/permissionHelper";
+import { useToast } from "vue-toastification";
+
+const toast = useToast();
 
 const ticketStore = useTicketStore();
 const branchStore = useBranchStore();
 const userStore = useUserStore();
+const categoryStore = useTicketCategoryStore();
 
 const { tickets, meta, loading, success, error } = storeToRefs(ticketStore);
-const { fetchTicketsPaginated, deleteTicket } = ticketStore;
+const { fetchTicketsPaginated, deleteTicket, updateTicket } = ticketStore;
 const { fetchBranches } = branchStore;
 const { fetchUsers } = userStore;
 
@@ -56,12 +70,14 @@ const searchQuery = ref("");
 const showDeleteModal = ref(false);
 const ticketToDelete = ref(null);
 const showFilters = ref(false);
+const showExportMenu = ref(false);
 
 // Filter state
 const filters = ref({
   status: null,
   priority: null,
   branchId: null,
+  categoryId: null,
   startDate: null,
   endDate: null,
   duration: null,
@@ -82,6 +98,14 @@ const userOptions = computed(() =>
   }))
 );
 
+const categoryOptions = computed(() =>
+  categoryStore.categories.map((cat) => ({
+    value: cat.id,
+    label: cat.name,
+    color: cat.color,
+  }))
+);
+
 // Default date range (last month)
 const defaultStartDate = computed(() => {
   const date = new Date();
@@ -96,13 +120,14 @@ const defaultEndDate = computed(() => {
 // Table columns configuration
 const tableColumns = [
   { key: "code", label: "Kode", bold: true, nowrap: true },
+  { key: "category", label: "Kategori", nowrap: true },
   { key: "duration", label: "Durasi", nowrap: true },
-  { key: "title", label: "Judul" },
   { key: "user.name", label: "Pelapor", nowrap: true },
   { key: "branch.name", label: "Cabang", nowrap: true },
   { key: "assigned_staff", label: "Staff Assigned", nowrap: true },
   { key: "status", label: "Status", nowrap: true },
   { key: "priority", label: "Prioritas", nowrap: true },
+  { key: "notif_status", label: "Notifikasi", nowrap: true },
   { key: "created_at", label: "Dibuat", nowrap: true },
 ];
 
@@ -115,6 +140,7 @@ const fetchTickets = () => {
     status: filters.value.status,
     priority: filters.value.priority,
     branch_id: filters.value.branchId,
+    category_id: filters.value.categoryId,
     start_date: filters.value.startDate,
     end_date: filters.value.endDate,
   };
@@ -159,6 +185,7 @@ const clearFilters = () => {
     status: null,
     priority: null,
     branchId: null,
+    categoryId: null,
     startDate: null,
     endDate: null,
     duration: null,
@@ -191,6 +218,7 @@ const loadFilterData = async () => {
     await Promise.all([
       fetchBranches({ limit: 100 }),
       fetchUsers({ limit: 100 }),
+      categoryStore.fetchCategories({ is_active: true, row_per_page: 'all' }),
     ]);
   } catch (error) {
     console.error("Error loading filter data:", error);
@@ -216,6 +244,21 @@ const handleDeleteTicket = async () => {
 const closeDeleteModal = () => {
   showDeleteModal.value = false;
   ticketToDelete.value = null;
+};
+
+// Update Ticket Status (Staff Workflow)
+const updatingId = ref(null);
+const handleUpdateStatus = async (ticket, newStatus) => {
+  updatingId.value = ticket.id;
+  try {
+    await updateTicket(ticket.id, { status: newStatus });
+    toast.success(`Status ticket berhasil diperbarui ke ${newStatus.replace('_', ' ').toUpperCase()}`);
+    fetchTickets();
+  } catch (e) {
+    toast.error('Gagal memperbarui status ticket');
+  } finally {
+    updatingId.value = null;
+  }
 };
 
 // Lifecycle
@@ -248,6 +291,77 @@ const getDurationBadge = (ticket) => {
     };
   return { color: "bg-red-100 text-red-800", label: "> 7 Hari" };
 };
+// Export methods
+const buildExportParams = () => {
+  const params = {};
+  
+  if (filters.value.status) params.status = filters.value.status;
+  if (filters.value.priority) params.priority = filters.value.priority;
+  if (filters.value.branchId) params.branch_id = filters.value.branchId;
+  if (filters.value.categoryId) params.category_id = filters.value.categoryId;
+  if (filters.value.startDate) params.start_date = filters.value.startDate;
+  if (filters.value.endDate) params.end_date = filters.value.endDate;
+  if (filters.value.duration) params.duration = filters.value.duration;
+  if (searchQuery.value) params.search = searchQuery.value;
+  
+  return params;
+};
+
+const exportLoading = ref(false);
+
+const handleExportPdf = async () => {
+  showExportMenu.value = false;
+  exportLoading.value = true;
+  
+  try {
+    const { axiosInstance } = await import('@/plugins/axios');
+    const response = await axiosInstance.get('/tickets/export/pdf', {
+      params: buildExportParams(),
+      responseType: 'blob',
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `tickets_${new Date().toISOString().slice(0, 10)}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Export PDF error:', err);
+    ticketStore.error = 'Gagal export PDF';
+  } finally {
+    exportLoading.value = false;
+  }
+};
+
+const handleExportExcel = async () => {
+  showExportMenu.value = false;
+  exportLoading.value = true;
+  
+  try {
+    const { axiosInstance } = await import('@/plugins/axios');
+    const response = await axiosInstance.get('/tickets/export/excel', {
+      params: buildExportParams(),
+      responseType: 'blob',
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `tickets_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Export Excel error:', err);
+    ticketStore.error = 'Gagal export Excel';
+  } finally {
+    exportLoading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -258,14 +372,45 @@ const getDurationBadge = (ticket) => {
         <h1 class="text-2xl font-bold text-gray-900">Data Ticket</h1>
         <p class="text-gray-600">Kelola data ticket</p>
       </div>
-      <RouterLink
-        v-if="can('ticket-create')"
-        :to="{ name: 'admin.ticket.create' }"
-        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <Plus :size="20" class="mr-2" />
-        Buat Ticket
-      </RouterLink>
+      <div class="flex items-center gap-2">
+        <!-- Export Buttons -->
+        <div class="relative" v-if="can('ticket-list')">
+          <button
+            @click="showExportMenu = !showExportMenu"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Download :size="18" class="mr-2" />
+            Export
+          </button>
+          <div
+            v-if="showExportMenu"
+            class="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border z-10"
+          >
+            <button
+              @click="handleExportPdf"
+              class="w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 text-gray-700"
+            >
+              <FileText :size="18" class="mr-2 text-red-500" />
+              Export PDF
+            </button>
+            <button
+              @click="handleExportExcel"
+              class="w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 text-gray-700"
+            >
+              <FileSpreadsheet :size="18" class="mr-2 text-green-500" />
+              Export Excel
+            </button>
+          </div>
+        </div>
+        <RouterLink
+          v-if="can('ticket-create')"
+          :to="{ name: 'admin.ticket.create' }"
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <Plus :size="20" class="mr-2" />
+          Buat Ticket
+        </RouterLink>
+      </div>
     </div>
 
     <!-- Alert -->
@@ -375,6 +520,27 @@ const getDurationBadge = (ticket) => {
             </select>
           </div>
 
+          <!-- Category Filter -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Kategori</label
+            >
+            <select
+              v-model="filters.categoryId"
+              @change="handleFilterChange"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Semua Kategori</option>
+              <option
+                v-for="option in categoryOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+
           <!-- Start Date Filter -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
@@ -443,6 +609,7 @@ const getDurationBadge = (ticket) => {
       :meta="meta"
       empty-message="Belum ada data ticket"
       :empty-icon="TicketIcon"
+      storage-key="ticket-list-table"
       @page-change="handlePageChange"
       @per-page-change="handlePerPageChange"
     >
@@ -462,9 +629,26 @@ const getDurationBadge = (ticket) => {
       </template>
 
       <template #cell-status="{ value }">
-        <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">{{
-          value
-        }}</span>
+        <span 
+          class="px-2 py-0.5 text-xs rounded font-medium"
+          :class="{
+            'bg-gray-100 text-gray-800': value === 'open',
+            'bg-yellow-100 text-yellow-800': value === 'pending',
+            'bg-blue-100 text-blue-800': value === 'in_progress',
+            'bg-purple-100 text-purple-800': value === 'resolved',
+            'bg-green-100 text-green-800': value === 'closed'
+          }"
+        >
+          {{ value ? value.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : '-' }}
+        </span>
+      </template>
+
+      <template #cell-category="{ item }">
+        <div v-if="item.category" class="flex items-center gap-1">
+          <Tag :size="14" :style="{ color: item.category.color || '#6B7280' }" />
+          <span class="text-sm">{{ item.category.name }}</span>
+        </div>
+        <span v-else class="text-gray-400 text-sm">-</span>
       </template>
 
       <template #cell-priority="{ value }">
@@ -486,8 +670,50 @@ const getDurationBadge = (ticket) => {
         <span v-else class="text-gray-400 text-sm">Belum di-assign</span>
       </template>
 
+      <template #cell-notif_status="{ item }">
+        <div class="flex items-center gap-2">
+          <!-- Staff Notification -->
+          <div class="flex items-center gap-1" :title="item.notif_staff_sent === true ? 'Staff: Terkirim' : item.notif_staff_sent === false ? 'Staff: Gagal' : 'Staff: -'">
+            <User :size="14" class="text-gray-500" />
+            <CheckCircle2 v-if="item.notif_staff_sent === true" :size="14" class="text-green-500" />
+            <XCircle v-else-if="item.notif_staff_sent === false" :size="14" class="text-red-500" />
+            <Minus v-else :size="14" class="text-gray-400" />
+          </div>
+          <!-- Group Notification -->
+          <div class="flex items-center gap-1" :title="item.notif_group_sent === true ? 'Grup: Terkirim' : item.notif_group_sent === false ? 'Grup: Gagal' : 'Grup: -'">
+            <Users :size="14" class="text-gray-500" />
+            <CheckCircle2 v-if="item.notif_group_sent === true" :size="14" class="text-green-500" />
+            <XCircle v-else-if="item.notif_group_sent === false" :size="14" class="text-red-500" />
+            <Minus v-else :size="14" class="text-gray-400" />
+          </div>
+        </div>
+      </template>
+
       <template #actions="{ item }">
         <div class="flex justify-end gap-2">
+          <!-- Staff Workflow Buttons -->
+          <button
+            v-if="item.status === 'open' && can('ticket-update-status') && hasRole('staff')"
+            @click="handleUpdateStatus(item, 'in_progress')"
+            :disabled="updatingId === item.id"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            title="Konfirmasi & Proses"
+          >
+            <CheckCircle2 :size="14" />
+            Konfirmasi
+          </button>
+
+          <button
+            v-if="item.status === 'in_progress' && can('ticket-update-status') && hasRole('staff')"
+            @click="handleUpdateStatus(item, 'resolved')"
+            :disabled="updatingId === item.id"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
+            title="Tandai Resolved"
+          >
+            <CheckCircle2 :size="14" />
+            Resolve
+          </button>
+
           <RouterLink
             v-if="can('ticket-list')"
             :to="{ name: 'admin.ticket.detail', params: { id: item.id } }"

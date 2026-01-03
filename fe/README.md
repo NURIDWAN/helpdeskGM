@@ -1,29 +1,50 @@
-# fe-dummy-ticktrack
+# Helpdesk Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Frontend Vue 3 untuk Helpdesk System.
 
-## Recommended IDE Setup
+## 🛠️ Tech Stack
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Vue 3 + Composition API
+- Vite
+- Pinia (State Management)
+- TailwindCSS
+- Vue Router
 
-## Customize configuration
+## 🚀 Setup
 
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
+## 📦 Build
 
-```sh
+```bash
 npm run build
 ```
+
+## 📁 Structure
+
+```
+src/
+├── stores/       # 21 Pinia stores
+├── views/        # Vue components
+├── components/   # Reusable components
+├── plugins/      # Axios config
+├── router/       # Vue Router
+└── helpers/      # Utilities
+```
+
+## 🔗 API Configuration
+
+Edit `.env`:
+```
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+```
+
+## 🔐 Features
+
+- Role-based access control
+- Permission-based menu filtering
+- Toast notifications
+- Responsive design

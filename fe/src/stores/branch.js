@@ -22,7 +22,7 @@ export const useBranchStore = defineStore("branch", {
             this.loading = true
 
             try {
-                const response = await axiosInstance.get(`branches`, { params })
+                const response = await axiosInstance.get(`/branches`, { params })
 
                 this.branches = response.data.data
             } catch (error) {

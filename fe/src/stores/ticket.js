@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { axiosInstance } from '@/plugins/axios';
 import { handleError } from "@/helpers/errorHelper";
+import { useToast } from 'vue-toastification';
 
 export const useTicketStore = defineStore("ticket", {
     state: () => ({
@@ -68,24 +69,41 @@ export const useTicketStore = defineStore("ticket", {
 
         async createTicket(payload) {
             this.loading = true;
+            this.error = null;
+            const toast = useToast();
             try {
                 const response = await axiosInstance.post('/tickets', payload);
                 this.success = response.data.message;
-
+                toast.success(response.data.message || 'Tiket berhasil dibuat');
                 return response.data.data;
             } catch (error) {
-                this.error = handleError(error);
+                const errorMsg = handleError(error);
+                this.error = errorMsg;
+                // Show toast for error
+                const errorText = typeof errorMsg === 'string'
+                    ? errorMsg
+                    : (errorMsg?.message || 'Gagal membuat tiket');
+                toast.error(errorText);
             } finally {
                 this.loading = false;
             }
         },
 
         async updateTicket(id, payload) {
+            this.loading = true;
+            this.error = null;
+            const toast = useToast();
             try {
                 const response = await axiosInstance.post(`/tickets/${id}`, { _method: 'PUT', ...payload });
                 this.success = response.data.message;
+                toast.success(response.data.message || 'Tiket berhasil diupdate');
             } catch (error) {
-                this.error = handleError(error);
+                const errorMsg = handleError(error);
+                this.error = errorMsg;
+                const errorText = typeof errorMsg === 'string'
+                    ? errorMsg
+                    : (errorMsg?.message || 'Gagal mengupdate tiket');
+                toast.error(errorText);
             } finally {
                 this.loading = false;
             }
@@ -96,19 +114,6 @@ export const useTicketStore = defineStore("ticket", {
             try {
                 const response = await axiosInstance.delete(`/tickets/${id}`);
                 this.success = response.data.message;
-            } catch (error) {
-                this.error = handleError(error);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async assignTicket(id, staffId) {
-            this.loading = true;
-            try {
-                const response = await axiosInstance.put(`/tickets/${id}/assign`, { assigned_to: staffId });
-                this.success = response.data.message;
-                return response.data.data;
             } catch (error) {
                 this.error = handleError(error);
             } finally {

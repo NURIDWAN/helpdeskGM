@@ -160,6 +160,16 @@ watch(
   }
 );
 
+const selectedTicket = computed(() => {
+  if (!form.ticket_id) return null;
+  return tickets.value.find((t) => String(t.id) === String(form.ticket_id));
+});
+
+const getTicketLabel = (t) => {
+  const titlePart = t.title || `[${t.category?.name || 'Tanpa Kategori'}]`;
+  return `${titlePart} - ${t.code}`;
+};
+
 onMounted(() => {
   loadTicketsData();
   loadWorkOrderData();
@@ -238,11 +248,43 @@ onMounted(() => {
               { value: '', label: '-- Tidak ada ticket (SPK Standalone) --' },
               ...availableTickets.map((t) => ({
                 value: String(t.id),
-                label: t.title + ' - ' + t.code,
+                label: getTicketLabel(t),
               })),
             ]"
             :disabled="isEdit"
           />
+        </div>
+
+        <!-- Ticket Detail Preview -->
+        <div v-if="selectedTicket" class="lg:col-span-2 -mt-4 mb-2">
+          <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <h4 class="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+              <ClipboardList :size="16" />
+              Detail Tiket
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm text-blue-800">
+              <div class="flex gap-2">
+                <span class="font-medium min-w-[80px]">Kategori:</span>
+                <span>{{ selectedTicket.category?.name || "-" }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="font-medium min-w-[80px]">Pelapor:</span>
+                <span>{{ selectedTicket.user?.name || "-" }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="font-medium min-w-[80px]">Cabang:</span>
+                <span>{{ selectedTicket.branch?.name || "-" }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="font-medium min-w-[80px]">Prioritas:</span>
+                <span class="capitalize">{{ selectedTicket.priority || "-" }}</span>
+              </div>
+              <div class="col-span-1 md:col-span-2 flex gap-2 mt-1 pt-2 border-t border-blue-200">
+                <span class="font-medium min-w-[80px]">Deskripsi:</span>
+                <span class="italic text-blue-900">{{ selectedTicket.description || "-" }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Assigned To -->
@@ -257,7 +299,7 @@ onMounted(() => {
             type="select"
             placeholder="Pilih teknisi"
             :options="
-              staffUsers.map((u) => ({ value: String(u.id), label: u.name }))
+              staffUsers.map((u) => ({ value: String(u.id), label: u.branch ? `${u.name} (${u.branch.name})` : u.name }))
             "
           />
         </div>

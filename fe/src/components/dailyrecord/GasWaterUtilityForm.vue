@@ -13,9 +13,17 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
+  dailyRecordId: {
+    type: [String, Number],
+    default: null,
+  },
   previousReadings: {
     type: Object,
     default: null,
+  },
+  disabled: {
+    type: Boolean,
+    default: false,
   },
 });
 

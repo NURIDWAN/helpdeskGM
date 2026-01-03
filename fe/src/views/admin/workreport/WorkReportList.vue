@@ -30,7 +30,7 @@ const branchStore = useBranchStore();
 const userStore = useUserStore();
 const jobTemplateStore = useJobTemplateStore();
 
-const { workReports, meta, loading, error } = storeToRefs(workReportStore);
+const { workReports, meta, loading, error, success } = storeToRefs(workReportStore);
 const { fetchWorkReportsPaginated, deleteWorkReport } = workReportStore;
 const { fetchBranches } = branchStore;
 const { fetchUsers } = userStore;
@@ -42,8 +42,7 @@ const { user } = storeToRefs(authStore);
 // Table columns configuration
 const baseColumns = [
   { key: "user.name", label: "User", nowrap: true },
-  { key: "job_template.name", label: "Jenis Pekerjaan", nowrap: true },
-  { key: "custom_job", label: "Pekerjaan Lainnya", nowrap: true },
+  { key: "job_info", label: "Detail Pekerjaan", nowrap: false },
   { key: "status", label: "Status", nowrap: true },
   { key: "created_at", label: "Dibuat", nowrap: true },
 ];
@@ -514,27 +513,36 @@ onMounted(async () => {
         </div>
       </template>
 
-      <template #cell-job_template.name="{ value }">
-        <div class="text-sm">
-          <span
-            v-if="value"
-            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-          >
-            {{ value }}
-          </span>
-          <span v-else class="text-gray-400">-</span>
-        </div>
-      </template>
+      <template #cell-job_info="{ item }">
+        <div class="space-y-1">
+          <!-- SPK Info -->
+          <div v-if="item.work_order" class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+              SPK
+            </span>
+            <span class="text-sm font-medium text-gray-900">{{ item.work_order.number }}</span>
+          </div>
 
-      <template #cell-custom_job="{ value }">
-        <div class="text-sm">
-          <span
-            v-if="value"
-            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
-          >
-            {{ value }}
-          </span>
-          <span v-else class="text-gray-400">-</span>
+          <!-- Job Template Info -->
+          <div v-if="item.job_template" class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+              Template
+            </span>
+            <span class="text-sm text-gray-700">{{ item.job_template.name }}</span>
+          </div>
+
+          <!-- Custom Job / Laporan Lainnya -->
+          <div v-if="!item.job_template && item.custom_job" class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+              Lainnya
+            </span>
+            <span class="text-sm text-gray-700">{{ item.custom_job }}</span>
+          </div>
+          
+           <!-- Description Preview if needed, or if totally empty -->
+           <div v-if="!item.work_order && !item.job_template && !item.custom_job" class="text-xs text-gray-500 italic">
+             -
+           </div>
         </div>
       </template>
 

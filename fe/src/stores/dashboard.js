@@ -12,6 +12,9 @@ export const useDashboardStore = defineStore("dashboard", {
         fastestStaff: [],
         ticketsTrend: [],
         staffReportsTrend: [],
+        unconfirmedTickets: [],
+        unconfirmedWorkOrders: [],
+        userRecentTickets: [],
         loading: false,
         error: null,
         success: null,
@@ -36,6 +39,9 @@ export const useDashboardStore = defineStore("dashboard", {
                         this.fastestStaff = data.fastest_staff;
                         this.ticketsTrend = data.tickets_trend;
                         this.staffReportsTrend = data.staff_reports_trend;
+                        this.unconfirmedTickets = data.unconfirmed_tickets || [];
+                        this.unconfirmedWorkOrders = data.unconfirmed_work_orders || [];
+                        this.userRecentTickets = data.user_recent_tickets || [];
                     }
                 } else {
                     // Fetch data based on individual permissions

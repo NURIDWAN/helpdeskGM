@@ -31,7 +31,7 @@ export const useJobTemplateStore = defineStore("jobTemplate", {
             this.loading = true
 
             try {
-                const response = await axiosInstance.get(`job-templates`, { params })
+                const response = await axiosInstance.get(`/job-templates`, { params })
 
                 this.jobTemplates = response.data.data
             } catch (error) {

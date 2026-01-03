@@ -1,5 +1,42 @@
 <template>
-  <div class="bg-white rounded-lg shadow overflow-hidden">
+  <div class="bg-white rounded-lg shadow overflow-visible">
+    <!-- Toolbar -->
+    <div v-if="enableColumnFilter" class="px-4 py-2 border-b border-gray-200 flex justify-end">
+       <div class="relative">
+          <button 
+            @click="showColumnMenu = !showColumnMenu"
+            class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
+          >
+            <Settings :size="16" />
+            <span>Tampilan Kolom</span>
+          </button>
+          
+          <!-- Dropdown Menu -->
+          <div v-if="showColumnMenu" class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 p-2">
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-2 mb-1 border-b">
+              Pilih Kolom
+            </div>
+            <div class="max-h-64 overflow-y-auto space-y-1">
+              <label 
+                v-for="col in columns" 
+                :key="col.key"
+                class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
+              >
+                <input 
+                  type="checkbox" 
+                  :checked="visibleColumnKeys.includes(col.key)"
+                  @change="toggleColumn(col.key)"
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                />
+                <span class="text-sm text-gray-700">{{ col.label }}</span>
+              </label>
+            </div>
+          </div>
+          
+          <!-- Backdrop for closing -->
+          <div v-if="showColumnMenu" @click="showColumnMenu = false" class="fixed inset-0 z-40" style="background: transparent;"></div>
+       </div>
+    </div>
     <!-- Loading State -->
     <div v-if="loading" class="p-8 text-center">
       <div
@@ -24,7 +61,7 @@
         <thead class="bg-gray-50">
           <tr>
             <th
-              v-for="column in columns"
+              v-for="column in displayedColumns"
               :key="column.key"
               :class="[
                 'px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider',
@@ -48,7 +85,7 @@
             class="hover:bg-gray-50"
           >
             <td
-              v-for="column in columns"
+              v-for="column in displayedColumns"
               :key="column.key"
               :class="[
                 'px-6 py-4',
@@ -168,8 +205,8 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { ChevronLeft, ChevronRight } from "lucide-vue-next";
+import { computed, ref, onMounted, watch } from "vue";
+import { ChevronLeft, ChevronRight, Settings, Check } from "lucide-vue-next";
 
 // Props
 const props = defineProps({
@@ -214,10 +251,82 @@ const props = defineProps({
       total: 0,
     }),
   },
+  storageKey: {
+    type: String,
+    default: null,
+  },
+  enableColumnFilter: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 // Emits
 const emit = defineEmits(["page-change", "per-page-change"]);
+
+// State
+const showColumnMenu = ref(false);
+const visibleColumnKeys = ref([]); // Store keys of visible columns
+
+// Initialize visible columns
+onMounted(() => {
+  // Initialize with all columns checking storage first
+  if (props.storageKey) {
+    const stored = localStorage.getItem(`datatable_prefs_${props.storageKey}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // Validate stored keys still exist in current columns (handle schema updates)
+        const validKeys = parsed.filter(key => props.columns.some(col => col.key === key));
+        if (validKeys.length > 0) {
+          visibleColumnKeys.value = validKeys;
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing stored column prefs', e);
+      }
+    }
+  }
+  
+  // Default: all columns are visible
+  visibleColumnKeys.value = props.columns.map(col => col.key);
+});
+
+// Watch for column changes or storage updates
+watch(visibleColumnKeys, (newKeys) => {
+  if (props.storageKey && newKeys.length > 0) {
+    localStorage.setItem(`datatable_prefs_${props.storageKey}`, JSON.stringify(newKeys));
+  }
+}, { deep: true });
+
+// Also watch props.columns in case they change dynamically (ensure new columns appear or handled)
+watch(() => props.columns, (newCols) => {
+  // Logic: Add new columns to visible by default? Or keep strictly what's in keys?
+  // Let's ensure new columns are added if they're not in the list but we haven't stored prefs for them specifically?
+  // Simpler: Just ensure we don't have stale keys.
+  // Ideally if user has customized, we respect it. New columns might need manual enabling unless we track "hidden" instead of "visible".
+  // Let's stick to "visible keys".
+  if (visibleColumnKeys.value.length === 0) {
+     visibleColumnKeys.value = newCols.map(c => c.key);
+  }
+});
+
+const displayedColumns = computed(() => {
+  if (!props.enableColumnFilter) return props.columns;
+  return props.columns.filter(col => visibleColumnKeys.value.includes(col.key));
+});
+
+const toggleColumn = (key) => {
+  const index = visibleColumnKeys.value.indexOf(key);
+  if (index === -1) {
+    visibleColumnKeys.value.push(key);
+  } else {
+    // Prevent hiding all columns?
+    if (visibleColumnKeys.value.length > 1) {
+      visibleColumnKeys.value.splice(index, 1);
+    }
+  }
+};
 
 // Computed
 const visiblePages = computed(() => {

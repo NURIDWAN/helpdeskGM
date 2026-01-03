@@ -6,6 +6,7 @@ import { useUserStore } from "@/stores/user";
 import { useBranchStore } from "@/stores/branch";
 import { useJobTemplateStore } from "@/stores/jobTemplate";
 import { useAuthStore } from "@/stores/auth";
+import { useWorkOrderStore } from "@/stores/workOrder";
 import { useWorkReportAttachmentStore } from "@/stores/workReportAttachment";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
@@ -41,9 +42,19 @@ const jobTemplateStore = useJobTemplateStore();
 const { jobTemplates } = storeToRefs(jobTemplateStore);
 const { fetchJobTemplates } = jobTemplateStore;
 
+const workOrderStore = useWorkOrderStore();
+const { workOrders } = storeToRefs(workOrderStore);
+const { fetchWorkOrders } = workOrderStore;
+
 const authStore = useAuthStore();
 const { user } = storeToRefs(authStore);
 const isStaff = computed(() => (user.value?.roles || []).includes("staff"));
+const isRegularUser = computed(
+  () =>
+    !isStaff.value &&
+    !(user.value?.roles || []).includes("admin") &&
+    !(user.value?.roles || []).includes("superadmin")
+);
 
 const workReportAttachmentStore = useWorkReportAttachmentStore();
 const { attachments } = storeToRefs(workReportAttachmentStore);
@@ -74,32 +85,57 @@ const statusOptions = [
 
 const form = reactive({
   user_id: null,
+  work_order_id: null,
   job_template_id: null,
   description: null,
   custom_job: null,
   status: "progress",
+  custom_job: null,
+  status: "progress",
 });
+
+const inputType = ref("template"); // 'template' or 'manual'
 
 // Computed property to check if "laporan lainnya" is selected
-const isOtherReportSelected = computed(() => {
-  if (!form.job_template_id) return false;
+// Computed property to check if "laporan lainnya" is selected - NO LONGER USED for UI visibility
+// But kept if needed for validation, though we can use inputType now.
+const isOtherReportSelected = computed(() => inputType.value === 'manual');
 
-  // Check for special "laporan_lainnya" option
-  if (form.job_template_id === "laporan_lainnya") {
-    return true;
-  }
 
-  // Check for existing templates with "lainnya" in name
-  const selectedTemplate = jobTemplates.value.find(
-    (template) => String(template.id) === String(form.job_template_id)
-  );
 
-  return (
-    selectedTemplate?.name?.toLowerCase().includes("lainnya") ||
-    selectedTemplate?.name?.toLowerCase().includes("other") ||
-    selectedTemplate?.name?.toLowerCase().includes("custom")
-  );
+// Computed options for Work Orders (SPK)
+const workOrderOptions = computed(() => {
+  return [
+    ...workOrders.value.map((wo) => ({
+      value: String(wo.id),
+      label: `${wo.number} - ${wo.ticket?.title || 'No Ticket'}`,
+    })),
+    {
+      value: 'other',
+      label: 'Laporan Lainnya / Non-SPK',
+    }
+  ];
 });
+
+// Watch for Work Order changes
+// Watch for Input Type changes to clear hidden fields
+watch(inputType, (newValue) => {
+  if (newValue === 'template') {
+    form.custom_job = ""; // Clear manual input
+  } else {
+    form.job_template_id = null; // Clear template selection
+  }
+});
+
+watch(
+  () => form.work_order_id,
+  (newValue) => {
+    if (newValue === 'other') {
+      // If "Laporan Lainnya" selected in SPK, suggest Manual input
+      inputType.value = 'manual';
+    } 
+  }
+);
 
 const handleSubmit = async () => {
   if (isEdit.value) {
@@ -127,6 +163,7 @@ const handleCreateWorkReport = async () => {
 
     const payload = {
       user_id: form.user_id,
+      work_order_id: form.work_order_id === 'other' ? null : (form.work_order_id || null),
       job_template_id:
         form.job_template_id === "laporan_lainnya"
           ? null
@@ -162,6 +199,7 @@ const handleUpdateWorkReport = async () => {
 
     const payload = {
       user_id: form.user_id,
+      work_order_id: form.work_order_id === 'other' ? null : (form.work_order_id || null),
       job_template_id:
         form.job_template_id === "laporan_lainnya"
           ? null
@@ -207,6 +245,10 @@ const loadWorkReportData = async () => {
       const workReport = await fetchWorkReport(workReportId.value);
       if (workReport) {
         form.user_id = workReport.user?.id;
+        // If work_order_id is null, it might be an "Other" report. We'll set it to 'other' if custom_job is present and no SPK?
+        // Or just leave it null. But to be consistent with UI options:
+        form.work_order_id = workReport.work_order_id ? String(workReport.work_order_id) : (workReport.custom_job ? 'other' : null);
+        
         // If no job template but has custom_job, set to "laporan_lainnya"
         form.job_template_id =
           workReport.job_template?.id ||
@@ -214,14 +256,29 @@ const loadWorkReportData = async () => {
         form.description = workReport.description;
         form.custom_job = workReport.custom_job;
         form.status = workReport.status || "progress";
+        
+        // Set input type based on data
+        if (workReport.custom_job && !workReport.job_template) {
+          inputType.value = "manual";
+        } else {
+          inputType.value = "template";
+        }
       }
     } catch (error) {
       console.error("Error loading work report data:", error);
       router.push({ name: "admin.workreports" });
     }
-  } else if (!isEdit.value && isStaff.value) {
+  } else if (!isEdit.value) {
     // For staff creating new report, auto-set user_id to current user
-    form.user_id = user.value?.id;
+    if (isStaff.value) {
+      form.user_id = user.value?.id;
+    }
+
+    // Pre-fill from query params (e.g. from Job Calendar)
+    if (route.query.job_template_id) {
+        form.job_template_id = String(route.query.job_template_id);
+        inputType.value = 'template';
+    }
   }
 };
 
@@ -243,6 +300,20 @@ const loadJobTemplatesData = async () => {
     await fetchJobTemplates();
   } catch (error) {
     console.error("Error loading job templates:", error);
+  }
+};
+
+const loadWorkOrdersData = async () => {
+  try {
+    // Staff should only see their own work orders ideally, but list all for now or filter
+    // If strict role separation is needed in store fetch
+    // But store fetchWorkOrders currently gets paginated or active?
+    // Using fetchWorkOrders (all without pagination by default if no params, wait, store implementation uses params)
+    // Actually store checks params. If no params, it fetches /work-orders which returns all?
+    // Let's assume it returns list.
+    await fetchWorkOrders(); 
+  } catch (error) {
+    console.error("Error loading work orders:", error);
   }
 };
 
@@ -314,18 +385,12 @@ const closeAttachmentDialog = () => {
 };
 
 // Watch for job template changes to clear custom job when switching away from "laporan lainnya"
-watch(
-  () => form.job_template_id,
-  (newValue, oldValue) => {
-    if (oldValue && !isOtherReportSelected.value) {
-      form.custom_job = "";
-    }
-  }
-);
+
 
 onMounted(() => {
   loadUsersData();
   loadJobTemplatesData();
+  loadWorkOrdersData();
   loadWorkReportData();
   loadAttachmentsData();
 });
@@ -453,61 +518,74 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Branch removed - using default branch -->
+        <!-- Work Order (SPK) -->
+        <div>
+           <FormField
+            v-model="form.work_order_id"
+            id="work_order_id"
+            name="work_order_id"
+            label="Nomor SPK / Work Order"
+            :label-icon="FileText"
+            :error="error?.work_order_id?.join(', ')"
+            type="select"
+            placeholder="Pilih SPK (Opsional)"
+            :options="workOrderOptions"
+          />
+        </div>
 
         <!-- Job Template -->
-        <div>
+
+
+        <!-- Job Input Type Switch -->
+        <div class="lg:col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <label class="block text-sm font-medium text-gray-700 mb-3">Tipe Pekerjaan</label>
+          <div class="flex items-center gap-6">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model="inputType" value="template" class="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+              <span class="text-sm text-gray-700">Pilih dari Template</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model="inputType" value="manual" class="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+              <span class="text-sm text-gray-700">Input Manual / Lainnya</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Job Template Input -->
+        <div v-if="inputType === 'template'">
           <FormField
             v-model="form.job_template_id"
             id="job_template_id"
             name="job_template_id"
-            label="Jenis Pekerjaan"
+            label="Pilih Template Job"
             :label-icon="ClipboardList"
             :error="error?.job_template_id?.join(', ')"
             type="select"
-            placeholder="Pilih jenis pekerjaan (opsional)"
-            :options="[
-              ...jobTemplates.map((j) => ({
-                value: String(j.id),
-                label: j.name + ' (' + j.frequency + ')',
-              })),
-              {
-                value: 'laporan_lainnya',
-                label: 'Laporan Lainnya (Custom)',
-              },
-            ]"
+            placeholder="Pilih template"
+            :options="
+              jobTemplates.map((t) => ({ value: String(t.id), label: t.name }))
+            "
           />
-          <p class="text-xs text-gray-500 mt-1">
-            💡 Pilih "laporan lainnya" untuk mengaktifkan field pekerjaan lainnya
-          </p>
         </div>
 
-        <!-- Custom Job - Only show when "laporan lainnya" is selected -->
-        <div v-if="isOtherReportSelected" class="lg:col-span-2">
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <div class="flex items-center gap-2 mb-2">
-              <Briefcase :size="16" class="text-blue-600" />
-              <span class="text-sm font-medium text-blue-800"
-                >Pekerjaan Lainnya Aktif</span
-              >
-            </div>
-            <p class="text-xs text-blue-700 mb-3">
-              Field ini aktif karena Anda memilih "laporan lainnya". Masukkan
-              pekerjaan tambahan yang ingin dilaporkan.
-            </p>
-            <FormField
+        <!-- Custom Job Input -->
+        <div v-if="inputType === 'manual'" class="lg:col-span-2">
+           <FormField
               v-model="form.custom_job"
               id="custom_job"
               name="custom_job"
-              label="Pekerjaan Lainnya"
+              label="Nama Pekerjaan"
               :label-icon="Briefcase"
               :error="error?.custom_job?.join(', ')"
               type="text"
-              placeholder="Masukkan pekerjaan Lainnya"
+              placeholder="Masukkan nama pekerjaan"
               :required="true"
             />
-          </div>
+            <p class="mt-1 text-xs text-gray-500">Masukkan detail pekerjaan secara manual.</p>
         </div>
+
+
+
 
         <!-- Status -->
         <div>

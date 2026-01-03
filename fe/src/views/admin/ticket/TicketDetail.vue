@@ -16,6 +16,7 @@ import {
   Eye,
   Send,
   Calendar,
+  Tag,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { can } from "@/helpers/permissionHelper";
@@ -415,13 +416,21 @@ onUnmounted(() => {
       :icon="FileText"
     >
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Title -->
+        <!-- Category & Description -->
         <div class="lg:col-span-2">
           <div class="flex items-start justify-between">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900 mb-2">
-                {{ ticket.title }}
-              </h2>
+              <div class="mb-3" v-if="ticket.category">
+                <span 
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-semibold"
+                  :style="{ 
+                    backgroundColor: (ticket.category.color || '#6B7280') + '20',
+                    color: ticket.category.color || '#6B7280'
+                  }"
+                >
+                  {{ ticket.category.name }}
+                </span>
+              </div>
               <p class="text-gray-600 leading-relaxed">
                 {{ ticket.description }}
               </p>
@@ -608,7 +617,7 @@ onUnmounted(() => {
           Diskusi dan pembaruan status tiket.
         </div>
         <div
-          v-if="canInteractWithTicket && ticket"
+          v-if="canInteractWithTicket && ticket && !isStaff"
           class="flex items-center gap-3"
         >
           <label class="text-sm text-gray-700">Status:</label>

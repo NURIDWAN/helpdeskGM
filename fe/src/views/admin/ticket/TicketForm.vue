@@ -3,6 +3,7 @@ import { reactive, onMounted, computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTicketStore } from "@/stores/ticket";
 import { useBranchStore } from "@/stores/branch";
+import { useTicketCategoryStore } from "@/stores/ticketCategory";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
 import MultiSelect from "@/components/common/MultiSelect.vue";
@@ -16,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   User,
+  Tag,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "@/stores/user";
@@ -33,6 +35,9 @@ const branchStore = useBranchStore();
 const { branches } = storeToRefs(branchStore);
 const { fetchBranches } = branchStore;
 
+const categoryStore = useTicketCategoryStore();
+const { categories } = storeToRefs(categoryStore);
+
 const userStore = useUserStore();
 const { users } = storeToRefs(userStore);
 const { fetchUsers } = userStore;
@@ -49,9 +54,9 @@ const showAttachmentDialog = ref(false);
 const selectedAttachment = ref(null);
 
 const form = reactive({
-  title: "",
   description: "",
   branch_id: "",
+  category_id: "",
   priority: "",
   status: "",
   assigned_staff: [],
@@ -73,9 +78,9 @@ const statuses = [
 const handleSubmit = async () => {
   try {
     const payload = {
-      title: form.title.trim(),
       description: form.description.trim(),
       branch_id: form.branch_id,
+      category_id: form.category_id,
       priority: form.priority,
       assigned_staff: form.assigned_staff,
     };
@@ -103,9 +108,9 @@ const loadTicketData = async () => {
       console.log(ticket);
 
       if (ticket) {
-        form.title = ticket.title;
         form.description = ticket.description;
         form.branch_id = ticket.branch?.id;
+        form.category_id = ticket.category?.id || "";
         form.priority = ticket.priority;
         form.status = ticket.status;
         form.assigned_staff = ticket.assigned_staff?.map((staff) => staff.id);
@@ -155,9 +160,18 @@ const closeAttachmentDialog = () => {
   selectedAttachment.value = null;
 };
 
+const loadCategoriesData = async () => {
+  try {
+    await categoryStore.fetchCategories({ is_active: true, row_per_page: 'all' });
+  } catch (error) {
+    console.error("Error loading categories:", error);
+  }
+};
+
 onMounted(() => {
   loadBranchesData();
   loadUsersData();
+  loadCategoriesData();
   loadTicketData();
   loadAttachmentsData();
 });
@@ -211,17 +225,21 @@ onMounted(() => {
   >
     <form @submit.prevent="handleSubmit">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Title -->
+        <!-- Category -->
         <div class="lg:col-span-2">
           <FormField
-            v-model="form.title"
-            id="title"
-            name="title"
-            label="Judul"
-            :label-icon="FileText"
-            placeholder="Masukkan judul ticket"
-            :error="error?.title?.join(', ')"
+            v-model="form.category_id"
+            id="category_id"
+            name="category_id"
+            label="Kategori"
+            :label-icon="Tag"
+            :error="error?.category_id?.join(', ')"
             :required="true"
+            type="select"
+            placeholder="Pilih kategori"
+            :options="
+              categories.map((c) => ({ value: String(c.id), label: c.name }))
+            "
           />
         </div>
 
@@ -231,9 +249,9 @@ onMounted(() => {
             v-model="form.description"
             id="description"
             name="description"
-            label="Deskripsi"
+            label="Detail Permasalahan"
             :label-icon="MessageSquare"
-            placeholder="Jelaskan masalah atau kebutuhan"
+            placeholder="Jelaskan detail masalah atau kebutuhan"
             :error="error?.description?.join(', ')"
             :required="true"
             type="textarea"
@@ -302,7 +320,7 @@ onMounted(() => {
           </label>
           <MultiSelect
             v-model="form.assigned_staff"
-            :options="users.map((u) => ({ value: u.id, label: u.name }))"
+            :options="users.map((u) => ({ value: u.id, label: u.branch ? `${u.name} (${u.branch.name})` : u.name }))"
             placeholder="Pilih staff (bisa lebih dari satu)"
           />
           <p v-if="error?.assigned_staff" class="mt-2 text-sm text-red-600">

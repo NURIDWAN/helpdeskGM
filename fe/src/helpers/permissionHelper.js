@@ -19,3 +19,9 @@ export const canOneOf = permissions => {
 
   return permissions.some(permission => userPermissions.includes(permission));
 };
+
+export const hasRole = role => {
+  const authStore = useAuthStore();
+  const userRoles = authStore.user?.roles || [];
+  return userRoles.includes(role);
+};

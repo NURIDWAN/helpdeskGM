@@ -22,7 +22,7 @@ export const useUserStore = defineStore("user", {
             this.loading = true
 
             try {
-                const response = await axiosInstance.get(`users`, { params })
+                const response = await axiosInstance.get(`/users`, { params })
 
                 this.users = response.data.data
 
