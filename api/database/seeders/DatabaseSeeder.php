@@ -17,10 +17,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             UserSeeder::class,
             WhatsAppTemplateSeeder::class,
-            TicketCategorySeeder::class, // Add ticket categories
-            DummyDataSeeder::class,
-            ElectricityMeterSeeder::class,
-            DailyRecordSeeder::class,
+            
         ]);
     }
 }
