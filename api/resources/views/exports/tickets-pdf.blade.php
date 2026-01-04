@@ -174,7 +174,7 @@
                 <th style="width: 3%">No</th>
                 <th style="width: 12%">Kode</th>
                 <th style="width: 10%">Kategori</th>
-                <th style="width: 15%">Judul</th>
+                <th style="width: 15%">Deskripsi</th>
                 <th style="width: 10%">Pelapor</th>
                 <th style="width: 10%">Cabang</th>
                 <th style="width: 8%">Status</th>
@@ -198,7 +198,7 @@
                     <td>{{ $index + 1 }}</td>
                     <td>{{ $ticket->code }}</td>
                     <td>{{ $ticket->category->name ?? '-' }}</td>
-                    <td>{{ Str::limit($ticket->title, 30) }}</td>
+                    <td>{{ Str::limit($ticket->description, 30) }}</td>
                     <td>{{ $ticket->user->name ?? '-' }}</td>
                     <td>{{ $ticket->branch->name ?? '-' }}</td>
                     <td class="status-{{ $status }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</td>

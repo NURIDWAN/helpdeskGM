@@ -27,9 +27,8 @@ class UserResource extends JsonResource
             'roles' => $this->whenLoaded('roles', function () {
                 return $this->roles->pluck('name');
             }),
-            'permissions' => $this->whenLoaded('permissions', function () {
-                return $this->getAllPermissions()->pluck('name');
-            }),
+            // Always load all permissions (from both direct assignment and roles)
+            'permissions' => $this->getAllPermissions()->pluck('name'),
             'token' => $this->when(isset($this->token), $this->token),
             'created_at' => $this->created_at,
         ];

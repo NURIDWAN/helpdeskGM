@@ -13,11 +13,13 @@ class JobTemplate extends Model
         'description',
         'frequency',
         'is_active',
+        'schedule_details',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'frequency' => JobTemplateFrequency::class,
+        'schedule_details' => 'array',
     ];
 
     public function branches()

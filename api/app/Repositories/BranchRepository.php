@@ -54,6 +54,7 @@ class BranchRepository implements BranchRepositoryInterface
     {
         return DB::transaction(function () use ($data) {
             $branch = new Branch();
+            $branch->code = $data['code'] ?? null;
             $branch->name = $data['name'];
             $branch->address = $data['address'];
 
@@ -93,6 +94,7 @@ class BranchRepository implements BranchRepositoryInterface
             }
 
             $branch->fill([
+                'code' => $data['code'] ?? $branch->code,
                 'name' => $data['name'] ?? $branch->name,
                 'address' => $data['address'] ?? $branch->address,
                 'logo' => $data['logo'] ?? $branch->logo,

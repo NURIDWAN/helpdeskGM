@@ -43,16 +43,31 @@ class RoleSeeder extends Seeder
         // Superadmin gets ALL permissions
         $superadmin->syncPermissions($allPermissions);
 
-        // Admin gets all permissions EXCEPT role-*, whatsapp-setting-*, user-activity-*
+        // Admin gets all permissions EXCEPT role-create/edit/delete, whatsapp-setting-*, user-activity-*
+        // Admin CAN use role-list and role-menu for viewing roles (dropdown in user forms)
         $adminPermissions = $allPermissions->filter(function ($permission) {
-            return !str_starts_with($permission->name, 'role-') &&
-                !str_starts_with($permission->name, 'whatsapp-setting-') &&
+            // Exclude role-create, role-edit, role-delete (but allow role-list, role-menu)
+            if (in_array($permission->name, ['role-create', 'role-edit', 'role-delete'])) {
+                return false;
+            }
+            return !str_starts_with($permission->name, 'whatsapp-setting-') &&
                 !str_starts_with($permission->name, 'user-activity-');
         });
         $admin->syncPermissions($adminPermissions);
 
         // Staff permissions - operational access
         $staffPermissions = [
+            // dashboard (basic view)
+            'dashboard-menu',
+            'dashboard-view',
+            // branches (readonly for dropdowns)
+            'branch-list',
+            // ticket categories (for ticket forms)
+            'ticket-category-list',
+            // job templates (for work orders/reports)
+            'job-template-list',
+            // users (readonly for dropdowns/assign)
+            'user-list',
             // tickets
             'ticket-menu',
             'ticket-list',
@@ -79,24 +94,14 @@ class RoleSeeder extends Seeder
             'work-report-attachment-list',
             'work-report-attachment-create',
             'work-report-attachment-delete',
-            // daily records
-            'daily-record-menu',
-            'daily-record-list',
-            'daily-record-create',
-            'daily-record-edit',
-            // utility readings
-            'utility-reading-list',
-            'utility-reading-create',
-            'utility-reading-edit',
-            // electricity readings
-            'electricity-reading-list',
-            'electricity-reading-create',
-            'electricity-reading-edit',
+            // NOTE: daily-record, utility-reading, electricity-reading removed for staff
         ];
         $staff->syncPermissions(Permission::whereIn('name', $staffPermissions)->get());
 
         // User permissions - basic ticket access only
         $userPermissions = [
+            // ticket categories (for dropdown in ticket form)
+            'ticket-category-list',
             // tickets
             'ticket-menu',
             'ticket-list',
@@ -108,6 +113,21 @@ class RoleSeeder extends Seeder
             'ticket-attachment-list',
             'ticket-attachment-create',
             'ticket-attachment-delete',
+            // resources needed for forms
+            'branch-list',
+            'user-list',
+            'electricity-meter-list',
+            // daily reports
+            'daily-record-menu',
+            'daily-record-list',
+            'daily-record-create',
+            'daily-record-edit',
+            'utility-reading-list',
+            'utility-reading-create',
+            'utility-reading-edit',
+            'electricity-reading-list',
+            'electricity-reading-create',
+            'electricity-reading-edit',
         ];
         $user->syncPermissions(Permission::whereIn('name', $userPermissions)->get());
     }

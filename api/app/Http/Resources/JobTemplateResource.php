@@ -20,6 +20,7 @@ class JobTemplateResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'frequency' => $this->frequency,
+            'schedule_details' => $this->schedule_details,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

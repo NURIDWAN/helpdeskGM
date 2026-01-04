@@ -15,6 +15,12 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasRoles, HasApiTokens;
 
     /**
+     * Guard name for Spatie Permission.
+     * Must match the guard used when creating permissions/roles.
+     */
+    protected $guard_name = 'sanctum';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

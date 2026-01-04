@@ -155,6 +155,7 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
             $jobTemplate->description = $data['description'];
             $jobTemplate->frequency = $data['frequency'];
             $jobTemplate->is_active = $data['is_active'] ?? true;
+            $jobTemplate->schedule_details = $data['schedule_details'] ?? null;
             $jobTemplate->save();
 
             // Handle branch assignments
@@ -183,6 +184,7 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
                 'description' => $data['description'] ?? $jobTemplate->description,
                 'frequency' => $data['frequency'] ?? $jobTemplate->frequency,
                 'is_active' => $data['is_active'] ?? $jobTemplate->is_active,
+                'schedule_details' => $data['schedule_details'] ?? $jobTemplate->schedule_details,
             ];
 
             $jobTemplate->fill($update)->save();

@@ -65,7 +65,8 @@ class JobScheduleController extends Controller
                     $startOfMonth,
                     $endOfMonth,
                     $branch->pivot->started_at ? Carbon::parse($branch->pivot->started_at) : null,
-                    $branch->pivot->ended_at ? Carbon::parse($branch->pivot->ended_at) : null
+                    $branch->pivot->ended_at ? Carbon::parse($branch->pivot->ended_at) : null,
+                    $template->schedule_details
                 );
 
                 foreach ($dates as $date) {
@@ -116,7 +117,8 @@ class JobScheduleController extends Controller
         Carbon $startOfMonth,
         Carbon $endOfMonth,
         ?Carbon $startedAt,
-        ?Carbon $endedAt
+        ?Carbon $endedAt,
+        ?array $scheduleDetails = null
     ): array {
         $dates = [];
         $current = $startOfMonth->copy();
@@ -139,24 +141,44 @@ class JobScheduleController extends Controller
                 break;
 
             case 'weekly':
-                // Every Monday
-                $monday = $current->copy()->startOfWeek();
-                if ($monday->lt($current)) {
-                    $monday->addWeek();
+                $targetDays = $scheduleDetails['days'] ?? ['monday'];
+                // Ensure targetDays are lowercase
+                $targetDays = array_map('strtolower', $targetDays);
+
+                $iter = $startOfMonth->copy();
+                // If startedAt is after start of month, use that as start point for checking
+                if ($startedAt && $startedAt->gt($iter)) {
+                    $iter = $startedAt->copy()->startOfDay();
                 }
-                while ($monday->lte($endOfMonth)) {
-                    if ($monday->gte($startOfMonth) && (!$endedAt || $monday->lte($endedAt))) {
-                        $dates[] = $monday->copy();
+
+                while ($iter->lte($endOfMonth)) {
+                    // Check if current day name is in target days
+                    if (in_array(strtolower($iter->format('l')), $targetDays)) {
+                        if (!$endedAt || $iter->lte($endedAt)) {
+                            $dates[] = $iter->copy();
+                        }
                     }
-                    $monday->addWeek();
+                    $iter->addDay();
                 }
                 break;
 
             case 'monthly':
-                // First day of month
-                $firstDay = $startOfMonth->copy()->startOfMonth();
-                if ($firstDay->gte($startOfMonth) && (!$endedAt || $firstDay->lte($endedAt))) {
-                    $dates[] = $firstDay->copy();
+                $targetDates = $scheduleDetails['dates'] ?? [1];
+                // Ensure ints
+                $targetDates = array_map('intval', $targetDates);
+
+                $iter = $startOfMonth->copy();
+                if ($startedAt && $startedAt->gt($iter)) {
+                    $iter = $startedAt->copy()->startOfDay();
+                }
+
+                while ($iter->lte($endOfMonth)) {
+                    if (in_array($iter->day, $targetDates)) {
+                        if (!$endedAt || $iter->lte($endedAt)) {
+                            $dates[] = $iter->copy();
+                        }
+                    }
+                    $iter->addDay();
                 }
                 break;
 
@@ -185,6 +207,14 @@ class JobScheduleController extends Controller
                 // No scheduled dates for on-demand jobs
                 break;
         }
+
+        // Filter out dates before startOfMonth if startedAt caused iter loop to allow earlier dates? 
+        // Logic above uses $iter starting max(startOfMonth, startedAt). So should be safe.
+        // Wait, for daily loop I used $current which was set to startOfDay of startedAt.
+        // But the while condition $current->lte($endOfMonth) handles the end. 
+        // Need to make sure we don't include dates before startOfMonth if startOfMonth > startedAt.
+        // My logic resets $iter to startOfMonth initially. Then checks if startedAt > iter.
+        // So dates will always be >= startOfMonth. Correct.
 
         return $dates;
     }

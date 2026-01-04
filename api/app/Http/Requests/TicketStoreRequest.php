@@ -17,7 +17,6 @@ class TicketStoreRequest extends FormRequest
     {
         return [
             'user_id' => ['required', 'exists:users,id'],
-            'title' => ['nullable', 'string', 'max:255'],
             'description' => ['required', 'string'],
             'status' => ['sometimes', 'string', 'in:' . implode(',', TicketStatus::values())],
             'priority' => ['sometimes', 'string', 'in:' . implode(',', TicketPriority::values())],
@@ -33,7 +32,6 @@ class TicketStoreRequest extends FormRequest
     {
         return [
             'user_id' => 'User',
-            'title' => 'Judul Tiket',
             'description' => 'Deskripsi',
             'status' => 'Status',
             'priority' => 'Prioritas',
@@ -54,9 +52,10 @@ class TicketStoreRequest extends FormRequest
         // Admins can select any branch from the form
         $user = $this->user();
         if (!$this->has('branch_id') || !$this->branch_id) {
-            if ($user->branch) {
+            // Use branch_id directly instead of branch->id to avoid null error
+            if ($user->branch_id) {
                 $this->merge([
-                    'branch_id' => $user->branch->id,
+                    'branch_id' => $user->branch_id,
                 ]);
             }
         }

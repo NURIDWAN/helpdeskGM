@@ -19,13 +19,13 @@ class UserUpdateRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,' . $this->user],
             'password' => ['sometimes', 'string', 'min:8'],
-            'branch_id' => ['sometimes', 'exists:branches,id'],
-            'position' => ['sometimes', 'string', 'max:255'],
-            'identity_number' => ['sometimes', 'string', 'max:255', 'unique:users,identity_number,' . $this->user],
-            'phone_number' => ['sometimes', 'string', 'regex:/^08[0-9]{8,12}$/', 'max:15'],
+            'branch_id' => ['sometimes', 'nullable', 'exists:branches,id'],
+            'position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'identity_number' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:users,identity_number,' . $this->user],
+            'phone_number' => ['sometimes', 'nullable', 'string', 'max:15'],
             'type' => ['sometimes', Rule::in(array_column(UserType::cases(), 'value'))],
             'roles' => ['sometimes', 'array'],
-            'roles.*' => ['sometimes', 'string', Rule::exists('roles', 'name')],
+            'roles.*' => ['string', Rule::exists('roles', 'name')],
         ];
     }
 

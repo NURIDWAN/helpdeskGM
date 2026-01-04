@@ -17,7 +17,6 @@ class TicketUpdateRequest extends FormRequest
     {
         return [
             'user_id' => ['sometimes', 'exists:users,id'],
-            'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['sometimes', 'string'],
             'status' => ['sometimes', 'string', 'in:' . implode(',', TicketStatus::values())],
             'priority' => ['sometimes', 'string', 'in:' . implode(',', TicketPriority::values())],
@@ -33,7 +32,6 @@ class TicketUpdateRequest extends FormRequest
     {
         return [
             'user_id' => 'User',
-            'title' => 'Judul Tiket',
             'description' => 'Deskripsi',
             'status' => 'Status',
             'priority' => 'Prioritas',

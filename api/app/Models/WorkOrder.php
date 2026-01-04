@@ -38,7 +38,7 @@ class WorkOrder extends Model
             $q->where('number', 'like', '%' . $search . '%')
                 ->orWhere('description', 'like', '%' . $search . '%')
                 ->orWhereHas('ticket', function ($ticketQuery) use ($search) {
-                    $ticketQuery->where('title', 'like', '%' . $search . '%')
+                    $ticketQuery->where('description', 'like', '%' . $search . '%')
                         ->orWhere('code', 'like', '%' . $search . '%');
                 })
                 ->orWhereHas('assignedUser', function ($userQuery) use ($search) {

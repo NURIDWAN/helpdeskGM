@@ -19,6 +19,7 @@ class JobTemplateUpdateRequest extends FormRequest
             'description' => ['sometimes', 'string'],
             'frequency' => ['sometimes', 'string', 'in:' . implode(',', array_column(JobTemplateFrequency::cases(), 'value'))],
             'is_active' => ['sometimes', 'boolean'],
+            'schedule_details' => ['nullable', 'array'],
             'branches' => ['sometimes', 'array'],
             'branches.*.branch_id' => ['required', 'exists:branches,id'],
         ];

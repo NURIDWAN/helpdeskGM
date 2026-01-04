@@ -14,10 +14,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PermissionSeeder::class,
             RoleSeeder::class,
-            RolePermissionSeeder::class,
+            BranchSeeder::class,
             UserSeeder::class,
             WhatsAppTemplateSeeder::class,
-            
+
         ]);
     }
 }

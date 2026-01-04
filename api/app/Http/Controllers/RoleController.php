@@ -91,14 +91,22 @@ class RoleController extends Controller implements HasMiddleware
     {
         try {
             $permissions = Permission::orderBy('name')->get()->map(function ($permission) {
-                // Group by module (first part of permission name)
+                // Group by module - extract all parts except the last one (action)
+                // e.g., "ticket-category-list" -> module = "ticket-category", action = "list"
+                // e.g., "ticket-list" -> module = "ticket", action = "list"
                 $parts = explode('-', $permission->name);
-                $module = $parts[0] ?? 'other';
+
+                // The last part is the action (list, create, edit, delete, menu, etc.)
+                $action = array_pop($parts);
+
+                // Everything else is the module name
+                $module = count($parts) > 0 ? implode('-', $parts) : 'other';
 
                 return [
                     'id' => $permission->id,
                     'name' => $permission->name,
                     'module' => $module,
+                    'action' => $action,
                 ];
             });
 

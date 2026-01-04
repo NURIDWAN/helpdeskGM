@@ -23,7 +23,7 @@ class WorkReportStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'branch_id' => ['required', 'exists:branches,id'],
+            'branch_id' => ['nullable', 'exists:branches,id'],
             'work_order_id' => ['nullable', 'exists:work_orders,id'],
             'job_template_id' => ['nullable', 'exists:job_templates,id'],
             'description' => ['nullable', 'string'],
@@ -57,10 +57,11 @@ class WorkReportStoreRequest extends FormRequest
         }
 
         // Fallback: get branch from logged in user
-        if ($this->user()->branch) {
+        if ($this->user() && $this->user()->branch_id) {
             $this->merge([
-                'branch_id' => $this->user()->branch->id
+                'branch_id' => $this->user()->branch_id
             ]);
         }
+        // If no branch found, branch_id will be null (now allowed)
     }
 }

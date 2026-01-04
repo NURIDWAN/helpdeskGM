@@ -35,7 +35,6 @@ class TicketRepository implements TicketRepositoryInterface
             ->where(function ($query) use ($search) {
                 if ($search) {
                     $query->where('code', 'like', '%' . $search . '%')
-                        ->orWhere('title', 'like', '%' . $search . '%')
                         ->orWhere('description', 'like', '%' . $search . '%');
                 }
             });
@@ -188,7 +187,6 @@ class TicketRepository implements TicketRepositoryInterface
             $ticket = new Ticket();
             $ticket->user_id = $data['user_id'];
             $ticket->code = $this->generateTicketCode($data['branch_id'] ?? null);
-            $ticket->title = $data['title'] ?? null;
             $ticket->description = $data['description'];
             $ticket->status = $data['status'] ?? TicketStatus::OPEN;
             $ticket->priority = $data['priority'] ?? TicketPriority::LOW;
@@ -270,7 +268,6 @@ class TicketRepository implements TicketRepositoryInterface
             } else {
                 $update = [
                     'user_id' => $data['user_id'] ?? $ticket->user_id,
-                    'title' => $data['title'] ?? $ticket->title,
                     'description' => $data['description'] ?? $ticket->description,
                     'status' => $data['status'] ?? $ticket->status,
                     'priority' => $data['priority'] ?? $ticket->priority,

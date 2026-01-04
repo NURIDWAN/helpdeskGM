@@ -38,9 +38,10 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('tickets', TicketController::class);
         Route::get('tickets/all/paginated', [TicketController::class, 'getAllPaginated']);
-        Route::get('tickets/code/{code}', [TicketController::class, 'showByCode']);
+        Route::get('tickets/code/{code}', [TicketController::class, 'showByCode'])->where('code', '.*');
         Route::get('tickets/export/pdf', [TicketController::class, 'exportPdf']);
         Route::get('tickets/export/excel', [TicketController::class, 'exportExcel']);
+        Route::put('tickets/{id}/close', [TicketController::class, 'closeTicket']);
 
         Route::get('tickets/{ticketId}/attachments', [TicketAttachmentController::class, 'index']);
         Route::post('tickets/{ticketId}/attachments', [TicketAttachmentController::class, 'store']);

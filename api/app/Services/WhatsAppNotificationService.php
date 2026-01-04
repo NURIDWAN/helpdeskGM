@@ -333,7 +333,7 @@ class WhatsAppNotificationService
 
             // Build message
             $ticket = $workOrder->ticket;
-            $ticketInfo = $ticket ? "Tiket: {$ticket->code} - {$ticket->title}" : "SPK Standalone";
+            $ticketInfo = $ticket ? "Tiket: {$ticket->code} - " . ($ticket->category ? $ticket->category->name : 'Tiket') : "SPK Standalone";
             $branchName = $ticket && $ticket->branch ? $ticket->branch->name : 'Tidak ditentukan';
 
             $message = "📋 *SPK BARU* 📋\n\n" .
@@ -513,7 +513,7 @@ class WhatsAppNotificationService
             // Common replacements
             $replacements = [
                 '{ticket_code}' => $ticket->code,
-                '{title}' => $ticket->title,
+                '{title}' => $ticket->category ? $ticket->category->name : 'Tiket',
                 '{reporter_name}' => $ticket->user->name,
                 '{branch_name}' => $branchName,
                 '{priority}' => $priorityText,
@@ -543,7 +543,7 @@ class WhatsAppNotificationService
             'ticket_assigned' => $this->buildAssignmentMessageFallback($ticket, $extraData['staff_name'] ?? ''),
             'ticket_unassigned_user_alert' => "Tiket {$ticket->code} belum di-assign. Hubungi Admin.",
             'ticket_unassigned_admin_alert' => "Alert: Tiket {$ticket->code} belum di-assign > 1 jam.",
-            default => "Notifikasi Tiket: {$ticket->code} - {$ticket->title}"
+            default => "Notifikasi Tiket: {$ticket->code} - " . ($ticket->category ? $ticket->category->name : 'Tiket')
         };
     }
 
@@ -625,7 +625,8 @@ class WhatsAppNotificationService
 
     private function buildNewTicketMessageFallback(Ticket $ticket): string
     {
-        return "🚨 *TIKET BARU* 🚨\nKode: {$ticket->code}\nJudul: {$ticket->title}\nMohon dicek.";
+        $categoryName = $ticket->category ? $ticket->category->name : 'Tiket';
+        return "🚨 *TIKET BARU* 🚨\nKode: {$ticket->code}\nKategori: {$categoryName}\nMohon dicek.";
     }
 
     private function buildStatusUpdateMessageFallback(Ticket $ticket, string $oldStatusText): string
