@@ -124,7 +124,7 @@ const loadTicketsData = async () => {
 
 // Computed property to filter tickets without work orders
 const availableTickets = computed(() => {
-  return tickets.value.filter(ticket => !ticket.work_order);
+  return tickets.value.filter(ticket => !ticket.work_order && ticket.status !== 'closed');
 });
 
 const loadUsersData = async () => {

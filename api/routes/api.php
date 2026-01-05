@@ -70,7 +70,6 @@ Route::prefix('v1')->group(function () {
         Route::post('work-reports/{workReportId}/attachments', [WorkReportAttachmentController::class, 'store']);
         Route::delete('work-reports/{workReportId}/attachments/{id}', [WorkReportAttachmentController::class, 'destroy']);
 
-        Route::apiResource('daily-records', DailyRecordController::class);
         Route::get('daily-records/all/paginated', [DailyRecordController::class, 'getAllPaginated']);
         Route::get('daily-records/export/pdf', [DailyRecordController::class, 'exportPdf']);
         Route::get('daily-records/export/excel', [DailyRecordController::class, 'exportExcel']);
@@ -78,6 +77,8 @@ Route::prefix('v1')->group(function () {
         Route::get('daily-records/report/daily-usage', [DailyRecordController::class, 'getDailyUsageReport']);
         Route::get('daily-records/report/daily-usage/export', [DailyRecordController::class, 'exportDailyUsageReport']);
         Route::get('daily-records/report/daily-usage/export/pdf', [DailyRecordController::class, 'exportDailyUsageReportPdf']);
+
+        Route::apiResource('daily-records', DailyRecordController::class);
 
         Route::apiResource('utility-readings', UtilityReadingController::class);
         Route::get('utility-readings/all/paginated', [UtilityReadingController::class, 'getAllPaginated']);

@@ -140,7 +140,7 @@
                         <th colspan="5" class="category-header">LAPORAN AIR</th>
                     @endif
                     @if ($category === 'electricity' || $category === 'all')
-                        <th colspan="12" class="category-header">LAPORAN LISTRIK</th>
+                        <th colspan="6" class="category-header">LAPORAN LISTRIK</th>
                     @endif
                 </tr>
                 {{-- Row 2: Sub Headers --}}
@@ -164,15 +164,10 @@
                     @if ($category === 'electricity' || $category === 'all')
                         <th>Nama</th>
                         <th>Lokasi</th>
-                        <th>WBP<br>Opening</th>
-                        <th>LWBP<br>Opening</th>
-                        <th>WBP<br>Closing</th>
-                        <th>LWBP<br>Closing</th>
-                        <th>Pemakaian<br>WBP</th>
-                        <th>Pemakaian<br>LWBP</th>
-                        <th>Total<br>Pemakaian</th>
-                        <th>Foto<br>WBP</th>
-                        <th>Foto<br>LWBP</th>
+                        <th>Opening</th>
+                        <th>Closing</th>
+                        <th>Pemakaian</th>
+                        <th>Foto</th>
                     @endif
                 </tr>
             </thead>
@@ -234,23 +229,12 @@
                         @if ($category === 'electricity' || $category === 'all')
                             <td class="text-left">{{ $firstElec['meter_name'] ?? 'Meter 1' }}</td>
                             <td class="text-left">{{ $firstElec['location'] ?? '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['wbp_opening']) ? number_format($firstElec['wbp_opening'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['lwbp_opening']) ? number_format($firstElec['lwbp_opening'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['wbp_closing']) ? number_format($firstElec['wbp_closing'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['lwbp_closing']) ? number_format($firstElec['lwbp_closing'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['wbp_usage']) ? number_format($firstElec['wbp_usage'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['lwbp_usage']) ? number_format($firstElec['lwbp_usage'], 2) : '-' }}</td>
-                            <td class="text-right">{{ $firstElec && isset($firstElec['total_usage']) ? number_format($firstElec['total_usage'], 2) : '-' }}</td>
+                            <td class="text-right">{{ $firstElec && isset($firstElec['opening']) ? number_format($firstElec['opening'], 2) : '-' }}</td>
+                            <td class="text-right">{{ $firstElec && isset($firstElec['closing']) ? number_format($firstElec['closing'], 2) : '-' }}</td>
+                            <td class="text-right">{{ $firstElec && isset($firstElec['usage']) ? number_format($firstElec['usage'], 2) : '-' }}</td>
                             <td class="photo-cell">
-                                @if ($firstElec && isset($firstElec['photo_wbp_path']) && $firstElec['photo_wbp_path'])
-                                    <a href="{{ asset('storage/' . $firstElec['photo_wbp_path']) }}" class="photo-link" target="_blank">Foto WBP</a>
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            <td class="photo-cell">
-                                @if ($firstElec && isset($firstElec['photo_lwbp_path']) && $firstElec['photo_lwbp_path'])
-                                    <a href="{{ asset('storage/' . $firstElec['photo_lwbp_path']) }}" class="photo-link" target="_blank">Foto LWBP</a>
+                                @if ($firstElec && isset($firstElec['photo_path']) && $firstElec['photo_path'])
+                                    <a href="{{ asset('storage/' . $firstElec['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
                                 @else
                                     -
                                 @endif
@@ -272,23 +256,12 @@
                                 @php $elec = isset($elecFiltered[$i]) ? $elecFiltered[$i] : null; @endphp
                                 <td class="text-left">{{ $elec['meter_name'] ?? ('Meter ' . ($i + 1)) }}</td>
                                 <td class="text-left">{{ $elec['location'] ?? '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['wbp_opening']) ? number_format($elec['wbp_opening'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['lwbp_opening']) ? number_format($elec['lwbp_opening'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['wbp_closing']) ? number_format($elec['wbp_closing'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['lwbp_closing']) ? number_format($elec['lwbp_closing'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['wbp_usage']) ? number_format($elec['wbp_usage'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['lwbp_usage']) ? number_format($elec['lwbp_usage'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['total_usage']) ? number_format($elec['total_usage'], 2) : '-' }}</td>
+                                <td class="text-right">{{ $elec && isset($elec['opening']) ? number_format($elec['opening'], 2) : '-' }}</td>
+                                <td class="text-right">{{ $elec && isset($elec['closing']) ? number_format($elec['closing'], 2) : '-' }}</td>
+                                <td class="text-right">{{ $elec && isset($elec['usage']) ? number_format($elec['usage'], 2) : '-' }}</td>
                                 <td class="photo-cell">
-                                    @if ($elec && isset($elec['photo_wbp_path']) && $elec['photo_wbp_path'])
-                                        <a href="{{ asset('storage/' . $elec['photo_wbp_path']) }}" class="photo-link" target="_blank">Foto WBP</a>
-                                    @else
-                                        -
-                                    @endif
-                                </td>
-                                <td class="photo-cell">
-                                    @if ($elec && isset($elec['photo_lwbp_path']) && $elec['photo_lwbp_path'])
-                                        <a href="{{ asset('storage/' . $elec['photo_lwbp_path']) }}" class="photo-link" target="_blank">Foto LWBP</a>
+                                    @if ($elec && isset($elec['photo_path']) && $elec['photo_path'])
+                                        <a href="{{ asset('storage/' . $elec['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
                                     @else
                                         -
                                     @endif

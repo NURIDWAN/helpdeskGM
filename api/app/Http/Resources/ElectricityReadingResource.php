@@ -18,10 +18,8 @@ class ElectricityReadingResource extends JsonResource
             'id' => $this->id,
             'daily_record_id' => $this->daily_record_id,
             'electricity_meter_id' => $this->electricity_meter_id,
-            'meter_value_wbp' => $this->meter_value_wbp,
-            'meter_value_lwbp' => $this->meter_value_lwbp,
-            'photo_wbp' => $this->photo_wbp ? asset('storage/' . $this->photo_wbp) : null,
-            'photo_lwbp' => $this->photo_lwbp ? asset('storage/' . $this->photo_lwbp) : null,
+            'meter_value' => $this->meter_value,
+            'photo' => $this->photo ? asset('storage/' . $this->photo) : null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'daily_record' => new DailyRecordResource($this->whenLoaded('dailyRecord')),
@@ -29,3 +27,4 @@ class ElectricityReadingResource extends JsonResource
         ];
     }
 }
+

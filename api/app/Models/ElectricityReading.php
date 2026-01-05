@@ -2,23 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ElectricityReading extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'daily_record_id',
         'electricity_meter_id',
-        'meter_value_wbp',
-        'meter_value_lwbp',
-        'photo_wbp',
-        'photo_lwbp',
+        'meter_value',
+        'photo',
     ];
 
     protected $casts = [
-        'meter_value_wbp' => 'decimal:2',
-        'meter_value_lwbp' => 'decimal:2',
+        'meter_value' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -59,16 +58,5 @@ class ElectricityReading extends Model
     {
         return $this->belongsTo(ElectricityMeter::class);
     }
-
-    /**
-     * Calculate total usage (WBP + LWBP).
-     */
-    public function getTotalUsageAttribute(): ?float
-    {
-        if ($this->meter_value_wbp === null && $this->meter_value_lwbp === null) {
-            return null;
-        }
-
-        return round(($this->meter_value_wbp ?? 0) + ($this->meter_value_lwbp ?? 0), 2);
-    }
 }
+

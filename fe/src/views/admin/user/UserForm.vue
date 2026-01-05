@@ -3,6 +3,7 @@ import { reactive, onMounted, computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useBranchStore } from "@/stores/branch";
+import { useRoleStore } from "@/stores/role";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
 import MultiSelect from "@/components/common/MultiSelect.vue";
@@ -21,13 +22,16 @@ import {
   Phone,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
-import { axiosInstance } from "@/plugins/axios";
+import { useToast } from "vue-toastification";
+
+const toast = useToast();
 
 const route = useRoute();
 const router = useRouter();
 
 const userStore = useUserStore();
 const branchStore = useBranchStore();
+const roleStore = useRoleStore();
 const { error, loading } = storeToRefs(userStore);
 const { branches } = storeToRefs(branchStore);
 const { createUser, updateUser, fetchUser } = userStore;
@@ -42,6 +46,7 @@ const form = reactive({
   name: "",
   email: "",
   password: "",
+  password_confirmation: "",
   branch_id: "",
   position: "",
   identity_number: "",
@@ -56,11 +61,7 @@ const userTypes = [
   { value: "external", label: "External" },
 ];
 
-const availableRoles = ref([
-  { value: "admin", label: "Admin" },
-  { value: "staff", label: "Staff" },
-  { value: "user", label: "User" },
-]);
+const availableRoles = ref([]);
 
 // Methods
 const handleSubmit = async () => {
@@ -78,7 +79,12 @@ const handleSubmit = async () => {
 
     // Only include password for create or if it's provided
     if (!isEdit.value || form.password) {
+      if (form.password !== form.password_confirmation) {
+          toast.error("Kata sandi dan konfirmasi kata sandi tidak cocok!");
+          return;
+      }
       payload.password = form.password;
+      payload.password_confirmation = form.password_confirmation;
     }
 
     if (isEdit.value) {
@@ -124,9 +130,22 @@ const loadBranchesData = async () => {
   }
 };
 
+const loadRoles = async () => {
+  try {
+    await roleStore.fetchRoles();
+    availableRoles.value = roleStore.roles.map((role) => ({
+      value: role.name,
+      label: role.name.charAt(0).toUpperCase() + role.name.slice(1),
+    }));
+  } catch (error) {
+    console.error("Error loading roles:", error);
+  }
+};
+
 // Lifecycle
 onMounted(() => {
   loadBranchesData();
+  loadRoles();
   loadUserData();
 });
 </script>
@@ -219,6 +238,20 @@ onMounted(() => {
             placeholder="Minimal 8 karakter"
             :error="error?.password?.join(', ')"
             :required="!isEdit"
+            type="password"
+          />
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div v-if="!isEdit || form.password">
+          <FormField
+            v-model="form.password_confirmation"
+            id="password_confirmation"
+            name="password_confirmation"
+            label="Konfirmasi Kata Sandi"
+            :label-icon="Lock"
+            placeholder="Ulangi kata sandi"
+            :required="!isEdit || !!form.password"
             type="password"
           />
         </div>

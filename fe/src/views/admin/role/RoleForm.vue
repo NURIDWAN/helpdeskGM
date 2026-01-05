@@ -114,8 +114,9 @@ const formatModuleName = (module) => {
 };
 
 const formatPermissionName = (permission) => {
-  const parts = permission.name.split("-");
-  return parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1);
+  // Use the action field from API if available, otherwise extract from name
+  const action = permission.action || permission.name.split("-").pop();
+  return action.charAt(0).toUpperCase() + action.slice(1);
 };
 
 onMounted(() => {

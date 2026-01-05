@@ -108,7 +108,7 @@ const workOrderOptions = computed(() => {
   return [
     ...workOrders.value.map((wo) => ({
       value: String(wo.id),
-      label: `${wo.number} - ${wo.ticket?.title || 'No Ticket'}`,
+      label: `${wo.number} - ${wo.ticket?.category?.name || wo.ticket?.description || 'No Ticket'}`,
     })),
     {
       value: 'other',

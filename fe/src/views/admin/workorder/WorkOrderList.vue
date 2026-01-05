@@ -191,7 +191,7 @@ onMounted(() => {
             </span>
           </div>
           <p class="text-xs text-gray-500 line-clamp-2 max-w-sm">
-            {{ item.ticket.title || item.ticket.description || '-' }}
+            {{ item.ticket.category?.name || item.ticket.description || '-' }}
           </p>
         </div>
         <span v-else class="text-gray-500 italic text-sm"> SPK Standalone </span>

@@ -4,6 +4,9 @@ import { useTicketStore } from "@/stores/ticket";
 import { useBranchStore } from "@/stores/branch";
 import { useUserStore } from "@/stores/user";
 import { useTicketCategoryStore } from "@/stores/ticketCategory";
+import { useAuthStore } from "@/stores/auth";
+
+
 import SearchInput from "@/components/common/SearchInput.vue";
 import DataTable from "@/components/common/DataTable.vue";
 import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
@@ -38,9 +41,10 @@ const ticketStore = useTicketStore();
 const branchStore = useBranchStore();
 const userStore = useUserStore();
 const categoryStore = useTicketCategoryStore();
+const authStore = useAuthStore();
 
 const { tickets, meta, loading, success, error } = storeToRefs(ticketStore);
-const { fetchTicketsPaginated, deleteTicket, updateTicket } = ticketStore;
+const { fetchTicketsPaginated, deleteTicket, updateTicket, closeTicket } = ticketStore;
 const { fetchBranches } = branchStore;
 const { fetchUsers } = userStore;
 
@@ -157,6 +161,15 @@ const fetchTickets = () => {
   });
 
   fetchTicketsPaginated(params);
+};
+
+const handleCloseTicket = async (ticket) => {
+  if (confirm(`Apakah Anda yakin ingin menutup tiket ${ticket.code}?`)) {
+    const result = await closeTicket(ticket.id);
+    if (result) {
+      fetchTickets();
+    }
+  }
 };
 
 const handleSearch = () => {
@@ -691,6 +704,17 @@ const handleExportExcel = async () => {
 
       <template #actions="{ item }">
         <div class="flex justify-end gap-2">
+          <!-- Close Button (For Reporter) -->
+          <button
+            v-if="item.status === 'resolved' && authStore.user?.id === item.user_id"
+            @click="handleCloseTicket(item)"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+            title="Tutup Tiket (Saya Pelapor)"
+          >
+            <CheckCircle2 :size="14" />
+            Close
+          </button>
+
           <!-- Staff Workflow Buttons -->
           <button
             v-if="item.status === 'open' && can('ticket-update-status') && hasRole('staff')"

@@ -271,25 +271,11 @@ const formatNumber = (value) => {
 };
 
 // Helper functions to calculate electricity totals
-const getElectricityTotalWbpUsage = (electricityArray) => {
+const getElectricityTotalUsage = (electricityArray) => {
   if (!electricityArray || !Array.isArray(electricityArray)) return null;
-  const values = electricityArray.filter(e => e && e.wbp_usage !== null && e.wbp_usage !== undefined);
+  const values = electricityArray.filter(e => e && e.usage !== null && e.usage !== undefined);
   if (values.length === 0) return null;
-  return values.reduce((sum, e) => sum + parseFloat(e.wbp_usage || 0), 0);
-};
-
-const getElectricityTotalLwbpUsage = (electricityArray) => {
-  if (!electricityArray || !Array.isArray(electricityArray)) return null;
-  const values = electricityArray.filter(e => e && e.lwbp_usage !== null && e.lwbp_usage !== undefined);
-  if (values.length === 0) return null;
-  return values.reduce((sum, e) => sum + parseFloat(e.lwbp_usage || 0), 0);
-};
-
-const getElectricityGrandTotal = (electricityArray) => {
-  if (!electricityArray || !Array.isArray(electricityArray)) return null;
-  const values = electricityArray.filter(e => e && e.total_usage !== null && e.total_usage !== undefined);
-  if (values.length === 0) return null;
-  return values.reduce((sum, e) => sum + parseFloat(e.total_usage || 0), 0);
+  return values.reduce((sum, e) => sum + parseFloat(e.usage || 0), 0);
 };
 
 // Helper function to get electricity rowspan (for multi-meter display)
@@ -553,26 +539,31 @@ onMounted(() => {
             <tr>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
+                rowspan="2"
               >
                 Timestamp
               </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
+                rowspan="2"
               >
                 Tanggal
               </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
+                rowspan="2"
               >
                 Nama
               </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
+                rowspan="2"
               >
                 Outlet
               </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
+                rowspan="2"
               >
                 Total Customer
               </th>
@@ -599,14 +590,13 @@ onMounted(() => {
               >
                 <th
                   class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
-                  colspan="11"
+                  colspan="6"
                 >
                   LAPORAN LISTRIK
                 </th>
               </template>
             </tr>
             <tr>
-              <th colspan="5"></th>
               <!-- LAPORAN GAS -->
               <template v-if="!filters.category || filters.category === 'gas'">
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
@@ -662,31 +652,16 @@ onMounted(() => {
                   Lokasi
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  WBP Opening
+                  Opening
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  LWBP Opening
+                  Closing
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  WBP Closing
+                  Pemakaian
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  LWBP Closing
-                </th>
-                <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Pemakaian WBP
-                </th>
-                <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Pemakaian LWBP
-                </th>
-                <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Total Pemakaian
-                </th>
-                <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Foto WBP
-                </th>
-                <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Foto LWBP
+                  Foto
                 </th>
               </template>
             </tr>
@@ -864,52 +839,22 @@ onMounted(() => {
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(row.electricity[0].wbp_opening) }}
+                        {{ formatNumber(row.electricity[0].opening) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(row.electricity[0].lwbp_opening) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(row.electricity[0].wbp_closing) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(row.electricity[0].lwbp_closing) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(row.electricity[0].wbp_usage) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(row.electricity[0].lwbp_usage) }}
+                        {{ formatNumber(row.electricity[0].closing) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right font-semibold text-blue-600"
                       >
-                        {{ formatNumber(row.electricity[0].total_usage) }}
+                        {{ formatNumber(row.electricity[0].usage) }}
                       </td>
                       <td class="px-4 py-3 text-sm border text-center">
                         <button
-                          v-if="row.electricity[0].photo_wbp"
-                          @click="openPhotoDialog(row.electricity[0].photo_wbp)"
-                          class="text-blue-600 hover:text-blue-800"
-                        >
-                          <ImageIcon :size="18" />
-                        </button>
-                        <span v-else class="text-gray-400">-</span>
-                      </td>
-                      <td class="px-4 py-3 text-sm border text-center">
-                        <button
-                          v-if="row.electricity[0].photo_lwbp"
-                          @click="openPhotoDialog(row.electricity[0].photo_lwbp)"
+                          v-if="row.electricity[0].photo"
+                          @click="openPhotoDialog(row.electricity[0].photo)"
                           class="text-blue-600 hover:text-blue-800"
                         >
                           <ImageIcon :size="18" />
@@ -924,7 +869,7 @@ onMounted(() => {
                       "
                     >
                       <td
-                        colspan="10"
+                        colspan="5"
                         class="px-4 py-3 text-sm text-gray-500 border text-center"
                       >
                         -
@@ -963,52 +908,22 @@ onMounted(() => {
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right"
                         >
-                          {{ formatNumber(elec.wbp_opening) }}
+                          {{ formatNumber(elec.opening) }}
                         </td>
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right"
                         >
-                          {{ formatNumber(elec.lwbp_opening) }}
-                        </td>
-                        <td
-                          class="px-4 py-3 text-sm text-gray-900 border text-right"
-                        >
-                          {{ formatNumber(elec.wbp_closing) }}
-                        </td>
-                        <td
-                          class="px-4 py-3 text-sm text-gray-900 border text-right"
-                        >
-                          {{ formatNumber(elec.lwbp_closing) }}
-                        </td>
-                        <td
-                          class="px-4 py-3 text-sm text-gray-900 border text-right"
-                        >
-                          {{ formatNumber(elec.wbp_usage) }}
-                        </td>
-                        <td
-                          class="px-4 py-3 text-sm text-gray-900 border text-right"
-                        >
-                          {{ formatNumber(elec.lwbp_usage) }}
+                          {{ formatNumber(elec.closing) }}
                         </td>
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right font-semibold text-blue-600"
                         >
-                          {{ formatNumber(elec.total_usage) }}
+                          {{ formatNumber(elec.usage) }}
                         </td>
                         <td class="px-4 py-3 text-sm border text-center">
                           <button
-                            v-if="elec.photo_wbp"
-                            @click="openPhotoDialog(elec.photo_wbp)"
-                            class="text-blue-600 hover:text-blue-800"
-                          >
-                            <ImageIcon :size="18" />
-                          </button>
-                          <span v-else class="text-gray-400">-</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm border text-center">
-                          <button
-                            v-if="elec.photo_lwbp"
-                            @click="openPhotoDialog(elec.photo_lwbp)"
+                            v-if="elec.photo"
+                            @click="openPhotoDialog(elec.photo)"
                             class="text-blue-600 hover:text-blue-800"
                           >
                             <ImageIcon :size="18" />
@@ -1038,24 +953,11 @@ onMounted(() => {
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
                     <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
-                    <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
-                    <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-900 border text-right font-bold"
-                    >
-                      {{ formatNumber(getElectricityTotalWbpUsage(row.electricity)) }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-900 border text-right font-bold"
-                    >
-                      {{ formatNumber(getElectricityTotalLwbpUsage(row.electricity)) }}
-                    </td>
                     <td
                       class="px-4 py-3 text-sm text-green-700 border text-right font-bold text-lg"
                     >
-                      {{ formatNumber(getElectricityGrandTotal(row.electricity)) }}
+                      {{ formatNumber(getElectricityTotalUsage(row.electricity)) }}
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
                     <td class="px-4 py-3 text-sm text-gray-500 border text-center">-</td>
                   </tr>
                 </template>
@@ -1117,52 +1019,22 @@ onMounted(() => {
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(elec.wbp_opening) }}
+                        {{ formatNumber(elec.opening) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(elec.lwbp_opening) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(elec.wbp_closing) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(elec.lwbp_closing) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(elec.wbp_usage) }}
-                      </td>
-                      <td
-                        class="px-4 py-3 text-sm text-gray-900 border text-right"
-                      >
-                        {{ formatNumber(elec.lwbp_usage) }}
+                        {{ formatNumber(elec.closing) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right font-semibold text-blue-600"
                       >
-                        {{ formatNumber(elec.total_usage) }}
+                        {{ formatNumber(elec.usage) }}
                       </td>
                       <td class="px-4 py-3 text-sm border text-center">
                         <button
-                          v-if="elec.photo_wbp"
-                          @click="openPhotoDialog(elec.photo_wbp)"
-                          class="text-blue-600 hover:text-blue-800"
-                        >
-                          <ImageIcon :size="18" />
-                        </button>
-                        <span v-else class="text-gray-400">-</span>
-                      </td>
-                      <td class="px-4 py-3 text-sm border text-center">
-                        <button
-                          v-if="elec.photo_lwbp"
-                          @click="openPhotoDialog(elec.photo_lwbp)"
+                          v-if="elec.photo"
+                          @click="openPhotoDialog(elec.photo)"
                           class="text-blue-600 hover:text-blue-800"
                         >
                           <ImageIcon :size="18" />
@@ -1184,6 +1056,7 @@ onMounted(() => {
                     </td>
                     <td
                       class="px-4 py-3 text-sm text-gray-700 border text-left font-bold"
+                      colspan="2"
                     >
                       TOTAL
                     </td>
@@ -1198,34 +1071,9 @@ onMounted(() => {
                       -
                     </td>
                     <td
-                      class="px-4 py-3 text-sm text-gray-500 border text-center"
-                    >
-                      -
-                    </td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-500 border text-center"
-                    >
-                      -
-                    </td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-900 border text-right font-bold"
-                    >
-                      {{ formatNumber(getElectricityTotalWbpUsage(row.electricity)) }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-900 border text-right font-bold"
-                    >
-                      {{ formatNumber(getElectricityTotalLwbpUsage(row.electricity)) }}
-                    </td>
-                    <td
                       class="px-4 py-3 text-sm text-green-700 border text-right font-bold text-lg"
                     >
-                      {{ formatNumber(getElectricityGrandTotal(row.electricity)) }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-sm text-gray-500 border text-center"
-                    >
-                      -
+                      {{ formatNumber(getElectricityTotalUsage(row.electricity)) }}
                     </td>
                     <td
                       class="px-4 py-3 text-sm text-gray-500 border text-center"
@@ -1259,7 +1107,7 @@ onMounted(() => {
                       {{ row.total_customer }}
                     </td>
                     <td
-                      colspan="10"
+                      colspan="5"
                       class="px-4 py-3 text-sm text-gray-500 border text-center"
                     >
                       Tidak ada data listrik

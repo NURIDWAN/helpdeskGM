@@ -46,14 +46,50 @@ const form = reactive({
 
 const selectedBranches = ref([]);
 
+const weekDays = [
+  { value: 'monday', label: 'Senin' },
+  { value: 'tuesday', label: 'Selasa' },
+  { value: 'wednesday', label: 'Rabu' },
+  { value: 'thursday', label: 'Kamis' },
+  { value: 'friday', label: 'Jumat' },
+  { value: 'saturday', label: 'Sabtu' },
+  { value: 'sunday', label: 'Minggu' },
+];
+
+const monthDates = Array.from({ length: 31 }, (_, i) => i + 1);
+
+// Helpers for schedule
+const selectedDays = ref([]);
+const selectedDates = ref([]);
+
+const toggleDay = (day) => {
+  const index = selectedDays.value.indexOf(day);
+  if (index > -1) selectedDays.value.splice(index, 1);
+  else selectedDays.value.push(day);
+};
+
+const toggleDate = (date) => {
+  const index = selectedDates.value.indexOf(date);
+  if (index > -1) selectedDates.value.splice(index, 1);
+  else selectedDates.value.push(date);
+};
+
 // Methods
 const handleSubmit = async () => {
   try {
+    let scheduleDetails = null;
+    if (form.frequency === 'weekly') {
+      scheduleDetails = { days: selectedDays.value };
+    } else if (form.frequency === 'monthly') {
+      scheduleDetails = { dates: selectedDates.value };
+    }
+
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       frequency: form.frequency.trim(),
       is_active: form.is_active,
+      schedule_details: scheduleDetails,
       branches: selectedBranches.value.map((branchId) => ({
         branch_id: branchId,
       })),
@@ -82,6 +118,15 @@ const loadJobTemplateData = async () => {
         form.description = jobTemplate.description;
         form.frequency = jobTemplate.frequency;
         form.is_active = jobTemplate.is_active;
+
+        // Load schedule details
+        if (jobTemplate.schedule_details) {
+          if (form.frequency === 'weekly') {
+             selectedDays.value = jobTemplate.schedule_details.days || [];
+          } else if (form.frequency === 'monthly') {
+             selectedDates.value = jobTemplate.schedule_details.dates || [];
+          }
+        }
 
         // Set selected branches
         selectedBranches.value = jobTemplate.branches
@@ -226,6 +271,46 @@ onMounted(async () => {
             <!-- Error Display -->
             <div v-if="error?.frequency" class="text-sm text-red-600">
               {{ error.frequency.join(", ") }}
+            </div>
+
+            <!-- Weekly Selection -->
+            <div v-if="form.frequency === 'weekly'" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <label class="block text-sm font-medium text-gray-700 mb-3">Pilih Hari Pengerjaan:</label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="day in weekDays"
+                  :key="day.value"
+                  type="button"
+                  @click="toggleDay(day.value)"
+                  class="px-4 py-2 text-sm rounded-lg border transition-all duration-200"
+                  :class="selectedDays.includes(day.value)
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'"
+                >
+                  {{ day.label }}
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">Pilih satu atau lebih hari dalam seminggu.</p>
+            </div>
+
+            <!-- Monthly Selection -->
+            <div v-if="form.frequency === 'monthly'" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <label class="block text-sm font-medium text-gray-700 mb-3">Pilih Tanggal Pengerjaan:</label>
+              <div class="grid grid-cols-7 sm:grid-cols-10 gap-2">
+                <button
+                  v-for="date in monthDates"
+                  :key="date"
+                  type="button"
+                  @click="toggleDate(date)"
+                  class="w-9 h-9 flex items-center justify-center text-sm rounded-lg border transition-all duration-200"
+                  :class="selectedDates.includes(date)
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'"
+                >
+                  {{ date }}
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">Pilih satu atau lebih tanggal dalam sebulan.</p>
             </div>
           </div>
         </div>

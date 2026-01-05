@@ -130,6 +130,15 @@ const handlePerPageChange = (newPerPage) => {
   fetchTickets();
 };
 
+const handleCloseTicket = async (ticketId) => {
+  if (confirm('Apakah Anda yakin ingin menutup tiket ini? Tindakan ini tidak dapat dibatalkan.')) {
+    const result = await ticketStore.closeTicket(ticketId);
+    if (result) {
+      fetchTickets();
+    }
+  }
+};
+
 const clearFilters = () => {
   filters.value = {
     search: "",
@@ -391,7 +400,7 @@ onMounted(async () => {
               <!-- Title and Status -->
               <div class="flex items-start gap-3 mb-3">
                 <h3 class="text-lg font-semibold text-gray-900 truncate">
-                  {{ ticket.title }}
+                  {{ ticket.category?.name || 'Tiket' }}
                 </h3>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <!-- Status Badge -->
@@ -431,6 +440,17 @@ onMounted(async () => {
                         .replace(/\b\w/g, (l) => l.toUpperCase()) || "-"
                     }}
                   </span>
+
+                  <!-- Close Button -->
+                  <button
+                    v-if="ticket.status === 'resolved'"
+                    @click.prevent.stop="handleCloseTicket(ticket.id)"
+                    class="ml-2 inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors z-10"
+                    title="Tutup Tiket"
+                  >
+                    <CheckCircle :size="12" class="mr-1" />
+                    Close
+                  </button>
                 </div>
               </div>
 

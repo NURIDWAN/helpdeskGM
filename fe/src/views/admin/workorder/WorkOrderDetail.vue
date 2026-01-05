@@ -182,7 +182,7 @@ onMounted(() => {
           </label>
           <p class="text-gray-900">
             <span v-if="workOrder.ticket">
-              {{ workOrder.ticket.code }} - {{ workOrder.ticket.title }}
+              {{ workOrder.ticket.code }} - {{ workOrder.ticket.category?.name || workOrder.ticket.description }}
             </span>
             <span v-else class="text-gray-500 italic">
               SPK Standalone (Tidak terkait ticket)

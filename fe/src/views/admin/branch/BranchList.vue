@@ -21,6 +21,12 @@ const tableColumns = [
     nowrap: true,
   },
   {
+    key: "code",
+    label: "Kode",
+    bold: true,
+    nowrap: true,
+  },
+  {
     key: "name",
     label: "Nama Cabang",
     bold: true,

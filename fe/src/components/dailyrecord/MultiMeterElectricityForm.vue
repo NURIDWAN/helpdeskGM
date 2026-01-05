@@ -48,8 +48,7 @@ const toast = useToastStore();
 
 // Form state - dynamically holds readings for each meter
 const meterReadings = reactive({});
-const photoPreviewsWbp = reactive({});
-const photoPreviewsLwbp = reactive({});
+const photoPreviews = reactive({});
 const saving = ref(false);
 
 const getPreviousReading = (meterId) => {
@@ -59,14 +58,9 @@ const getPreviousReading = (meterId) => {
   );
 };
 
-const getWbpOpening = (meterId) => {
+const getOpening = (meterId) => {
   const prev = getPreviousReading(meterId);
-  return prev && prev.meter_value_wbp !== null ? parseFloat(prev.meter_value_wbp) : 0;
-};
-
-const getLwbpOpening = (meterId) => {
-  const prev = getPreviousReading(meterId);
-  return prev && prev.meter_value_lwbp !== null ? parseFloat(prev.meter_value_lwbp) : 0;
+  return prev && prev.meter_value !== null ? parseFloat(prev.meter_value) : 0;
 };
 
 // Function definitions BEFORE watches
@@ -102,25 +96,19 @@ const loadExistingReadings = async () => {
       if (meterId && !meterReadings[meterId]) {
         meterReadings[meterId] = {
           electricity_meter_id: meterId,
-          meter_value_wbp: "",
-          meter_value_lwbp: "",
-          photo_wbp: null,
-          photo_lwbp: null,
+          meter_value: "",
+          photo: null,
           id: null,
         };
       }
       
       if (meterId && meterReadings[meterId]) {
-        meterReadings[meterId].meter_value_wbp = reading.meter_value_wbp ?? "";
-        meterReadings[meterId].meter_value_lwbp = reading.meter_value_lwbp ?? "";
+        meterReadings[meterId].meter_value = reading.meter_value ?? "";
         meterReadings[meterId].id = reading.id;
         
-        // Set photo previews if exist
-        if (reading.photo_wbp) {
-          photoPreviewsWbp[meterId] = reading.photo_wbp;
-        }
-        if (reading.photo_lwbp) {
-          photoPreviewsLwbp[meterId] = reading.photo_lwbp;
+        // Set photo preview if exists
+        if (reading.photo) {
+          photoPreviews[meterId] = reading.photo;
         }
       }
     });
@@ -134,10 +122,8 @@ const initializeMeterReadings = () => {
     if (!meterReadings[meter.id]) {
       meterReadings[meter.id] = {
         electricity_meter_id: meter.id,
-        meter_value_wbp: "",
-        meter_value_lwbp: "",
-        photo_wbp: null,
-        photo_lwbp: null,
+        meter_value: "",
+        photo: null,
         id: null, // For existing readings
       };
     }
@@ -165,49 +151,29 @@ watch(
   { immediate: true }
 );
 
-const handlePhotoWbpSelect = (meterId, event) => {
+const handlePhotoSelect = (meterId, event) => {
   const file = event.target.files[0];
   if (file && meterReadings[meterId]) {
-    meterReadings[meterId].photo_wbp = file;
+    meterReadings[meterId].photo = file;
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
-      photoPreviewsWbp[meterId] = e.target.result;
+      photoPreviews[meterId] = e.target.result;
     };
     reader.readAsDataURL(file);
   }
 };
 
-const handlePhotoLwbpSelect = (meterId, event) => {
-  const file = event.target.files[0];
-  if (file && meterReadings[meterId]) {
-    meterReadings[meterId].photo_lwbp = file;
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      photoPreviewsLwbp[meterId] = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-const removePhotoWbp = (meterId) => {
+const removePhoto = (meterId) => {
   if (meterReadings[meterId]) {
-    meterReadings[meterId].photo_wbp = null;
-    delete photoPreviewsWbp[meterId];
-  }
-};
-
-const removePhotoLwbp = (meterId) => {
-  if (meterReadings[meterId]) {
-    meterReadings[meterId].photo_lwbp = null;
-    delete photoPreviewsLwbp[meterId];
+    meterReadings[meterId].photo = null;
+    delete photoPreviews[meterId];
   }
 };
 
 const hasValidReadings = computed(() => {
   return Object.values(meterReadings).some(
-    (reading) => reading.meter_value_wbp !== "" || reading.meter_value_lwbp !== ""
+    (reading) => reading.meter_value !== ""
   );
 });
 
@@ -232,14 +198,12 @@ const handleSave = async (recordId) => {
   try {
     // Filter only readings that have values
     const readingsToSave = Object.values(meterReadings)
-      .filter((reading) => reading.meter_value_wbp !== "" || reading.meter_value_lwbp !== "")
+      .filter((reading) => reading.meter_value !== "")
       .map((reading) => ({
         id: reading.id || null, // Include existing reading ID for updates
         electricity_meter_id: reading.electricity_meter_id,
-        meter_value_wbp: reading.meter_value_wbp ? parseFloat(reading.meter_value_wbp) : null,
-        meter_value_lwbp: reading.meter_value_lwbp ? parseFloat(reading.meter_value_lwbp) : null,
-        photo_wbp: reading.photo_wbp || null,   // Include photo file
-        photo_lwbp: reading.photo_lwbp || null, // Include photo file
+        meter_value: reading.meter_value ? parseFloat(reading.meter_value) : null,
+        photo: reading.photo || null,   // Include photo file
       }));
 
     if (readingsToSave.length > 0) {
@@ -265,42 +229,24 @@ const validate = () => {
   if (meters.length === 0) return ["Listrik (Belum ada meter)"];
 
   // Check if AT LEAST ONE meter is filled AND complete
-  // OR check if ALL added readings are complete?
-  // User wants "input ter isi semua" (all filled).
-  // Usually for multi-meter, we expect all meters to be read? 
-  // Or at least if a value is entered, the photo must be there.
-  
-  // Let's implement: If a value is entered, everything else for that meter must be valid.
-  // And there must be at least one meter filled.
-  
   let hasAtLeastOneFilled = false;
 
   for (const meter of meters) {
      const reading = meterReadings[meter.id];
-     const wbpVal = reading.meter_value_wbp;
-     const lwbpVal = reading.meter_value_lwbp;
-     const photoWbp = reading.photo_wbp || photoPreviewsWbp[meter.id]; // check file or existing
-     const photoLwbp = reading.photo_lwbp || photoPreviewsLwbp[meter.id] ;
+     const meterVal = reading.meter_value;
+     const photo = reading.photo || photoPreviews[meter.id]; // check file or existing
 
      // If any field is filled, ALL must be filled for this meter
-     if (wbpVal !== "" || lwbpVal !== "" || photoWbp || photoLwbp) {
+     if (meterVal !== "" || photo) {
         hasAtLeastOneFilled = true;
-        if (wbpVal === "") missing.push(`Nilai WBP (${meter.meter_name})`);
-        if (lwbpVal === "") missing.push(`Nilai LWBP (${meter.meter_name})`);
-        if (!photoWbp) missing.push(`Foto WBP (${meter.meter_name})`);
-        if (!photoLwbp) missing.push(`Foto LWBP (${meter.meter_name})`);
+        if (meterVal === "") missing.push(`Nilai Meter (${meter.meter_name})`);
+        if (!photo) missing.push(`Foto Meter (${meter.meter_name})`);
         
         // Strict Validation: Closing >= Opening
-        if (wbpVal !== "") {
-            const wOpen = getWbpOpening(meter.id);
-            if (parseFloat(wbpVal) < wOpen) {
-                missing.push(`WBP (${meter.meter_name}) < Opening (${wOpen})`);
-            }
-        }
-        if (lwbpVal !== "") {
-            const lOpen = getLwbpOpening(meter.id);
-            if (parseFloat(lwbpVal) < lOpen) {
-                missing.push(`LWBP (${meter.meter_name}) < Opening (${lOpen})`);
+        if (meterVal !== "") {
+            const opening = getOpening(meter.id);
+            if (parseFloat(meterVal) < opening) {
+                missing.push(`Nilai Meter (${meter.meter_name}) < Opening (${opening})`);
             }
         }
      }
@@ -386,11 +332,11 @@ onMounted(async () => {
 
     <!-- Meter readings form -->
     <div v-else class="space-y-4">
-      <div
-        v-for="meter in electricityMeters"
-        :key="meter.id"
-        class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow duration-200"
-      >
+      <template v-for="meter in electricityMeters" :key="meter.id">
+        <div
+          v-if="meterReadings[meter.id]"
+          class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow duration-200"
+        >
         <!-- Meter Header -->
         <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
           <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -417,110 +363,53 @@ onMounted(async () => {
 
         <!-- Reading inputs -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- WBP -->
+          <!-- Nilai Meter -->
           <div>
             <div class="flex justify-between mb-1">
                 <label class="block text-sm font-medium text-gray-700">
-                Nilai Meter WBP <span class="text-red-500">*</span>
+                Nilai Meter <span class="text-red-500">*</span>
                 </label>
                 <div class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                    Opening: <span class="font-medium text-gray-900">{{ getWbpOpening(meter.id) }}</span>
+                    Opening: <span class="font-medium text-gray-900">{{ getOpening(meter.id) }}</span>
                 </div>
             </div>
             <div class="relative">
               <Gauge :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                v-model="meterReadings[meter.id].meter_value_wbp"
+                v-model="meterReadings[meter.id].meter_value"
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 :disabled="disabled"
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 bg-white"
-                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': meterReadings[meter.id].meter_value_wbp && parseFloat(meterReadings[meter.id].meter_value_wbp) < getWbpOpening(meter.id)}"
+                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getOpening(meter.id)}"
               />
             </div>
-            <p v-if="meterReadings[meter.id].meter_value_wbp && parseFloat(meterReadings[meter.id].meter_value_wbp) < getWbpOpening(meter.id)" class="text-xs text-red-600 mt-1">
-                Nilai WBP tidak boleh kurang dari Opening
+            <p v-if="meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getOpening(meter.id)" class="text-xs text-red-600 mt-1">
+                Nilai Meter tidak boleh kurang dari Opening
             </p>
           </div>
 
-          <!-- LWBP -->
+          <!-- Foto Meter -->
           <div>
-            <div class="flex justify-between mb-1">
-                <label class="block text-sm font-medium text-gray-700">
-                Nilai Meter LWBP <span class="text-red-500">*</span>
-                </label>
-                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                    Opening: <span class="font-medium text-gray-900">{{ getLwbpOpening(meter.id) }}</span>
-                </div>
-            </div>
-            <div class="relative">
-              <Gauge :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                v-model="meterReadings[meter.id].meter_value_lwbp"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                :disabled="disabled"
-                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 bg-white"
-                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': meterReadings[meter.id].meter_value_lwbp && parseFloat(meterReadings[meter.id].meter_value_lwbp) < getLwbpOpening(meter.id)}"
-              />
-            </div>
-            <p v-if="meterReadings[meter.id].meter_value_lwbp && parseFloat(meterReadings[meter.id].meter_value_lwbp) < getLwbpOpening(meter.id)" class="text-xs text-red-600 mt-1">
-                Nilai LWBP tidak boleh kurang dari Opening
-            </p>
-          </div>
-        </div>
-
-        <!-- Photo uploads (optional for this simplified version) -->
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Photo WBP -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Foto WBP <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Foto Meter <span class="text-red-500">*</span></label>
             <input
-              :id="`photo-wbp-${meter.id}`"
+              :id="`photo-${meter.id}`"
               type="file"
               accept="image/*"
-              @change="(e) => handlePhotoWbpSelect(meter.id, e)"
+              @change="(e) => handlePhotoSelect(meter.id, e)"
               :disabled="disabled"
               class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
-            <div v-if="photoPreviewsWbp[meter.id]" class="mt-2 relative inline-block">
+            <div v-if="photoPreviews[meter.id]" class="mt-2 relative inline-block">
               <img
-                :src="photoPreviewsWbp[meter.id]"
-                alt="WBP"
+                :src="photoPreviews[meter.id]"
+                alt="Meter"
                 class="w-20 h-20 object-cover rounded border"
               />
               <button
                 type="button"
-                @click="removePhotoWbp(meter.id)"
-                class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
-              >
-                <X :size="12" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Photo LWBP -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Foto LWBP <span class="text-red-500">*</span></label>
-            <input
-              :id="`photo-lwbp-${meter.id}`"
-              type="file"
-              accept="image/*"
-              @change="(e) => handlePhotoLwbpSelect(meter.id, e)"
-              :disabled="disabled"
-              class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <div v-if="photoPreviewsLwbp[meter.id]" class="mt-2 relative inline-block">
-              <img
-                :src="photoPreviewsLwbp[meter.id]"
-                alt="LWBP"
-                class="w-20 h-20 object-cover rounded border"
-              />
-              <button
-                type="button"
-                @click="removePhotoLwbp(meter.id)"
+                @click="removePhoto(meter.id)"
                 class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
               >
                 <X :size="12" />
@@ -528,7 +417,8 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </template>
 
       <!-- Save button - Hidden for orchestration -->
 

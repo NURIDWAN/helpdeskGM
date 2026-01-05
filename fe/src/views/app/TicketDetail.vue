@@ -30,9 +30,18 @@ const {
 const { attachments, loading: attachmentLoading } = storeToRefs(
   ticketAttachmentStore
 );
-const { fetchTicketByCode, createTicketReply } = ticketStore;
+const { fetchTicketByCode, createTicketReply, closeTicket } = ticketStore;
 const { getByTicketId } = ticketReplyStore;
 const { getByTicketId: getAttachmentsByTicketId } = ticketAttachmentStore;
+
+const handleCloseTicket = async () => {
+  if (confirm('Apakah Anda yakin ingin menutup tiket ini? Tindakan ini tidak dapat dibatalkan.')) {
+    const result = await closeTicket(ticket.value.id);
+    if (result) {
+      await fetchTicketDetail();
+    }
+  }
+};
 
 const route = useRoute();
 
@@ -59,13 +68,16 @@ const selectedAttachment = ref(null);
 const fetchTicketDetail = async () => {
   try {
     const response = await fetchTicketByCode(route.params.code);
-    ticket.value = response;
+    
+    if (response) {
+      ticket.value = response;
 
-    // Fetch replies and attachments after getting ticket data
-    await Promise.all([loadRepliesData(), loadAttachmentsData()]);
+      // Fetch replies and attachments after getting ticket data
+      await Promise.all([loadRepliesData(), loadAttachmentsData()]);
 
-    // Start smart polling after data is loaded
-    startPolling();
+      // Start smart polling after data is loaded
+      startPolling();
+    }
   } catch (error) {
     console.error("Error fetching ticket:", error);
   }
@@ -346,11 +358,11 @@ onUnmounted(() => {
   </div>
 
   <!-- Ticket Info -->
-  <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+  <div v-else-if="ticket?.id" class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
     <div class="p-6">
       <div class="flex items-start justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-800">{{ ticket.title }}</h1>
+          <h1 class="text-2xl font-bold text-gray-800">{{ ticket.category?.name || 'Tiket' }}</h1>
           <!-- Description -->
           <p class="text-gray-600 text-sm mb-4 line-clamp-2">
             {{ ticket.description }}
@@ -379,6 +391,17 @@ onUnmounted(() => {
                   : "-"
               }}
             </span>
+
+            <!-- Close Button -->
+            <button
+              v-if="ticket?.status === 'resolved'"
+              @click="handleCloseTicket"
+              class="px-3 py-1 text-sm font-medium text-white bg-gray-600 rounded-full hover:bg-gray-700 flex items-center transition-colors"
+            >
+              <CheckCircle :size="14" class="mr-1" />
+              Close Ticket
+            </button>
+
             <span class="text-sm text-gray-500">#{{ ticket.code }}</span>
             <span class="text-sm text-gray-500">
               Dibuat pada
@@ -392,6 +415,15 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Not Found State -->
+  <div v-else class="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+    <AlertCircle :size="48" class="mx-auto mb-4 text-gray-300" />
+    <h3 class="text-lg font-medium text-gray-900 mb-2">Tiket Tidak Ditemukan</h3>
+    <p class="text-gray-500">
+      Tiket yang Anda cari mungkin telah dihapus atau Anda tidak memiliki akses.
+    </p>
   </div>
 
   <!-- Attachments Section -->

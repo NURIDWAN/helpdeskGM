@@ -481,7 +481,7 @@ onMounted(async () => {
                         <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">{{ ticket.code }}</span>
                         <span class="text-xs text-gray-500">{{ new Date(ticket.created_at).toLocaleDateString('id-ID') }}</span>
                     </div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.title }}</h4>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.category?.name || 'Tiket' }}</h4>
                     <div class="flex justify-end mt-2">
                         <RouterLink :to="{ name: 'admin.ticket.detail', params: { id: ticket.id } }" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
                             Lihat Detail <ArrowRight :size="12" />
@@ -593,7 +593,7 @@ onMounted(async () => {
                         </span>
                         <span class="text-xs text-gray-500">{{ new Date(ticket.created_at).toLocaleDateString('id-ID') }}</span>
                     </div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.title }}</h4>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.category?.name || 'Tiket' }}</h4>
                     <div class="flex justify-between items-center mt-2">
                         <span class="text-xs text-gray-500">{{ ticket.ticket_number }}</span>
                         <RouterLink :to="{ name: 'admin.ticket.detail', params: { id: ticket.id } }" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">

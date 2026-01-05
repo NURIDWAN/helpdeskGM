@@ -24,10 +24,8 @@ class ElectricityReadingUpdateRequest extends FormRequest
         return [
             'daily_record_id' => 'sometimes|required|integer|exists:daily_records,id',
             'electricity_meter_id' => 'sometimes|required|integer|exists:electricity_meters,id',
-            'meter_value_wbp' => 'required|numeric|min:0',
-            'meter_value_lwbp' => 'required|numeric|min:0',
-            'photo_wbp' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
-            'photo_lwbp' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'meter_value' => 'required|numeric|min:0',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
         ];
     }
 
@@ -43,14 +41,12 @@ class ElectricityReadingUpdateRequest extends FormRequest
             'daily_record_id.exists' => 'Daily record tidak ditemukan',
             'electricity_meter_id.required' => 'Meter listrik wajib dipilih',
             'electricity_meter_id.exists' => 'Meter listrik tidak ditemukan',
-            'meter_value_wbp.numeric' => 'Nilai WBP harus berupa angka',
-            'meter_value_wbp.min' => 'Nilai WBP tidak boleh negatif',
-            'meter_value_lwbp.numeric' => 'Nilai LWBP harus berupa angka',
-            'meter_value_lwbp.min' => 'Nilai LWBP tidak boleh negatif',
-            'photo_wbp.image' => 'Foto WBP harus berupa gambar',
-            'photo_wbp.max' => 'Foto WBP maksimal 5MB',
-            'photo_lwbp.image' => 'Foto LWBP harus berupa gambar',
-            'photo_lwbp.max' => 'Foto LWBP maksimal 5MB',
+            'meter_value.required' => 'Nilai meter wajib diisi',
+            'meter_value.numeric' => 'Nilai meter harus berupa angka',
+            'meter_value.min' => 'Nilai meter tidak boleh negatif',
+            'photo.image' => 'Foto meter harus berupa gambar',
+            'photo.max' => 'Foto meter maksimal 5MB',
         ];
     }
 }
+

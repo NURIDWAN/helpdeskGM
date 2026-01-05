@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useTicketStore } from "@/stores/ticket";
 import { useTicketAttachmentStore } from "@/stores/ticketAttachment";
+import { useTicketCategoryStore } from "@/stores/ticketCategory";
 import { storeToRefs } from "pinia";
 import {
   ArrowLeft,
@@ -12,6 +13,7 @@ import {
   X,
   FileText,
   Image,
+  Tag,
 } from "lucide-vue-next";
 
 const router = useRouter();
@@ -24,6 +26,10 @@ const ticketAttachmentStore = useTicketAttachmentStore();
 const { loading: attachmentLoading } = storeToRefs(ticketAttachmentStore);
 const { createAttachment } = ticketAttachmentStore;
 
+const ticketCategoryStore = useTicketCategoryStore();
+const { categories } = storeToRefs(ticketCategoryStore);
+const { fetchCategories } = ticketCategoryStore;
+
 // Step management
 const currentStep = ref(1);
 const createdTicket = ref(null);
@@ -31,9 +37,9 @@ const selectedFiles = ref([]);
 const uploadedFiles = ref([]);
 
 const form = ref({
-  title: "",
   description: "",
   priority: "",
+  category_id: "",
 });
 
 const handleSubmit = async () => {
@@ -82,6 +88,10 @@ const skipAttachments = () => {
 const goBackToStep1 = () => {
   currentStep.value = 1;
 };
+
+onMounted(async () => {
+  await fetchCategories({ is_active: true });
+});
 </script>
 
 <template>
@@ -177,20 +187,29 @@ const goBackToStep1 = () => {
     </div>
 
     <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
-      <!-- Judul Tiket -->
+      <!-- Kategori Tiket -->
       <div>
-        <label for="title" class="block text-sm font-medium text-gray-700 mb-2"
-          >Judul Tiket</label
-        >
-        <input
-          type="text"
-          id="title"
-          v-model="form.title"
-          placeholder="Contoh: Gangguan Jaringan WiFi"
+        <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">
+          <Tag :size="16" class="inline-block mr-1" />
+          Kategori Tiket <span class="text-red-500">*</span>
+        </label>
+        <select
+          id="category_id"
+          v-model="form.category_id"
           class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        />
-        <div v-if="error?.title" class="flex items-center mt-2">
-          <p class="text-xs text-red-500">{{ error.title[0] }}</p>
+          required
+        >
+          <option value="">Pilih kategori</option>
+          <option
+            v-for="category in categories"
+            :key="category.id"
+            :value="category.id"
+          >
+            {{ category.name }}
+          </option>
+        </select>
+        <div v-if="error?.category_id" class="flex items-center mt-2">
+          <p class="text-xs text-red-500">{{ error.category_id[0] }}</p>
         </div>
       </div>
 
@@ -199,7 +218,7 @@ const goBackToStep1 = () => {
         <label
           for="description"
           class="block text-sm font-medium text-gray-700 mb-2"
-          >Deskripsi Masalah</label
+          >Deskripsi Masalah <span class="text-red-500">*</span></label
         >
         <textarea
           id="description"

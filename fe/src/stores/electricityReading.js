@@ -86,10 +86,10 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
                     ? `/daily-records/${dailyRecordId}/electricity-readings`
                     : '/electricity-readings';
 
-                // Use FormData if photos are File objects
+                // Use FormData if photo is File object
                 const formData = new FormData();
                 Object.keys(data).forEach(key => {
-                    if (key === 'photo_wbp' || key === 'photo_lwbp') {
+                    if (key === 'photo') {
                         // Only append photo if it's a File object
                         if (data[key] instanceof File) {
                             formData.append(key, data[key]);
@@ -123,7 +123,7 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
                 readings.forEach((reading, index) => {
                     Object.keys(reading).forEach(key => {
                         if (reading[key] !== null && reading[key] !== undefined) {
-                            if ((key === 'photo_wbp' || key === 'photo_lwbp')) {
+                            if (key === 'photo') {
                                 if (reading[key] instanceof File) {
                                     formData.append(`readings[${index}][${key}]`, reading[key]);
                                 }
@@ -157,10 +157,10 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
             this.loading = true;
             this.error = null;
             try {
-                // Use FormData if photos are File objects
+                // Use FormData if photo is File object
                 const formData = new FormData();
                 Object.keys(data).forEach(key => {
-                    if (key === 'photo_wbp' || key === 'photo_lwbp') {
+                    if (key === 'photo') {
                         // Only append photo if it's a File object
                         if (data[key] instanceof File) {
                             formData.append(key, data[key]);

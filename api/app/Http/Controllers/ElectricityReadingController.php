@@ -86,13 +86,9 @@ class ElectricityReadingController extends Controller implements HasMiddleware
                 $data['daily_record_id'] = $dailyRecordId;
             }
 
-            // Handle photo uploads
-            if ($request->hasFile('photo_wbp')) {
-                $data['photo_wbp'] = $request->file('photo_wbp')->store('electricity-readings', 'public');
-            }
-
-            if ($request->hasFile('photo_lwbp')) {
-                $data['photo_lwbp'] = $request->file('photo_lwbp')->store('electricity-readings', 'public');
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
+                $data['photo'] = $request->file('photo')->store('electricity-readings', 'public');
             }
 
             $electricityReading = $this->electricityReadingRepository->create($data);
@@ -113,10 +109,8 @@ class ElectricityReadingController extends Controller implements HasMiddleware
                 'readings' => 'required|array',
                 'readings.*.id' => 'nullable|integer|exists:electricity_readings,id', // Optional: existing reading ID
                 'readings.*.electricity_meter_id' => 'required|integer|exists:electricity_meters,id',
-                'readings.*.meter_value_wbp' => 'required|numeric|min:0',
-                'readings.*.meter_value_lwbp' => 'required|numeric|min:0',
-                'readings.*.photo_wbp' => 'nullable|image|max:10240',
-                'readings.*.photo_lwbp' => 'nullable|image|max:10240',
+                'readings.*.meter_value' => 'required|numeric|min:0',
+                'readings.*.photo' => 'nullable|image|max:10240',
             ]);
 
             $createdReadings = [];
@@ -137,33 +131,25 @@ class ElectricityReadingController extends Controller implements HasMiddleware
                         ->first();
                 }
 
-                // Backend Validation for Photos: Required ONLY for new readings (no existing record)
+                // Backend Validation for Photo: Required ONLY for new readings (no existing record)
                 if (!$existingReading) {
-                    if (!$request->hasFile("readings.$index.photo_wbp") || !$request->hasFile("readings.$index.photo_lwbp")) {
-                        return ResponseHelper::jsonResponse(false, "Foto WBP dan LWBP wajib diupload untuk meter baru.", null, 422);
+                    if (!$request->hasFile("readings.$index.photo")) {
+                        return ResponseHelper::jsonResponse(false, "Foto meter wajib diupload untuk meter baru.", null, 422);
                     }
                 }
 
                 $data = [
                     'daily_record_id' => $dailyRecordId,
                     'electricity_meter_id' => $readingData['electricity_meter_id'],
-                    'meter_value_wbp' => $readingData['meter_value_wbp'] ?? null,
-                    'meter_value_lwbp' => $readingData['meter_value_lwbp'] ?? null,
+                    'meter_value' => $readingData['meter_value'] ?? null,
                 ];
 
-                // Handle Photo Uploads
-                if ($request->hasFile("readings.$index.photo_wbp")) {
-                    $data['photo_wbp'] = $request->file("readings.$index.photo_wbp")->store('electricity-readings', 'public');
-                    // If updating, delete old? (Optional optimization)
-                    if ($existingReading && $existingReading->photo_wbp) {
-                        Storage::disk('public')->delete($existingReading->photo_wbp);
-                    }
-                }
-
-                if ($request->hasFile("readings.$index.photo_lwbp")) {
-                    $data['photo_lwbp'] = $request->file("readings.$index.photo_lwbp")->store('electricity-readings', 'public');
-                    if ($existingReading && $existingReading->photo_lwbp) {
-                        Storage::disk('public')->delete($existingReading->photo_lwbp);
+                // Handle Photo Upload
+                if ($request->hasFile("readings.$index.photo")) {
+                    $data['photo'] = $request->file("readings.$index.photo")->store('electricity-readings', 'public');
+                    // If updating, delete old photo
+                    if ($existingReading && $existingReading->photo) {
+                        Storage::disk('public')->delete($existingReading->photo);
                     }
                 }
 
@@ -206,23 +192,15 @@ class ElectricityReadingController extends Controller implements HasMiddleware
         try {
             $data = $request->validated();
 
-            // Handle photo uploads
+            // Handle photo upload
             $existingReading = ElectricityReading::findOrFail($id);
 
-            if ($request->hasFile('photo_wbp')) {
+            if ($request->hasFile('photo')) {
                 // Delete old photo if exists
-                if ($existingReading->photo_wbp) {
-                    Storage::disk('public')->delete($existingReading->photo_wbp);
+                if ($existingReading->photo) {
+                    Storage::disk('public')->delete($existingReading->photo);
                 }
-                $data['photo_wbp'] = $request->file('photo_wbp')->store('electricity-readings', 'public');
-            }
-
-            if ($request->hasFile('photo_lwbp')) {
-                // Delete old photo if exists
-                if ($existingReading->photo_lwbp) {
-                    Storage::disk('public')->delete($existingReading->photo_lwbp);
-                }
-                $data['photo_lwbp'] = $request->file('photo_lwbp')->store('electricity-readings', 'public');
+                $data['photo'] = $request->file('photo')->store('electricity-readings', 'public');
             }
 
             $electricityReading = $this->electricityReadingRepository->update($id, $data);
@@ -239,13 +217,10 @@ class ElectricityReadingController extends Controller implements HasMiddleware
     public function destroy(string $id)
     {
         try {
-            // Delete associated photos
+            // Delete associated photo
             $reading = ElectricityReading::findOrFail($id);
-            if ($reading->photo_wbp) {
-                Storage::disk('public')->delete($reading->photo_wbp);
-            }
-            if ($reading->photo_lwbp) {
-                Storage::disk('public')->delete($reading->photo_lwbp);
+            if ($reading->photo) {
+                Storage::disk('public')->delete($reading->photo);
             }
 
             $this->electricityReadingRepository->delete($id);
@@ -317,15 +292,9 @@ class ElectricityReadingController extends Controller implements HasMiddleware
                     $meterReading = $dateReadings->firstWhere('electricity_meter_id', $meter->id);
 
                     if ($meterReading) {
-                        $wbpClosing = $meterReading->meter_value_wbp;
-                        $lwbpClosing = $meterReading->meter_value_lwbp;
-
-                        $wbpOpening = $previousClosings[$meter->id]['wbp'] ?? $wbpClosing;
-                        $lwbpOpening = $previousClosings[$meter->id]['lwbp'] ?? $lwbpClosing;
-
-                        $wbpUsage = $wbpClosing !== null && $wbpOpening !== null ? round($wbpClosing - $wbpOpening, 2) : null;
-                        $lwbpUsage = $lwbpClosing !== null && $lwbpOpening !== null ? round($lwbpClosing - $lwbpOpening, 2) : null;
-                        $totalUsage = ($wbpUsage !== null || $lwbpUsage !== null) ? round(($wbpUsage ?? 0) + ($lwbpUsage ?? 0), 2) : null;
+                        $closing = $meterReading->meter_value;
+                        $opening = $previousClosings[$meter->id] ?? $closing;
+                        $usage = $closing !== null && $opening !== null ? round($closing - $opening, 2) : null;
 
                         $dateReadingsArray[] = [
                             'meter_id' => $meter->id,
@@ -333,22 +302,14 @@ class ElectricityReadingController extends Controller implements HasMiddleware
                             'meter_number' => $meter->meter_number,
                             'location' => $meter->location,
                             'power_capacity' => $meter->power_capacity,
-                            'wbp_opening' => $wbpOpening,
-                            'wbp_closing' => $wbpClosing,
-                            'wbp_usage' => $wbpUsage,
-                            'lwbp_opening' => $lwbpOpening,
-                            'lwbp_closing' => $lwbpClosing,
-                            'lwbp_usage' => $lwbpUsage,
-                            'total_usage' => $totalUsage,
-                            'photo_wbp' => $meterReading->photo_wbp ? asset('storage/' . $meterReading->photo_wbp) : null,
-                            'photo_lwbp' => $meterReading->photo_lwbp ? asset('storage/' . $meterReading->photo_lwbp) : null,
+                            'opening' => $opening,
+                            'closing' => $closing,
+                            'usage' => $usage,
+                            'photo' => $meterReading->photo ? asset('storage/' . $meterReading->photo) : null,
                         ];
 
-                        // Update previous closings
-                        $previousClosings[$meter->id] = [
-                            'wbp' => $wbpClosing,
-                            'lwbp' => $lwbpClosing,
-                        ];
+                        // Update previous closing
+                        $previousClosings[$meter->id] = $closing;
                     }
                 }
 

@@ -194,7 +194,7 @@ onMounted(() => {
           <div v-if="workReport.work_order" class="flex items-center gap-2">
              <span class="text-gray-900 font-medium">{{ workReport.work_order.number }}</span>
              <span v-if="workReport.work_order.ticket" class="text-xs text-gray-500">
-               ({{ workReport.work_order.ticket.title }})
+               ({{ workReport.work_order.ticket.category?.name || workReport.work_order.ticket.description }})
              </span>
           </div>
           <p v-else class="text-gray-400">Bukan dari SPK</p>

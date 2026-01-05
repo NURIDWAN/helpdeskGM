@@ -635,56 +635,35 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $electricityReading->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        $wbpClosing = $electricityReading->meter_value_wbp !== null ? round($electricityReading->meter_value_wbp, 2) : null;
-                        $lwbpClosing = $electricityReading->meter_value_lwbp !== null ? round($electricityReading->meter_value_lwbp, 2) : null;
+                        // Simplified: meter_value tunggal
+                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
                         // Opening = closing dari record sebelumnya dengan electricity_meter_id yang sama
-                        $wbpOpening = $previousClosings['electricity'][$meterId]['wbp'] ?? null;
-                        $lwbpOpening = $previousClosings['electricity'][$meterId]['lwbp'] ?? null;
+                        $opening = $previousClosings['electricity'][$meterId]['value'] ?? null;
 
                         // Jika masih null, gunakan 0
-                        $wbpOpening = $wbpOpening ?? 0;
-                        $lwbpOpening = $lwbpOpening ?? 0;
+                        $opening = $opening ?? 0;
 
                         // Calculate usage
-                        $wbpUsage = null;
-                        $lwbpUsage = null;
-                        $totalUsage = null;
-
-                        if ($wbpClosing !== null && $wbpOpening !== null) {
-                            $wbpUsage = round($wbpClosing - $wbpOpening, 2);
-                        }
-
-                        if ($lwbpClosing !== null && $lwbpOpening !== null) {
-                            $lwbpUsage = round($lwbpClosing - $lwbpOpening, 2);
-                        }
-
-                        if ($wbpUsage !== null || $lwbpUsage !== null) {
-                            $totalUsage = round(($wbpUsage ?? 0) + ($lwbpUsage ?? 0), 2);
+                        $usage = null;
+                        if ($closing !== null && $opening !== null) {
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [
                             'location' => $meter->location ?? '-',
                             'meter_name' => $meter->meter_name ?? null,
                             'meter_number' => $meter->meter_number ?? null,
-                            'wbp_opening' => $wbpOpening,
-                            'lwbp_opening' => $lwbpOpening,
-                            'wbp_closing' => $wbpClosing,
-                            'lwbp_closing' => $lwbpClosing,
-                            'wbp_usage' => $wbpUsage,
-                            'lwbp_usage' => $lwbpUsage,
-                            'total_usage' => $totalUsage,
-                            'meter_value' => null,
-                            'photo' => null,
-                            'photo_wbp' => $electricityReading->photo_wbp ? asset('storage/' . $electricityReading->photo_wbp) : null,
-                            'photo_lwbp' => $electricityReading->photo_lwbp ? asset('storage/' . $electricityReading->photo_lwbp) : null,
+                            'opening' => $opening,
+                            'closing' => $closing,
+                            'usage' => $usage,
+                            'photo' => $electricityReading->photo ? asset('storage/' . $electricityReading->photo) : null,
+                            'photo_path' => $electricityReading->photo ?? null,
                         ];
 
                         // Update previous closing
                         $previousClosings['electricity'][$meterId] = [
-                            'wbp' => $wbpClosing,
-                            'lwbp' => $lwbpClosing,
-                            'total' => null,
+                            'value' => $closing,
                         ];
                     }
                 } else {
@@ -693,68 +672,32 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                     foreach ($electricityReadingsSorted as $electricityReading) {
                         $location = $electricityReading->location ?? 'default';
-                        $wbpClosing = $electricityReading->meter_value_wbp ? round($electricityReading->meter_value_wbp, 2) : null;
-                        $lwbpClosing = $electricityReading->meter_value_lwbp ? round($electricityReading->meter_value_lwbp, 2) : null;
-                        $meterValue = $electricityReading->meter_value ? round($electricityReading->meter_value, 2) : null;
 
-                        $wbpOpening = $previousClosings['electricity'][$location]['wbp'] ?? null;
-                        $lwbpOpening = $previousClosings['electricity'][$location]['lwbp'] ?? null;
+                        // Try to get simplified meter_value first, otherwise null (legacy support simplified)
+                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        if ($wbpOpening === null && !empty($previousClosings['electricity'])) {
-                            foreach ($previousClosings['electricity'] as $prevLocation => $prevData) {
-                                if (isset($prevData['wbp']) && $prevData['wbp'] !== null) {
-                                    $wbpOpening = $prevData['wbp'];
-                                    break;
-                                }
-                            }
-                        }
-                        if ($lwbpOpening === null && !empty($previousClosings['electricity'])) {
-                            foreach ($previousClosings['electricity'] as $prevLocation => $prevData) {
-                                if (isset($prevData['lwbp']) && $prevData['lwbp'] !== null) {
-                                    $lwbpOpening = $prevData['lwbp'];
-                                    break;
-                                }
-                            }
-                        }
+                        // Opening = closing dari record sebelumnya dengan lokasi yang sama
+                        $opening = $previousClosings['electricity'][$location]['value'] ?? null;
+                        $opening = $opening ?? 0;
 
-                        $wbpOpening = $wbpOpening ?? 0;
-                        $lwbpOpening = $lwbpOpening ?? 0;
-
-                        $wbpUsage = null;
-                        $lwbpUsage = null;
-                        $totalUsage = null;
-
-                        if ($wbpClosing !== null && $wbpOpening !== null) {
-                            $wbpUsage = round($wbpClosing - $wbpOpening, 2);
-                        }
-
-                        if ($lwbpClosing !== null && $lwbpOpening !== null) {
-                            $lwbpUsage = round($lwbpClosing - $lwbpOpening, 2);
-                        }
-
-                        if ($wbpUsage !== null || $lwbpUsage !== null) {
-                            $totalUsage = round(($wbpUsage ?? 0) + ($lwbpUsage ?? 0), 2);
+                        $usage = null;
+                        if ($closing !== null) {
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [
                             'location' => $electricityReading->location,
-                            'wbp_opening' => $wbpOpening,
-                            'lwbp_opening' => $lwbpOpening,
-                            'wbp_closing' => $wbpClosing,
-                            'lwbp_closing' => $lwbpClosing,
-                            'wbp_usage' => $wbpUsage,
-                            'lwbp_usage' => $lwbpUsage,
-                            'total_usage' => $totalUsage,
-                            'meter_value' => $meterValue,
-                            'photo' => $electricityReading->photo ? asset('storage/' . $electricityReading->photo) : null,
-                            'photo_wbp' => $electricityReading->photo_wbp ? asset('storage/' . $electricityReading->photo_wbp) : null,
-                            'photo_lwbp' => $electricityReading->photo_lwbp ? asset('storage/' . $electricityReading->photo_lwbp) : null,
+                            'meter_name' => 'Legacy Meter',
+                            'meter_number' => null,
+                            'opening' => $opening,
+                            'closing' => $closing,
+                            'usage' => $usage,
+                            'photo' => null, // Legacy photos might use different fields, simplifying for now
+                            'photo_path' => $electricityReading->photo ?? null,
                         ];
 
                         $previousClosings['electricity'][$location] = [
-                            'wbp' => $wbpClosing,
-                            'lwbp' => $lwbpClosing,
-                            'total' => $meterValue,
+                            'value' => $closing,
                         ];
                     }
                 }
@@ -798,28 +741,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                 }
                 if (!$category || $category === 'electricity') {
                     $rowData['electricity'] = $electricityData; // Return all electricity data
-                    // Photo paths are already included in electricityData
-                    // Add photo_path fields for consistency (used by PDF export)
-                    foreach ($rowData['electricity'] as &$elec) {
-                        // For multi-meter, photo_wbp and photo_lwbp are already set
-                        // Just add the path versions by extracting from the URL or from source data
-                        if ($multiMeterReadings->count() > 0) {
-                            // Multi-meter: Find matching reading by location/meter_name
-                            $matchingReading = $multiMeterReadings->first(function ($r) use ($elec) {
-                                $meterLocation = $r->electricityMeter->location ?? $r->electricityMeter->meter_name ?? 'default';
-                                return $meterLocation === $elec['location'];
-                            });
-                            $elec['photo_path'] = null;
-                            $elec['photo_wbp_path'] = $matchingReading && $matchingReading->photo_wbp ? $matchingReading->photo_wbp : null;
-                            $elec['photo_lwbp_path'] = $matchingReading && $matchingReading->photo_lwbp ? $matchingReading->photo_lwbp : null;
-                        } else {
-                            // Legacy: Find from legacyElectricityReadings
-                            $elecReading = $legacyElectricityReadings->firstWhere('location', $elec['location']);
-                            $elec['photo_path'] = $elecReading && $elecReading->photo ? $elecReading->photo : null;
-                            $elec['photo_wbp_path'] = $elecReading && $elecReading->photo_wbp ? $elecReading->photo_wbp : null;
-                            $elec['photo_lwbp_path'] = $elecReading && $elecReading->photo_lwbp ? $elecReading->photo_lwbp : null;
-                        }
-                    }
+                    // Photo paths are already included in electricityData (simplified version)
                 }
 
                 $reportData[] = $rowData;
@@ -892,7 +814,7 @@ class DailyRecordController extends Controller implements HasMiddleware
 
             // Row 1: Title
             $sheet->setCellValue('A1', 'LAPORAN DAILY USAGE - SEMUA KATEGORI');
-            $sheet->mergeCells('A1:AC1');
+            $sheet->mergeCells('A1:X1');
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('A1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2C3E50'); // Dark blue-gray
@@ -900,7 +822,7 @@ class DailyRecordController extends Controller implements HasMiddleware
 
             // Row 2: Branch info
             $sheet->setCellValue('A2', 'Cabang: ' . ($branch->name ?? '-'));
-            $sheet->mergeCells('A2:AC2');
+            $sheet->mergeCells('A2:X2');
             $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12);
             $sheet->getStyle('A2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF34495E');
@@ -908,7 +830,7 @@ class DailyRecordController extends Controller implements HasMiddleware
 
             // Row 3: Date range info (if filters applied)
             $sheet->setCellValue('A3', 'Periode: ' . ($request['start_date'] ?? 'Semua') . ' s/d ' . ($request['end_date'] ?? 'Semua'));
-            $sheet->mergeCells('A3:AC3');
+            $sheet->mergeCells('A3:X3');
             $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('A3')->getFont()->setItalic(true);
 
@@ -966,15 +888,15 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $sheet->getStyle($col . '5')->getAlignment()->setWrapText(true);
             }
 
-            // LAPORAN LISTRIK Header (Row 4, S-AB)
+            // LAPORAN LISTRIK Header (Row 4, S-X)
             $sheet->setCellValue('S4', 'LAPORAN LISTRIK');
-            $sheet->mergeCells('S4:AC4');
+            $sheet->mergeCells('S4:X4');
             $sheet->getStyle('S4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF27AE60'); // Green
             $sheet->getStyle('S4')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FFFFFFFF');
             $sheet->getStyle('S4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Electricity sub-headers (Row 5, S-AC) - Added Nama column
-            $elecHeaders = ['Nama', 'Lokasi', 'WBP Opening', 'LWBP Opening', 'WBP Closing', 'LWBP Closing', 'Pemakaian WBP', 'Pemakaian LWBP', 'Total Pemakaian', 'Foto WBP', 'Foto LWBP'];
+            // Electricity sub-headers (Row 5, S-X)
+            $elecHeaders = ['Nama', 'Lokasi', 'Opening', 'Closing', 'Pemakaian', 'Foto'];
             for ($i = 0; $i < count($elecHeaders); $i++) {
                 $col = $columns[18 + $i]; // Start from S (index 18)
                 $sheet->setCellValue($col . '5', $elecHeaders[$i]);
@@ -985,7 +907,8 @@ class DailyRecordController extends Controller implements HasMiddleware
             }
 
             // Add borders to all header cells
-            $sheet->getStyle('A4:AC5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+// Replace AC with X in this chunk
+            $sheet->getStyle('A4:X5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
             // Set row height for better readability
             $sheet->getRowDimension(4)->setRowHeight(25);
@@ -1092,49 +1015,31 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $elec->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        $wbpClosing = $elec->meter_value_wbp !== null ? round($elec->meter_value_wbp, 2) : '';
-                        $lwbpClosing = $elec->meter_value_lwbp !== null ? round($elec->meter_value_lwbp, 2) : '';
+                        $closing = $elec->meter_value !== null ? round($elec->meter_value, 2) : 0;
+                        $opening = $previousClosings['electricity'][$meterId] ?? 0;
+                        $usage = round($closing - $opening, 2);
 
-                        $wbpOpening = $previousClosings['electricity'][$meterId]['wbp'] ?? ($wbpClosing !== '' ? 0 : '');
-                        $lwbpOpening = $previousClosings['electricity'][$meterId]['lwbp'] ?? ($lwbpClosing !== '' ? 0 : '');
-
-                        $wbpUsage = ($wbpClosing !== '' && $wbpOpening !== '') ? round($wbpClosing - $wbpOpening, 2) : '';
-                        $lwbpUsage = ($lwbpClosing !== '' && $lwbpOpening !== '') ? round($lwbpClosing - $lwbpOpening, 2) : '';
-                        $elecTotal = ($wbpUsage !== '' || $lwbpUsage !== '')
-                            ? round((is_numeric($wbpUsage) ? $wbpUsage : 0) + (is_numeric($lwbpUsage) ? $lwbpUsage : 0), 2) : '';
-                        if (is_numeric($wbpUsage))
-                            $totalWbpUsage += $wbpUsage;
-                        if (is_numeric($lwbpUsage))
-                            $totalLwbpUsage += $lwbpUsage;
-                        if (is_numeric($elecTotal))
-                            $totalElecUsage += $elecTotal;
+                        $totalElecUsage += $usage;
 
                         $sheet->setCellValue($columns[$col++] . $currentRow, $meter->meter_name ?? 'Meter ' . ($i + 1));
                         $sheet->setCellValue($columns[$col++] . $currentRow, $meter->location ?? '-');
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $wbpOpening);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $lwbpOpening);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $wbpClosing);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $lwbpClosing);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $wbpUsage);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $lwbpUsage);
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $elecTotal);
-                        // Electricity WBP photo hyperlink
-                        $elecWbpPhotoCell = $columns[$col] . $currentRow;
-                        $addPhotoHyperlink($sheet, $elec->photo_wbp, $elecWbpPhotoCell, 'Foto WBP');
-                        $col++;
-                        // Electricity LWBP photo hyperlink
-                        $elecLwbpPhotoCell = $columns[$col] . $currentRow;
-                        $addPhotoHyperlink($sheet, $elec->photo_lwbp, $elecLwbpPhotoCell, 'Foto LWBP');
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $opening);
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $closing);
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $usage);
+
+                        // Electricity photo hyperlink
+                        $elecPhotoCell = $columns[$col] . $currentRow;
+                        $addPhotoHyperlink($sheet, $elec->photo, $elecPhotoCell, 'Foto Listrik');
                         $col++;
 
-                        $previousClosings['electricity'][$meterId] = ['wbp' => $wbpClosing, 'lwbp' => $lwbpClosing];
+                        $previousClosings['electricity'][$meterId] = $closing;
                     } else {
-                        for ($j = 0; $j < 11; $j++)
+                        for ($j = 0; $j < 6; $j++)
                             $sheet->setCellValue($columns[$col++] . $currentRow, '');
                     }
 
                     // Add borders to data row
-                    $sheet->getStyle('A' . $currentRow . ':AC' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                    $sheet->getStyle('A' . $currentRow . ':X' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
                     $currentRow++;
                 }
@@ -1145,16 +1050,13 @@ class DailyRecordController extends Controller implements HasMiddleware
                     $sheet->mergeCells('S' . $currentRow . ':T' . $currentRow); // Merge Nama and Lokasi for TOTAL
                     $sheet->setCellValue('U' . $currentRow, '-');
                     $sheet->setCellValue('V' . $currentRow, '-');
-                    $sheet->setCellValue('W' . $currentRow, '-');
+                    $sheet->setCellValue('W' . $currentRow, $totalElecUsage);
                     $sheet->setCellValue('X' . $currentRow, '-');
-                    $sheet->setCellValue('Y' . $currentRow, $totalWbpUsage);
-                    $sheet->setCellValue('Z' . $currentRow, $totalLwbpUsage);
-                    $sheet->setCellValue('AA' . $currentRow, $totalElecUsage);
 
                     // Style TOTAL row
-                    $sheet->getStyle('S' . $currentRow . ':AC' . $currentRow)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFF00'); // Yellow
-                    $sheet->getStyle('S' . $currentRow . ':AC' . $currentRow)->getFont()->setBold(true);
-                    $sheet->getStyle('A' . $currentRow . ':AC' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                    $sheet->getStyle('S' . $currentRow . ':X' . $currentRow)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFF00'); // Yellow
+                    $sheet->getStyle('S' . $currentRow . ':X' . $currentRow)->getFont()->setBold(true);
+                    $sheet->getStyle('A' . $currentRow . ':X' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
                     $currentRow++;
                 }
@@ -1179,12 +1081,9 @@ class DailyRecordController extends Controller implements HasMiddleware
             foreach (range('A', 'Z') as $colLetter) {
                 $sheet->getColumnDimension($colLetter)->setAutoSize(true);
             }
-            $sheet->getColumnDimension('AA')->setAutoSize(true);
-            $sheet->getColumnDimension('AB')->setAutoSize(true);
-            $sheet->getColumnDimension('AC')->setAutoSize(true);
 
             // Set vertical alignment
-            $sheet->getStyle('A1:AC' . $currentRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle('A1:X' . $currentRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
             // Create file and return response
             $filename = 'laporan-daily-usage-' . date('Y-m-d-H-i-s') . '.xlsx';
@@ -1331,51 +1230,28 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $electricityReading->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        $wbpClosing = $electricityReading->meter_value_wbp !== null ? round($electricityReading->meter_value_wbp, 2) : null;
-                        $lwbpClosing = $electricityReading->meter_value_lwbp !== null ? round($electricityReading->meter_value_lwbp, 2) : null;
+                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
                         // Opening = closing dari record sebelumnya dengan meter_id yang sama
-                        $wbpOpening = $previousClosings['electricity'][$meterId]['wbp'] ?? null;
-                        $lwbpOpening = $previousClosings['electricity'][$meterId]['lwbp'] ?? null;
+                        $opening = $previousClosings['electricity'][$meterId] ?? 0;
 
-                        // Jika masih null, gunakan 0
-                        $wbpOpening = $wbpOpening ?? 0;
-                        $lwbpOpening = $lwbpOpening ?? 0;
+                        $usage = null;
 
-                        $wbpUsage = null;
-                        $lwbpUsage = null;
-                        $totalUsage = null;
-
-                        // Hitung usage jika ada closing dan opening
-                        if ($wbpClosing !== null && $wbpOpening !== null) {
-                            $wbpUsage = round($wbpClosing - $wbpOpening, 2);
-                        }
-                        if ($lwbpClosing !== null && $lwbpOpening !== null) {
-                            $lwbpUsage = round($lwbpClosing - $lwbpOpening, 2);
-                        }
-                        // Hitung total jika minimal salah satu usage ada
-                        if ($wbpUsage !== null || $lwbpUsage !== null) {
-                            $totalUsage = round(($wbpUsage ?? 0) + ($lwbpUsage ?? 0), 2);
+                        // Hitung usage jika ada closing
+                        if ($closing !== null) {
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [
-                            'location' => $displayName,
-                            'wbp_opening' => $wbpOpening,
-                            'lwbp_opening' => $lwbpOpening,
-                            'wbp_closing' => $wbpClosing,
-                            'lwbp_closing' => $lwbpClosing,
-                            'wbp_usage' => $wbpUsage,
-                            'lwbp_usage' => $lwbpUsage,
-                            'total_usage' => $totalUsage,
-                            'photo_path' => $electricityReading->photo_wbp ? $electricityReading->photo_wbp : null,
-                            'photo_wbp_path' => $electricityReading->photo_wbp ? $electricityReading->photo_wbp : null,
-                            'photo_lwbp_path' => $electricityReading->photo_lwbp ? $electricityReading->photo_lwbp : null,
+                            'meter_name' => $meter->meter_name ?? 'Meter',
+                            'location' => $meter->location,
+                            'opening' => $opening,
+                            'closing' => $closing,
+                            'usage' => $usage,
+                            'photo_path' => $electricityReading->photo ? $electricityReading->photo : null,
                         ];
 
-                        $previousClosings['electricity'][$meterId] = [
-                            'wbp' => $wbpClosing,
-                            'lwbp' => $lwbpClosing,
-                        ];
+                        $previousClosings['electricity'][$meterId] = $closing;
                     }
                     $rowData['electricity'] = $electricityData;
                 }

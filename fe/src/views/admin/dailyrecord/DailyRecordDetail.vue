@@ -68,9 +68,6 @@ const utilityReadingForm = reactive({
   // Fields for Gas category
   stove_type: "",
   gas_type: "",
-  // Fields for Electricity category (WBP and LWBP)
-  meter_value_wbp: "",
-  meter_value_lwbp: "",
 });
 
 const categoryOptions = [
@@ -135,8 +132,6 @@ const resetUtilityReadingForm = () => {
   utilityReadingForm.photo = null;
   utilityReadingForm.stove_type = "";
   utilityReadingForm.gas_type = "";
-  utilityReadingForm.meter_value_wbp = "";
-  utilityReadingForm.meter_value_lwbp = "";
   editingUtilityReading.value = null;
   showUtilityReadingForm.value = false;
 };
@@ -181,33 +176,21 @@ const processedElectricityReadings = computed(() => {
       p.electricity_meter_id === reading.electricity_meter_id
     );
     
-    // WBP
-    const wbpOpen = prev ? parseFloat(prev.meter_value_wbp || 0) : 0;
-    const wbpClose = parseFloat(reading.meter_value_wbp || 0);
-    const wbpUsage = wbpClose - wbpOpen;
-    
-    // LWBP
-    const lwbpOpen = prev ? parseFloat(prev.meter_value_lwbp || 0) : 0;
-    const lwbpClose = parseFloat(reading.meter_value_lwbp || 0);
-    const lwbpUsage = lwbpClose - lwbpOpen;
-    
-    const totalUsage = wbpUsage + lwbpUsage;
+    const opening = prev ? parseFloat(prev.meter_value || 0) : 0;
+    const closing = parseFloat(reading.meter_value || 0);
+    const usage = closing - opening;
     
     return {
       ...reading,
-      wbp_open: prev ? wbpOpen : (dailyRecord.value?.previous_readings ? 0 : null),
-      wbp_close: wbpClose,
-      wbp_usage: wbpUsage,
-      lwbp_open: prev ? lwbpOpen : (dailyRecord.value?.previous_readings ? 0 : null),
-      lwbp_close: lwbpClose,
-      lwbp_usage: lwbpUsage,
-      total_usage: totalUsage
+      opening: prev ? opening : (dailyRecord.value?.previous_readings ? 0 : null),
+      closing: closing,
+      usage: usage
     };
   });
 });
 
 const totalElectricityUsage = computed(() => {
-  return processedElectricityReadings.value.reduce((sum, item) => sum + item.total_usage, 0);
+  return processedElectricityReadings.value.reduce((sum, item) => sum + item.usage, 0);
 });
 
 const openUtilityReadingForm = (utilityReading = null) => {
@@ -219,8 +202,6 @@ const openUtilityReadingForm = (utilityReading = null) => {
     utilityReadingForm.meter_value = utilityReading.meter_value || "";
     utilityReadingForm.stove_type = utilityReading.stove_type || "";
     utilityReadingForm.gas_type = utilityReading.gas_type || "";
-    utilityReadingForm.meter_value_wbp = utilityReading.meter_value_wbp || "";
-    utilityReadingForm.meter_value_lwbp = utilityReading.meter_value_lwbp || "";
     utilityReadingForm.photo = null; // Reset file input
     photoPreview.value = utilityReading.photo || null; // Show existing photo preview
   } else {
@@ -237,16 +218,9 @@ const handleUtilityReadingSubmit = async () => {
     return;
   }
 
-  // For electricity, require WBP and LWBP
-  if (utilityReadingForm.category === 'electricity') {
-    if (!utilityReadingForm.meter_value_wbp || !utilityReadingForm.meter_value_lwbp) {
-      return;
-    }
-  } else {
-    // For other categories, require meter_value
-    if (!utilityReadingForm.meter_value) {
-      return;
-    }
+  // For all categories (gas, water), require meter_value
+  if (!utilityReadingForm.meter_value) {
+    return;
   }
 
   try {
@@ -256,17 +230,11 @@ const handleUtilityReadingSubmit = async () => {
       // Sub type: null for gas, otherwise use the value
       sub_type: utilityReadingForm.category === 'gas' ? null : (utilityReadingForm.sub_type || null),
       location: utilityReadingForm.location || null,
-      // Meter value: only for non-electricity categories
-      meter_value: utilityReadingForm.category === 'electricity' 
-        ? null 
-        : (utilityReadingForm.meter_value ? parseFloat(utilityReadingForm.meter_value) : null),
+      meter_value: utilityReadingForm.meter_value ? parseFloat(utilityReadingForm.meter_value) : null,
       photo: utilityReadingForm.photo, // File object or null
       // Fields for Gas category
       stove_type: utilityReadingForm.stove_type || null,
       gas_type: utilityReadingForm.gas_type || null,
-      // Fields for Electricity category (WBP and LWBP)
-      meter_value_wbp: utilityReadingForm.meter_value_wbp ? parseFloat(utilityReadingForm.meter_value_wbp) : null,
-      meter_value_lwbp: utilityReadingForm.meter_value_lwbp ? parseFloat(utilityReadingForm.meter_value_lwbp) : null,
     };
 
     if (editingUtilityReading.value) {
@@ -517,9 +485,9 @@ onMounted(() => {
             <thead>
               <tr class="border-b border-gray-200 bg-gray-50">
                 <th class="text-left py-2 px-3 font-medium text-gray-600">Meter Info</th>
-                <th class="text-center py-2 px-3 font-medium text-gray-600 bg-yellow-50">WBP (Akhir - Awal)</th>
-                <th class="text-center py-2 px-3 font-medium text-gray-600 bg-blue-50">LWBP (Akhir - Awal)</th>
-                <th class="text-right py-2 px-3 font-medium text-gray-600 font-bold">Total Pakai</th>
+                <th class="text-right py-2 px-3 font-medium text-gray-600">Opening</th>
+                <th class="text-right py-2 px-3 font-medium text-gray-600">Closing</th>
+                <th class="text-right py-2 px-3 font-medium text-gray-600 font-bold">Pemakaian</th>
                 <th class="text-center py-2 px-3 font-medium text-gray-600">Foto</th>
               </tr>
             </thead>
@@ -537,41 +505,20 @@ onMounted(() => {
                     {{ reading.electricity_meter?.location || reading.electricityMeter?.location || "-" }}
                   </div>
                 </td>
-                <!-- WBP Column -->
-                <td class="py-2 px-3 bg-yellow-50/30">
-                  <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Akhir: {{ reading.wbp_close ?? '-' }}</span>
-                    <span>Awal: {{ reading.wbp_open ?? '-' }}</span>
-                  </div>
-                  <div class="text-right font-medium text-gray-900 border-t border-gray-200 pt-1">
-                    = {{ reading.wbp_usage !== null ? reading.wbp_usage.toFixed(2) : '-' }}
-                  </div>
+                <td class="py-2 px-3 text-right text-gray-600">
+                  {{ reading.opening !== null ? reading.opening : '-' }}
                 </td>
-                <!-- LWBP Column -->
-                <td class="py-2 px-3 bg-blue-50/30">
-                  <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Akhir: {{ reading.lwbp_close ?? '-' }}</span>
-                    <span>Awal: {{ reading.lwbp_open ?? '-' }}</span>
-                  </div>
-                  <div class="text-right font-medium text-gray-900 border-t border-gray-200 pt-1">
-                    = {{ reading.lwbp_usage !== null ? reading.lwbp_usage.toFixed(2) : '-' }}
-                  </div>
+                <td class="py-2 px-3 text-right font-medium text-gray-900">
+                  {{ reading.closing ?? "-" }}
                 </td>
-                
-                <td class="py-2 px-3 text-right font-bold text-gray-900 text-base">
-                  {{ reading.total_usage !== null ? reading.total_usage.toFixed(2) : '-' }}
+                <td class="py-2 px-3 text-right font-bold text-blue-600">
+                  {{ reading.usage !== null ? reading.usage.toFixed(2) : '-' }}
                 </td>
-
                 <td class="py-2 px-3 text-center">
-                  <div class="flex justify-center gap-2">
-                    <a v-if="reading.photo_wbp" :href="reading.photo_wbp" target="_blank" title="Foto WBP">
-                      <img :src="reading.photo_wbp" class="w-8 h-8 object-cover rounded hover:opacity-80" alt="WBP" />
-                    </a>
-                    <a v-if="reading.photo_lwbp" :href="reading.photo_lwbp" target="_blank" title="Foto LWBP">
-                       <img :src="reading.photo_lwbp" class="w-8 h-8 object-cover rounded hover:opacity-80" alt="LWBP" />
-                    </a>
-                    <span v-if="!reading.photo_wbp && !reading.photo_lwbp" class="text-gray-400">-</span>
-                  </div>
+                  <a v-if="reading.photo" :href="reading.photo" target="_blank" title="Foto Meter">
+                    <img :src="reading.photo" class="w-8 h-8 object-cover rounded hover:opacity-80 mx-auto" alt="Meter" />
+                  </a>
+                  <span v-else class="text-gray-400">-</span>
                 </td>
               </tr>
               <!-- Summary Row -->

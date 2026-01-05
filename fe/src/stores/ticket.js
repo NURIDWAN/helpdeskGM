@@ -132,6 +132,28 @@ export const useTicketStore = defineStore("ticket", {
             } finally {
                 this.loading = false;
             }
+        },
+
+        async closeTicket(id) {
+            this.loading = true;
+            this.error = null;
+            const toast = useToast();
+            try {
+                const response = await axiosInstance.put(`/tickets/${id}/close`);
+                this.success = response.data.message;
+                toast.success(response.data.message || 'Tiket berhasil ditutup');
+                return true;
+            } catch (error) {
+                const errorMsg = handleError(error);
+                this.error = errorMsg;
+                const errorText = typeof errorMsg === 'string'
+                    ? errorMsg
+                    : (errorMsg?.message || 'Gagal menutup tiket');
+                toast.error(errorText);
+                return false;
+            } finally {
+                this.loading = false;
+            }
         }
     }
 });

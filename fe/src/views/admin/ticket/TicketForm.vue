@@ -72,7 +72,6 @@ const statuses = [
   { value: "open", label: "Open" },
   { value: "in_progress", label: "In Progress" },
   { value: "resolved", label: "Resolved" },
-  { value: "closed", label: "Closed" },
 ];
 
 const handleSubmit = async () => {

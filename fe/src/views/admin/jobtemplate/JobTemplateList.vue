@@ -105,6 +105,26 @@ const getFrequencyLabel = (value) => {
   return frequency ? frequency.label : value;
 };
 
+const dayTranslations = {
+  monday: 'Senin', tuesday: 'Selasa', wednesday: 'Rabu', thursday: 'Kamis',
+  friday: 'Jumat', saturday: 'Sabtu', sunday: 'Minggu'
+};
+
+const formatScheduleDetails = (item) => {
+  if (!item.schedule_details) return null;
+
+  if (item.frequency === 'weekly' && item.schedule_details.days) {
+    const days = item.schedule_details.days.map(d => dayTranslations[d.toLowerCase()] || d);
+    return days.join(', ');
+  }
+
+  if (item.frequency === 'monthly' && item.schedule_details.dates) {
+    return 'Tgl ' + item.schedule_details.dates.join(', ');
+  }
+
+  return null;
+};
+
 // Lifecycle
 onMounted(() => {
   fetchJobTemplates();
@@ -177,12 +197,17 @@ onMounted(() => {
         </div>
       </template>
 
-      <template #cell-frequency="{ value }">
-        <span
-          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-        >
-          {{ getFrequencyLabel(value) }}
-        </span>
+      <template #cell-frequency="{ item }">
+        <div class="flex flex-col items-start gap-1">
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+            >
+              {{ getFrequencyLabel(item.frequency) }}
+            </span>
+            <span v-if="formatScheduleDetails(item)" class="text-xs text-gray-500 max-w-[200px] truncate" :title="formatScheduleDetails(item)">
+                {{ formatScheduleDetails(item) }}
+            </span>
+        </div>
       </template>
 
       <template #cell-is_active="{ value }">
