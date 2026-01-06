@@ -71,7 +71,8 @@ class RoleSeeder extends Seeder
             // tickets
             'ticket-menu',
             'ticket-list',
-            'ticket-edit',
+            'ticket-create', // Staff can create tickets (auto-assigned to their branch)
+            // ticket-edit removed - staff should not edit tickets
             'ticket-update-status',
             // ticket replies
             'ticket-reply-list',

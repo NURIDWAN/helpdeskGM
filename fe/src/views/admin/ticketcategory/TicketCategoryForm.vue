@@ -12,6 +12,15 @@ import {
   ChevronRight,
   Tag,
   Palette,
+  Zap,
+  Droplet,
+  Wind,
+  Wifi,
+  Shield,
+  Sparkles,
+  Building,
+  Armchair,
+  MoreHorizontal,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -56,6 +65,25 @@ const iconOptions = [
   { value: "Tag", label: "Tag (Umum)" },
   { value: "MoreHorizontal", label: "More (Lainnya)" },
 ];
+
+// Map icon names to components
+const iconComponents = {
+  Zap,
+  Droplet,
+  Wind,
+  Wifi,
+  Shield,
+  Sparkles,
+  Building,
+  Armchair,
+  Tag,
+  MoreHorizontal,
+};
+
+// Get the selected icon component
+const selectedIconComponent = computed(() => {
+  return iconComponents[form.icon] || Tag;
+});
 
 const loadCategory = async () => {
   if (isEdit.value && categoryId.value) {
@@ -237,7 +265,7 @@ onMounted(() => {
             class="w-10 h-10 rounded-lg flex items-center justify-center"
             :style="{ backgroundColor: form.color + '20' }"
           >
-            <Tag :size="20" :style="{ color: form.color }" />
+            <component :is="selectedIconComponent" :size="20" :style="{ color: form.color }" />
           </div>
           <div>
             <span class="font-medium text-gray-900">{{ form.name || 'Nama Kategori' }}</span>

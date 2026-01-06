@@ -135,8 +135,8 @@ class TicketRepository implements TicketRepositoryInterface
             ->withCount('replies')
             ->where('code', $code);
 
-        if ($user && $user->hasRole('admin')) {
-            // admins can access any ticket
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can access any ticket
         } elseif ($user && $user->hasRole('staff')) {
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);
@@ -162,8 +162,8 @@ class TicketRepository implements TicketRepositoryInterface
             ->withCount('replies')
             ->where('id', $id);
 
-        if ($user && $user->hasRole('admin')) {
-            // admins can access any ticket
+        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
+            // admins and superadmins can access any ticket
         } elseif ($user && $user->hasRole('staff')) {
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);
@@ -182,7 +182,28 @@ class TicketRepository implements TicketRepositoryInterface
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // Note: Staff from any branch can be assigned to tickets
+            // Auto-assign logic for regular users and staff
+            $autoAssignStaff = [];
+            $creator = \App\Models\User::find($data['user_id']);
+
+            // Auto-assign if creator is 'user' or 'staff' and has a branch
+            // This ensures tickets are assigned to all staff in the creator's branch
+            if ($creator && ($creator->hasRole('user') || $creator->hasRole('staff')) && $creator->branch_id) {
+                // Find all staff in the same branch
+                $branchStaff = \App\Models\User::where('branch_id', $creator->branch_id)
+                    ->role('staff')
+                    ->pluck('id')
+                    ->toArray();
+
+                $autoAssignStaff = $branchStaff;
+
+                Log::info('Auto-assign staff for new ticket', [
+                    'creator_id' => $creator->id,
+                    'creator_role' => $creator->getRoleNames(),
+                    'branch_id' => $creator->branch_id,
+                    'auto_assigned_staff' => $autoAssignStaff,
+                ]);
+            }
 
             $ticket = new Ticket();
             $ticket->user_id = $data['user_id'];
@@ -195,9 +216,13 @@ class TicketRepository implements TicketRepositoryInterface
             $ticket->completed_at = $data['completed_at'] ?? null;
             $ticket->save();
 
-            // Handle assigned staff
-            if (isset($data['assigned_staff']) && is_array($data['assigned_staff'])) {
-                $ticket->assignedStaff()->sync($data['assigned_staff']);
+            // Handle assigned staff - merge manual assigned_staff with auto-assigned staff
+            $assignedStaff = $data['assigned_staff'] ?? [];
+            if (!empty($autoAssignStaff)) {
+                $assignedStaff = array_unique(array_merge($assignedStaff, $autoAssignStaff));
+            }
+            if (!empty($assignedStaff)) {
+                $ticket->assignedStaff()->sync($assignedStaff);
             }
 
             $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
@@ -243,7 +268,7 @@ class TicketRepository implements TicketRepositoryInterface
                 if (!isset($data['system_auto_close']) || !$data['system_auto_close']) {
                     $user = Auth::user();
                     $isCreator = $user && $user->id === $ticket->user_id;
-                    $isAdmin = $user && $user->hasRole('admin');
+                    $isAdmin = $user && ($user->hasRole('admin') || $user->hasRole('superadmin'));
 
                     if (!$isCreator && !$isAdmin) {
                         throw new \Exception('Tiket hanya boleh di-close oleh pembuat tiket atau admin.');

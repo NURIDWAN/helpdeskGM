@@ -451,7 +451,7 @@ class TicketController extends Controller implements HasMiddleware
     public function closeTicket(string $id)
     {
         try {
-            $ticket = \App\Models\Ticket::findOrFail($id);
+            $ticket = \App\Models\Ticket::with(['user', 'branch', 'category', 'assignedStaff'])->findOrFail($id);
             $user = auth()->user();
 
             // Check if user is the reporter or has permission
@@ -459,23 +459,24 @@ class TicketController extends Controller implements HasMiddleware
                 return ResponseHelper::jsonResponse(false, 'Anda tidak memiliki hak akses untuk menutup tiket ini', null, 403);
             }
 
-            // Only allow closing if status is resolved (or allow from any status? usually from resolved)
-            // But user requirement says: "bila ticket sudah solve" -> so assume status must be resolved
-            // However, flexible approach: just close it.
-            // Let's stick to "resolved" check as per requirement implication, or maybe just allow it.
-            // Requirement: "tombol close di list ticket yang melaporkan nya bila ticket sudah solve"
-            // So we should check if status is resolved.
-
-            // if ($ticket->status !== \App\Enums\TicketStatus::RESOLVED->value) {
-            //     return ResponseHelper::jsonResponse(false, 'Tiket hanya bisa ditutup jika status sudah Resolved', null, 400);
-            // } 
-            // Re-reading: "bila ticket sudah solve" -> implies condition.
-            // Let's enable it for Resolved status only for safety, or check if user wants to force close.
-            // For now, let's allow close from Resolved status generally.
+            // Store old status for notification
+            $oldStatus = $ticket->status;
 
             // Update status to closed
             $ticket->status = \App\Enums\TicketStatus::CLOSED->value;
             $ticket->save();
+
+            // Send WhatsApp notification for closed ticket
+            try {
+                $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
+                $whatsappService->sendTicketStatusUpdateNotification($ticket, $oldStatus->value ?? $oldStatus);
+                Log::info('Closed ticket notification sent', ['ticket_id' => $ticket->id]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send closed ticket notification', [
+                    'ticket_id' => $ticket->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
 
             return ResponseHelper::jsonResponse(true, 'Tiket berhasil ditutup', new TicketResource($ticket), 200);
 

@@ -8,6 +8,7 @@ use App\Enums\WorkOrderStatus;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class WorkOrderRepository implements WorkOrderRepositoryInterface
@@ -97,7 +98,9 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         return DB::transaction(function () use ($data) {
             $workOrder = new WorkOrder();
             $workOrder->ticket_id = $data['ticket_id'];
-            $workOrder->assigned_to = $data['assigned_to'];
+            // Keep assigned_to for backward compatibility (first staff if array provided)
+            $assignedStaff = $data['assigned_staff'] ?? [];
+            $workOrder->assigned_to = !empty($assignedStaff) ? $assignedStaff[0] : ($data['assigned_to'] ?? null);
             $workOrder->number = $data['number'] ?? $this->generateWorkOrderNumber($workOrder->ticket_id);
             $workOrder->description = $data['description'] ?? null;
             $workOrder->status = $data['status'] ?? WorkOrderStatus::PENDING;
@@ -114,9 +117,14 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
 
             $workOrder->save();
 
-            $workOrder = $workOrder->load(['ticket.branch', 'assignedUser']);
+            // Sync assigned staff (many-to-many)
+            if (!empty($assignedStaff)) {
+                $workOrder->assignedStaff()->sync($assignedStaff);
+            }
 
-            // Send WhatsApp notification to assigned technician
+            $workOrder = $workOrder->load(['ticket.branch', 'assignedUser', 'assignedStaff']);
+
+            // Send WhatsApp notification to assigned technicians
             try {
                 $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
                 $whatsappService->sendWorkOrderNotification($workOrder);
@@ -136,6 +144,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
     {
         return DB::transaction(function () use ($id, $data) {
             $workOrder = $this->getById($id);
+            $oldStatus = $workOrder->status;
 
             $user = Auth::user();
             /** @var \App\Models\User|null $user */
@@ -146,9 +155,18 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                     'status' => $data['status'] ?? $workOrder->status,
                 ])->save();
             } else {
+                // Handle assigned_staff array
+                $assignedStaff = $data['assigned_staff'] ?? null;
+                $assignedTo = $workOrder->assigned_to;
+                if ($assignedStaff !== null && !empty($assignedStaff)) {
+                    $assignedTo = $assignedStaff[0]; // First staff for backward compatibility
+                } elseif (isset($data['assigned_to'])) {
+                    $assignedTo = $data['assigned_to'];
+                }
+
                 $workOrder->fill([
                     'ticket_id' => $data['ticket_id'] ?? $workOrder->ticket_id,
-                    'assigned_to' => $data['assigned_to'] ?? $workOrder->assigned_to,
+                    'assigned_to' => $assignedTo,
                     'number' => $data['number'] ?? $workOrder->number,
                     'description' => $data['description'] ?? $workOrder->description,
                     'status' => $data['status'] ?? $workOrder->status,
@@ -163,9 +181,29 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                     'serial_number' => $data['serial_number'] ?? $workOrder->serial_number,
                     'purchase_date' => $data['purchase_date'] ?? $workOrder->purchase_date,
                 ])->save();
+
+                // Sync assigned staff if provided
+                if ($assignedStaff !== null) {
+                    $workOrder->assignedStaff()->sync($assignedStaff);
+                }
             }
 
-            return $workOrder->load(['ticket', 'assignedUser']);
+            // Send notification when Work Order is marked as "done"
+            $newStatus = $workOrder->status;
+            if ($oldStatus !== $newStatus && $newStatus->value === 'done') {
+                try {
+                    $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
+                    $whatsappService->sendWorkOrderDoneNotification($workOrder->load(['ticket', 'assignedUser', 'assignedStaff']));
+                    Log::info('Work Order done notification sent', ['work_order_id' => $workOrder->id]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send Work Order done notification', [
+                        'work_order_id' => $workOrder->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return $workOrder->load(['ticket', 'assignedUser', 'assignedStaff']);
         });
     }
 
@@ -204,26 +242,53 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
 
     private function generateWorkOrderNumber(?int $ticketId): string
     {
+        // Roman month mapping
+        $romanMonths = [
+            1 => 'I',
+            2 => 'II',
+            3 => 'III',
+            4 => 'IV',
+            5 => 'V',
+            6 => 'VI',
+            7 => 'VII',
+            8 => 'VIII',
+            9 => 'IX',
+            10 => 'X',
+            11 => 'XI',
+            12 => 'XII'
+        ];
+        $month = $romanMonths[(int) date('n')];
+        $year = date('Y');
+
+        // Get branch code and unique code
+        $branchCode = 'XXXX';
+        $uniqueCode = null;
+
         if ($ticketId) {
             $ticket = Ticket::with('branch')->find($ticketId);
-            $branchName = $ticket?->branch?->name ?? 'General';
-        } else {
-            // For standalone work orders, use 'General' branch
-            $branchName = 'General';
+
+            // Get branch code from ticket's branch
+            if ($ticket?->branch?->code) {
+                $branchCode = $ticket->branch->code;
+            }
+
+            // Extract unique code from ticket code (e.g., "T-NO.ABC/SPK/JKT1/I/2026" -> "ABC")
+            if ($ticket?->code) {
+                // Pattern: T-NO.XXX/...
+                if (preg_match('/T-NO\.([A-Z0-9]{3})\//', $ticket->code, $matches)) {
+                    $uniqueCode = $matches[1];
+                }
+            }
         }
 
-        $lettersOnly = strtoupper(preg_replace('/[^A-Za-z]/', '', $branchName));
-        $consonants = preg_replace('/[AEIOU]/', '', $lettersOnly);
-        $branchCode = substr($consonants ?: $lettersOnly, 0, 3) ?: 'GEN';
+        // If no ticket or couldn't extract code, generate unique code
+        if (!$uniqueCode) {
+            do {
+                $uniqueCode = strtoupper(Str::random(3));
+                $testNumber = "SPK-NO.{$uniqueCode}/{$branchCode}/{$month}/{$year}";
+            } while (WorkOrder::where('number', $testNumber)->exists());
+        }
 
-        $month = now()->format('m');
-        $year = now()->format('Y');
-
-        $countThisPeriod = WorkOrder::whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->count() + 1;
-        $sequence = str_pad((string) $countThisPeriod, 3, '0', STR_PAD_LEFT);
-
-        return $sequence . '/SPK-' . $branchCode . '/' . $month . '/' . $year;
+        return "SPK-NO.{$uniqueCode}/{$branchCode}/{$month}/{$year}";
     }
 }

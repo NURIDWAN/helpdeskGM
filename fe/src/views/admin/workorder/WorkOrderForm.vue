@@ -39,7 +39,7 @@ const workOrderId = computed(() => route.params.id);
 
 const form = reactive({
   ticket_id: null,
-  assigned_to: "",
+  assigned_staff: [], // Changed to array for multi-select
   description: null,
   status: "pending",
   damage_unit: null,
@@ -62,7 +62,7 @@ const handleSubmit = async () => {
   try {
     const payload = {
       ticket_id: form.ticket_id || null,
-      assigned_to: form.assigned_to,
+      assigned_staff: form.assigned_staff.map(id => Number(id)), // Send as array
       description: form.description || null,
       status: form.status,
       damage_unit: form.damage_unit || null,
@@ -95,7 +95,13 @@ const loadWorkOrderData = async () => {
       const workOrder = await fetchWorkOrder(workOrderId.value);
       if (workOrder) {
         form.ticket_id = workOrder.ticket_id;
-        form.assigned_to = workOrder.assigned_to;
+        // Load assigned_staff from response (array of user objects or IDs)
+        if (workOrder.assigned_staff && Array.isArray(workOrder.assigned_staff)) {
+          form.assigned_staff = workOrder.assigned_staff.map(s => String(s.id || s));
+        } else if (workOrder.assigned_to) {
+          // Fallback for old data
+          form.assigned_staff = [String(workOrder.assigned_to)];
+        }
         form.description = workOrder.description;
         form.status = workOrder.status;
         form.damage_unit = workOrder.damage_unit;
@@ -164,6 +170,74 @@ const selectedTicket = computed(() => {
   if (!form.ticket_id) return null;
   return tickets.value.find((t) => String(t.id) === String(form.ticket_id));
 });
+
+// Computed property to sort staff - prioritize ticket's branch staff at top
+const sortedStaffUsers = computed(() => {
+  if (!selectedTicket.value || !selectedTicket.value.branch_id) {
+    // If no ticket selected or ticket has no branch, show all staff as-is
+    return staffUsers.value;
+  }
+  
+  // Sort staff: same branch first, then others
+  const branchId = selectedTicket.value.branch_id;
+  const sorted = [...staffUsers.value].sort((a, b) => {
+    const aMatch = a.branch_id === branchId ? 0 : 1;
+    const bMatch = b.branch_id === branchId ? 0 : 1;
+    return aMatch - bMatch;
+  });
+  
+  return sorted;
+});
+
+// Function to auto-select all staff from ticket's branch
+const autoSelectBranchStaff = () => {
+  if (isEdit.value) return; // Don't auto-select when editing
+  if (!form.ticket_id) return;
+  if (staffUsers.value.length === 0) return;
+  
+  const ticket = tickets.value.find((t) => String(t.id) === String(form.ticket_id));
+  if (!ticket) return;
+  
+  // Get branch ID - could be ticket.branch_id or ticket.branch.id
+  const ticketBranchId = ticket.branch_id || ticket.branch?.id;
+  if (!ticketBranchId) return;
+  
+  // Find ALL staff from same branch (compare as strings to avoid type mismatch)
+  const branchStaff = staffUsers.value.filter(
+    (u) => String(u.branch_id) === String(ticketBranchId)
+  );
+  
+  console.log('Auto-select debug:', {
+    ticketBranchId,
+    staffUsers: staffUsers.value.map(s => ({ id: s.id, name: s.name, branch_id: s.branch_id })),
+    branchStaff: branchStaff.map(s => s.name)
+  });
+  
+  if (branchStaff.length > 0) {
+    // Auto-select ALL staff from branch
+    form.assigned_staff = branchStaff.map(s => String(s.id));
+  }
+};
+
+// Watch ticket selection to auto-assign ALL staff from same branch
+watch(
+  () => form.ticket_id,
+  (newTicketId) => {
+    if (newTicketId && !isEdit.value) {
+      autoSelectBranchStaff();
+    }
+  }
+);
+
+// Also watch staffUsers - when they load, check if we need to auto-select
+watch(
+  () => staffUsers.value.length,
+  (newLength) => {
+    if (newLength > 0 && form.ticket_id && !isEdit.value && form.assigned_staff.length === 0) {
+      autoSelectBranchStaff();
+    }
+  }
+);
 
 const getTicketLabel = (t) => {
   const titlePart = t.title || `[${t.category?.name || 'Tanpa Kategori'}]`;
@@ -287,21 +361,45 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Assigned To -->
-        <div>
-          <FormField
-            v-model="form.assigned_to"
-            id="assigned_to"
-            name="assigned_to"
-            label="Assign ke Teknisi"
-            :label-icon="User"
-            :error="error?.assigned_to?.join(', ')"
-            type="select"
-            placeholder="Pilih teknisi"
-            :options="
-              staffUsers.map((u) => ({ value: String(u.id), label: u.branch ? `${u.name} (${u.branch.name})` : u.name }))
-            "
-          />
+        <!-- Assigned Staff (Multi-Select) -->
+        <div class="lg:col-span-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+            <User :size="16" class="text-gray-500" />
+            Assign ke Teknisi
+          </label>
+          <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 max-h-60 overflow-y-auto">
+            <div v-if="sortedStaffUsers.length === 0" class="text-gray-500 text-sm">
+              Tidak ada staff tersedia
+            </div>
+            <div v-else class="space-y-2">
+              <label
+                v-for="staff in sortedStaffUsers"
+                :key="staff.id"
+                class="flex items-center gap-3 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors"
+                :class="{
+                  'bg-blue-50 border border-blue-200': form.assigned_staff.includes(String(staff.id)),
+                  'bg-transparent': !form.assigned_staff.includes(String(staff.id))
+                }"
+              >
+                <input
+                  type="checkbox"
+                  :value="String(staff.id)"
+                  v-model="form.assigned_staff"
+                  class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <div class="flex-1">
+                  <span class="text-sm font-medium text-gray-900">{{ staff.name }}</span>
+                  <span v-if="staff.branch" class="text-xs text-gray-500 ml-2">({{ staff.branch.name }})</span>
+                </div>
+              </label>
+            </div>
+          </div>
+          <p v-if="error?.assigned_staff" class="mt-1 text-sm text-red-600">
+            {{ error.assigned_staff.join(', ') }}
+          </p>
+          <p class="mt-2 text-xs text-gray-500">
+            {{ form.assigned_staff.length }} teknisi dipilih
+          </p>
         </div>
 
         <!-- Status -->

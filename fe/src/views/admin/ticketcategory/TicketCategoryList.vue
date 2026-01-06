@@ -11,7 +11,35 @@ import {
   Search,
   Tag,
   ChevronRight,
+  Zap,
+  Droplet,
+  Wind,
+  Wifi,
+  Shield,
+  Sparkles,
+  Building,
+  Armchair,
+  MoreHorizontal,
 } from "lucide-vue-next";
+
+// Map icon names to components
+const iconComponents = {
+  Zap,
+  Droplet,
+  Wind,
+  Wifi,
+  Shield,
+  Sparkles,
+  Building,
+  Armchair,
+  Tag,
+  MoreHorizontal,
+};
+
+// Get icon component by name
+const getIconComponent = (iconName) => {
+  return iconComponents[iconName] || Tag;
+};
 
 const categoryStore = useTicketCategoryStore();
 const { categories, loading, meta } = storeToRefs(categoryStore);
@@ -158,7 +186,7 @@ onMounted(() => {
                   class="w-8 h-8 rounded-lg flex items-center justify-center"
                   :style="{ backgroundColor: category.color + '20' }"
                 >
-                  <Tag :size="16" :style="{ color: category.color }" />
+                  <component :is="getIconComponent(category.icon)" :size="16" :style="{ color: category.color }" />
                 </div>
                 <span class="font-medium text-gray-900">{{ category.name }}</span>
               </div>

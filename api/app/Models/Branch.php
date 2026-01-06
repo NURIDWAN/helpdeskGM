@@ -49,4 +49,20 @@ class Branch extends Model
     {
         return $this->hasMany(ElectricityMeter::class);
     }
+
+    /**
+     * Get all users belonging to this branch.
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
+     * Get all staff members belonging to this branch.
+     */
+    public function staff(): HasMany
+    {
+        return $this->hasMany(User::class)->role('staff');
+    }
 }

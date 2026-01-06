@@ -20,7 +20,7 @@ const { fetchWorkOrdersPaginated, deleteWorkOrder, updateWorkOrder } = workOrder
 const tableColumns = [
   { key: "number", label: "Nomor", bold: true, nowrap: true },
   { key: "ticket_info", label: "Ticket", nowrap: true },
-  { key: "assigned_user.name", label: "Teknisi", nowrap: true },
+  { key: "assigned_staff_list", label: "Teknisi", nowrap: false },
   { key: "status", label: "Status", nowrap: true },
   { key: "created_at", label: "Dibuat", nowrap: true },
 ];
@@ -195,6 +195,22 @@ onMounted(() => {
           </p>
         </div>
         <span v-else class="text-gray-500 italic text-sm"> SPK Standalone </span>
+      </template>
+
+      <template #cell-assigned_staff_list="{ item }">
+        <div v-if="item.assigned_staff && item.assigned_staff.length > 0" class="flex flex-wrap gap-1">
+          <span 
+            v-for="staff in item.assigned_staff" 
+            :key="staff.id"
+            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+          >
+            {{ staff.name }}
+          </span>
+        </div>
+        <span v-else-if="item.assigned_user" class="text-sm text-gray-700">
+          {{ item.assigned_user.name }}
+        </span>
+        <span v-else class="text-gray-500 italic text-sm">-</span>
       </template>
 
       <template #cell-status="{ value }">

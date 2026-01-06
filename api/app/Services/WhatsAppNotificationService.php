@@ -157,13 +157,62 @@ class WhatsAppNotificationService
             ]);
 
             // Logic for recipients based on status
+            Log::info('Processing ticket status update notification', [
+                'ticket_id' => $ticket->id,
+                'status' => $status,
+                'is_closed' => $status === 'closed'
+            ]);
+
             if ($status === 'closed') {
-                // Closed -> Send to Group
+                // Closed -> Send to Group AND User (Creator)
+                Log::info('Ticket is being closed, sending notifications', ['ticket_id' => $ticket->id]);
+
+                // 1. Send to Group
                 if ($this->groupId) {
                     $this->sendMessageToGroup($message);
                     Log::info('WhatsApp notification sent to group for closed ticket', [
                         'ticket_id' => $ticket->id
                     ]);
+                }
+
+                // 2. Send to User (Creator) - personal notification
+                if ($ticket->user && $ticket->user->phone_number) {
+                    $userMessage = $this->buildMessage('ticket_closed_user', $ticket, [
+                        'old_status' => $this->getStatusText($oldStatus),
+                        'new_status' => $this->getStatusText($status)
+                    ]);
+                    $phone = $this->formatPhoneNumber($ticket->user->phone_number);
+                    if ($phone) {
+                        $this->sendMessage($userMessage, [$phone]);
+                        Log::info('WhatsApp notification sent to user for closed ticket', [
+                            'ticket_id' => $ticket->id,
+                            'user_id' => $ticket->user->id
+                        ]);
+                    }
+                }
+
+                // 3. Send to Assigned Staff - so they know ticket is complete
+                if ($ticket->assignedStaff && $ticket->assignedStaff->count() > 0) {
+                    $staffRecipients = [];
+                    foreach ($ticket->assignedStaff as $staff) {
+                        if ($staff->phone_number) {
+                            $phone = $this->formatPhoneNumber($staff->phone_number);
+                            if ($phone)
+                                $staffRecipients[] = $phone;
+                        }
+                    }
+
+                    if (!empty($staffRecipients)) {
+                        $staffMessage = $this->buildMessage('ticket_closed_staff', $ticket, [
+                            'old_status' => $this->getStatusText($oldStatus),
+                            'new_status' => $this->getStatusText($status)
+                        ]);
+                        $this->sendMessage($staffMessage, $staffRecipients);
+                        Log::info('WhatsApp notification sent to staff for closed ticket', [
+                            'ticket_id' => $ticket->id,
+                            'staff_count' => count($staffRecipients)
+                        ]);
+                    }
                 }
             } else {
                 // Progress/Resolved -> Send to User (Creator)
@@ -437,6 +486,110 @@ class WhatsAppNotificationService
     }
 
     /**
+     * Send notification when Work Order is marked as "done" (to Group and Staff)
+     */
+    public function sendWorkOrderDoneNotification(WorkOrder $workOrder): void
+    {
+        try {
+            if (!$this->token)
+                return;
+
+            $ticket = $workOrder->ticket;
+            $ticketInfo = $ticket ? "Tiket: {$ticket->code}" : "SPK Standalone";
+            $branchName = $ticket && $ticket->branch ? $ticket->branch->name : 'Tidak ditentukan';
+            $categoryName = $ticket && $ticket->category ? $ticket->category->name : '-';
+
+            // Get assigned staff names
+            $staffNames = [];
+            if ($workOrder->assignedStaff && $workOrder->assignedStaff->count() > 0) {
+                foreach ($workOrder->assignedStaff as $staff) {
+                    $staffNames[] = $staff->name;
+                }
+            } elseif ($workOrder->assignedUser) {
+                $staffNames[] = $workOrder->assignedUser->name;
+            }
+            $staffNamesStr = !empty($staffNames) ? implode(', ', $staffNames) : 'Belum ditentukan';
+
+            // Build message
+            $message = "✅ *SPK SELESAI* ✅\n\n" .
+                "No. SPK: {$workOrder->number}\n" .
+                "📌 {$ticketInfo}\n" .
+                "📋 Kategori: {$categoryName}\n" .
+                "🏢 Cabang: {$branchName}\n" .
+                "👷 Teknisi: {$staffNamesStr}\n" .
+                "🕐 Selesai: " . now()->format('d/m/Y H:i') . "\n\n" .
+                "Surat Perintah Kerja telah diselesaikan.";
+
+            // 1. Send to Group
+            if ($this->groupId) {
+                $this->sendMessageToGroup($message);
+                Log::info('Work Order done notification sent to group', [
+                    'work_order_id' => $workOrder->id
+                ]);
+            }
+
+            // 2. Send to Assigned Staff
+            $staffRecipients = [];
+            if ($workOrder->assignedStaff && $workOrder->assignedStaff->count() > 0) {
+                foreach ($workOrder->assignedStaff as $staff) {
+                    if ($staff->phone_number) {
+                        $phone = $this->formatPhoneNumber($staff->phone_number);
+                        if ($phone)
+                            $staffRecipients[] = $phone;
+                    }
+                }
+            } elseif ($workOrder->assignedUser && $workOrder->assignedUser->phone_number) {
+                $phone = $this->formatPhoneNumber($workOrder->assignedUser->phone_number);
+                if ($phone)
+                    $staffRecipients[] = $phone;
+            }
+
+            if (!empty($staffRecipients)) {
+                $staffMessage = "✅ *SPK ANDA TELAH SELESAI* ✅\n\n" .
+                    "No. SPK: {$workOrder->number}\n" .
+                    "📌 {$ticketInfo}\n" .
+                    "📋 Kategori: {$categoryName}\n" .
+                    "🏢 Cabang: {$branchName}\n" .
+                    "🕐 Selesai: " . now()->format('d/m/Y H:i') . "\n\n" .
+                    "Terima kasih atas kerja keras Anda! 🎉";
+
+                $this->sendMessage($staffMessage, $staffRecipients);
+                Log::info('Work Order done notification sent to staff', [
+                    'work_order_id' => $workOrder->id,
+                    'staff_count' => count($staffRecipients)
+                ]);
+            }
+
+            // 3. Send to User (Ticket Creator)
+            if ($ticket && $ticket->user && $ticket->user->phone_number) {
+                $userPhone = $this->formatPhoneNumber($ticket->user->phone_number);
+                if ($userPhone) {
+                    $userMessage = "📋 *SPK SELESAI* 📋\n\n" .
+                        "Halo {$ticket->user->name},\n\n" .
+                        "Pekerjaan untuk tiket Anda telah selesai:\n\n" .
+                        "📌 Kode Tiket: {$ticket->code}\n" .
+                        "📋 Kategori: {$categoryName}\n" .
+                        "👷 Teknisi: {$staffNamesStr}\n" .
+                        "🕐 Selesai: " . now()->format('d/m/Y H:i') . "\n\n" .
+                        "Mohon konfirmasi jika sudah sesuai dengan menutup tiket.";
+
+                    $this->sendMessage($userMessage, [$userPhone]);
+                    Log::info('Work Order done notification sent to user', [
+                        'work_order_id' => $workOrder->id,
+                        'user_id' => $ticket->user->id
+                    ]);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send Work Order done notification', [
+                'work_order_id' => $workOrder->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Send SLA Warning
      */
     public function sendSLAWarning(Ticket $ticket, int $hours): void
@@ -543,6 +696,9 @@ class WhatsAppNotificationService
             'ticket_assigned' => $this->buildAssignmentMessageFallback($ticket, $extraData['staff_name'] ?? ''),
             'ticket_unassigned_user_alert' => "Tiket {$ticket->code} belum di-assign. Hubungi Admin.",
             'ticket_unassigned_admin_alert' => "Alert: Tiket {$ticket->code} belum di-assign > 1 jam.",
+            'ticket_closed' => $this->buildTicketClosedGroupFallback($ticket),
+            'ticket_closed_user' => $this->buildTicketClosedUserFallback($ticket),
+            'ticket_closed_staff' => $this->buildTicketClosedStaffFallback($ticket),
             default => "Notifikasi Tiket: {$ticket->code} - " . ($ticket->category ? $ticket->category->name : 'Tiket')
         };
     }
@@ -642,6 +798,51 @@ class WhatsAppNotificationService
     private function buildAssignmentMessageFallback(Ticket $ticket, string $staffName): string
     {
         return "👋 Hi {$staffName}, Anda ditugaskan ke tiket {$ticket->code}.";
+    }
+
+    private function buildTicketClosedGroupFallback(Ticket $ticket): string
+    {
+        $categoryName = $ticket->category ? $ticket->category->name : 'Tiket';
+        $branchName = $ticket->branch ? $ticket->branch->name : '-';
+        $completedAt = $ticket->completed_at ? $ticket->completed_at->format('d/m/Y H:i') : now()->format('d/m/Y H:i');
+
+        return "✅ *TIKET SELESAI* ✅\n\n" .
+            "Kode: {$ticket->code}\n" .
+            "Kategori: {$categoryName}\n" .
+            "Cabang: {$branchName}\n" .
+            "Selesai: {$completedAt}\n\n" .
+            "Tiket telah ditutup dan diselesaikan.";
+    }
+
+    private function buildTicketClosedUserFallback(Ticket $ticket): string
+    {
+        $categoryName = $ticket->category ? $ticket->category->name : 'Tiket';
+        $userName = $ticket->user ? $ticket->user->name : 'Pengguna';
+
+        return "✅ *TIKET ANDA TELAH SELESAI* ✅\n\n" .
+            "Halo {$userName},\n\n" .
+            "Tiket Anda telah diselesaikan:\n\n" .
+            "📌 Kode: {$ticket->code}\n" .
+            "📋 Kategori: {$categoryName}\n" .
+            "🕐 Selesai: " . now()->format('d/m/Y H:i') . "\n\n" .
+            "Terima kasih telah menggunakan layanan kami.\n" .
+            "Jika ada pertanyaan, silakan buat tiket baru.";
+    }
+
+    private function buildTicketClosedStaffFallback(Ticket $ticket): string
+    {
+        $categoryName = $ticket->category ? $ticket->category->name : 'Tiket';
+        $branchName = $ticket->branch ? $ticket->branch->name : '-';
+        $userName = $ticket->user ? $ticket->user->name : 'Pengguna';
+
+        return "✅ *TIKET SELESAI* ✅\n\n" .
+            "Tiket yang Anda handle telah ditutup:\n\n" .
+            "📌 Kode: {$ticket->code}\n" .
+            "📋 Kategori: {$categoryName}\n" .
+            "🏢 Cabang: {$branchName}\n" .
+            "👤 Pelapor: {$userName}\n" .
+            "🕐 Selesai: " . now()->format('d/m/Y H:i') . "\n\n" .
+            "Terima kasih atas kerja keras Anda! 🎉";
     }
 
     private function sendMessageToGroup(string $message): void

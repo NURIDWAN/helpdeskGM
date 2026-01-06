@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Enums\WorkOrderStatus;
 
@@ -13,7 +14,7 @@ class WorkOrder extends Model
     use HasFactory;
     protected $fillable = [
         'ticket_id',
-        'assigned_to',
+        'assigned_to', // Keep for backward compatibility, will be deprecated
         'number',
         'description',
         'status',
@@ -43,6 +44,9 @@ class WorkOrder extends Model
                 })
                 ->orWhereHas('assignedUser', function ($userQuery) use ($search) {
                     $userQuery->where('name', 'like', '%' . $search . '%');
+                })
+                ->orWhereHas('assignedStaff', function ($staffQuery) use ($search) {
+                    $staffQuery->where('name', 'like', '%' . $search . '%');
                 });
         });
     }
@@ -56,11 +60,19 @@ class WorkOrder extends Model
     }
 
     /**
-     * Get the user assigned to this work order.
+     * Get the user assigned to this work order (deprecated, use assignedStaff instead).
      */
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * Get the staff members assigned to this work order.
+     */
+    public function assignedStaff(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'work_order_staff');
     }
 
     /**

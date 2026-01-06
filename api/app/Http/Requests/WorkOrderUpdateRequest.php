@@ -26,7 +26,9 @@ class WorkOrderUpdateRequest extends FormRequest
 
         return [
             'ticket_id' => 'sometimes|nullable|exists:tickets,id',
-            'assigned_to' => 'sometimes|exists:users,id',
+            'assigned_to' => 'sometimes|nullable|exists:users,id', // Deprecated
+            'assigned_staff' => 'sometimes|array',
+            'assigned_staff.*' => 'exists:users,id',
             'number' => 'sometimes|string|max:100|unique:work_orders,number,' . $workOrderId,
             'description' => 'sometimes|string',
             'status' => 'sometimes|in:' . implode(',', WorkOrderStatus::values()),
@@ -46,6 +48,8 @@ class WorkOrderUpdateRequest extends FormRequest
         return [
             'ticket_id' => 'Ticket',
             'assigned_to' => 'Staff',
+            'assigned_staff' => 'Teknisi',
+            'assigned_staff.*' => 'Teknisi',
             'number' => 'Nomor Work Order',
             'description' => 'Deskripsi',
             'status' => 'Status',

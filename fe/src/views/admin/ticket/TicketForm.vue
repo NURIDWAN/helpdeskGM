@@ -23,6 +23,7 @@ import { storeToRefs } from "pinia";
 import { useUserStore } from "@/stores/user";
 import { useTicketAttachmentStore } from "@/stores/ticketAttachment";
 import AttachmentViewDialog from "@/components/common/AttachmentViewDialog.vue";
+import { hasRole } from "@/helpers/permissionHelper";
 
 const route = useRoute();
 const router = useRouter();
@@ -48,6 +49,9 @@ const { getByTicketId } = ticketAttachmentStore;
 
 const isEdit = computed(() => route.name === "admin.ticket.edit");
 const ticketId = computed(() => route.params.id);
+
+// Check if current user is staff (staff cannot select assign - auto-assigned to their branch)
+const isStaffUser = computed(() => hasRole('staff'));
 
 // Dialog state
 const showAttachmentDialog = ref(false);
@@ -258,8 +262,8 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Branch -->
-        <div>
+        <!-- Branch (hidden for staff - auto-set to their branch) -->
+        <div v-if="!isStaffUser">
           <FormField
             v-model="form.branch_id"
             id="branch_id"
@@ -308,8 +312,8 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Assign Staff -->
-        <div>
+        <!-- Assign Staff (hidden for staff users - auto-assigned to their branch) -->
+        <div v-if="!isStaffUser">
           <label
             for="assigned_staff"
             class="block text-sm font-medium text-gray-700 mb-2"

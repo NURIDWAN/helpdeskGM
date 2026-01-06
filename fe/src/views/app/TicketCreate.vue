@@ -89,6 +89,20 @@ const goBackToStep1 = () => {
   currentStep.value = 1;
 };
 
+// Helper function to get preview URL for image files
+const getFilePreviewUrl = (file) => {
+  return URL.createObjectURL(file);
+};
+
+// Helper function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 onMounted(async () => {
   await fetchCategories({ is_active: true });
 });
@@ -392,35 +406,46 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Selected Files List -->
+      <!-- Selected Files List with Preview -->
       <div v-if="selectedFiles.length > 0">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">File Terpilih:</h3>
-        <div class="space-y-2">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">File Terpilih ({{ selectedFiles.length }}):</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
             v-for="(file, index) in selectedFiles"
             :key="index"
-            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+            class="relative border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
           >
-            <div class="flex items-center">
-              <Image
-                v-if="file.type.startsWith('image/')"
-                :size="20"
-                class="text-blue-600 mr-3"
-              />
-              <FileText v-else :size="20" class="text-gray-600 mr-3" />
-              <div>
-                <p class="text-sm font-medium text-gray-800">{{ file.name }}</p>
-                <p class="text-xs text-gray-500">
-                  {{ (file.size / 1024 / 1024).toFixed(2) }} MB
-                </p>
-              </div>
-            </div>
+            <!-- Remove button -->
             <button
               @click="removeFile(index)"
-              class="text-red-500 hover:text-red-700"
+              class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-sm"
             >
-              <X :size="16" />
+              <X :size="14" />
             </button>
+            
+            <!-- Image Preview -->
+            <div v-if="file.type.startsWith('image/')" class="mb-2">
+              <img
+                :src="getFilePreviewUrl(file)"
+                :alt="file.name"
+                class="w-full h-32 object-cover rounded-lg border border-gray-200"
+              />
+            </div>
+            
+            <!-- Non-image file icon -->
+            <div v-else class="mb-2 flex items-center justify-center h-32 bg-gray-100 rounded-lg">
+              <FileText :size="48" class="text-gray-400" />
+            </div>
+            
+            <!-- File info -->
+            <div class="mt-2">
+              <p class="text-sm font-medium text-gray-800 truncate" :title="file.name">
+                {{ file.name }}
+              </p>
+              <p class="text-xs text-gray-500">
+                {{ formatFileSize(file.size) }}
+              </p>
+            </div>
           </div>
         </div>
       </div>

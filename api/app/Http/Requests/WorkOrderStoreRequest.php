@@ -24,7 +24,9 @@ class WorkOrderStoreRequest extends FormRequest
     {
         return [
             'ticket_id' => ['nullable', 'exists:tickets,id'],
-            'assigned_to' => ['required', 'exists:users,id'],
+            'assigned_to' => ['nullable', 'exists:users,id'], // Deprecated, kept for backward compatibility
+            'assigned_staff' => ['required', 'array', 'min:1'],
+            'assigned_staff.*' => ['exists:users,id'],
             'number' => ['nullable', 'string', 'max:100', 'unique:work_orders,number'],
             'description' => ['nullable', 'string'],
             'status' => ['nullable', 'in:' . implode(',', WorkOrderStatus::values())],
@@ -44,6 +46,8 @@ class WorkOrderStoreRequest extends FormRequest
         return [
             'ticket_id' => 'Ticket',
             'assigned_to' => 'Staff',
+            'assigned_staff' => 'Teknisi',
+            'assigned_staff.*' => 'Teknisi',
             'number' => 'Nomor Work Order',
             'description' => 'Deskripsi',
             'status' => 'Status',

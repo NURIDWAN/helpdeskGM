@@ -19,7 +19,7 @@ class WorkOrderResource extends JsonResource
         return [
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
-            'assigned_to' => $this->assigned_to,
+            'assigned_to' => $this->assigned_to, // Deprecated, use assigned_staff
             'number' => $this->number,
             'description' => $this->description,
             'status' => $this->status,
@@ -34,7 +34,8 @@ class WorkOrderResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'ticket' => new TicketResource($this->whenLoaded('ticket')),
-            'assigned_user' => new UserResource($this->whenLoaded('assignedUser')),
+            'assigned_user' => new UserResource($this->whenLoaded('assignedUser')), // Deprecated
+            'assigned_staff' => UserResource::collection($this->whenLoaded('assignedStaff')),
         ];
     }
 }
