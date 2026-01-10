@@ -1,41 +1,56 @@
+import { useAuthStore } from '@/stores/auth'
+import { createRouter, createWebHistory } from 'vue-router'
+
+// Layouts - keep as static imports (needed for initial render)
 import Admin from '@/layouts/Admin.vue'
 import Auth from '@/layouts/Auth.vue'
-import { useAuthStore } from '@/stores/auth'
-import Dashboard from '@/views/admin/Dashboard.vue'
-import BranchList from '@/views/admin/branch/BranchList.vue'
-import BranchForm from '@/views/admin/branch/BranchForm.vue'
-import UserList from '@/views/admin/user/UserList.vue'
-import UserForm from '@/views/admin/user/UserForm.vue'
-import TicketList from '@/views/admin/ticket/TicketList.vue'
-import TicketForm from '@/views/admin/ticket/TicketForm.vue'
-import TicketDetail from '@/views/admin/ticket/TicketDetail.vue'
-import TicketCategoryList from '@/views/admin/ticketcategory/TicketCategoryList.vue'
-import TicketCategoryForm from '@/views/admin/ticketcategory/TicketCategoryForm.vue'
-import AdminProfile from '@/views/admin/Profile.vue'
-import WorkOrderList from '@/views/admin/workorder/WorkOrderList.vue'
-import WorkOrderForm from '@/views/admin/workorder/WorkOrderForm.vue'
-import WorkOrderDetail from '@/views/admin/workorder/WorkOrderDetail.vue'
-import WorkReportList from '@/views/admin/workreport/WorkReportList.vue'
-import WorkReportForm from '@/views/admin/workreport/WorkReportForm.vue'
-import WorkReportDetail from '@/views/admin/workreport/WorkReportDetail.vue'
-import DailyRecordList from '@/views/admin/dailyrecord/DailyRecordList.vue'
-import DailyRecordForm from '@/views/admin/dailyrecord/DailyRecordForm.vue'
-import DailyRecordDetail from '@/views/admin/dailyrecord/DailyRecordDetail.vue'
-import DailyUsageReport from '@/views/admin/dailyrecord/DailyUsageReport.vue'
-import JobTemplateList from '@/views/admin/jobtemplate/JobTemplateList.vue'
-import JobTemplateForm from '@/views/admin/jobtemplate/JobTemplateForm.vue'
-import Login from '@/views/auth/Login.vue'
-import { createRouter, createWebHistory } from 'vue-router'
 import App from '@/layouts/App.vue'
-import AppDashboard from '@/views/app/Dashboard.vue'
-import AppTicketDetail from '@/views/app/TicketDetail.vue'
-import AppTicketCreate from '@/views/app/TicketCreate.vue'
-import AppProfile from '@/views/app/Profile.vue'
-import Register from '@/views/auth/Register.vue'
-import AppDailyRecordList from '@/views/admin/dailyrecord/DailyRecordList.vue'
-import AppDailyRecordForm from '@/views/admin/dailyrecord/DailyRecordForm.vue'
-import AppDailyRecordDetail from '@/views/admin/dailyrecord/DailyRecordDetail.vue'
-import AppDailyUsageReport from '@/views/admin/dailyrecord/DailyUsageReport.vue'
+
+// Lazy load all view components for better initial bundle size
+// Admin Views
+const Dashboard = () => import('@/views/admin/Dashboard.vue')
+const BranchList = () => import('@/views/admin/branch/BranchList.vue')
+const BranchForm = () => import('@/views/admin/branch/BranchForm.vue')
+const UserList = () => import('@/views/admin/user/UserList.vue')
+const UserForm = () => import('@/views/admin/user/UserForm.vue')
+const TicketList = () => import('@/views/admin/ticket/TicketList.vue')
+const TicketForm = () => import('@/views/admin/ticket/TicketForm.vue')
+const TicketDetail = () => import('@/views/admin/ticket/TicketDetail.vue')
+const TicketCategoryList = () => import('@/views/admin/ticketcategory/TicketCategoryList.vue')
+const TicketCategoryForm = () => import('@/views/admin/ticketcategory/TicketCategoryForm.vue')
+const AdminProfile = () => import('@/views/admin/Profile.vue')
+const WorkOrderList = () => import('@/views/admin/workorder/WorkOrderList.vue')
+const WorkOrderForm = () => import('@/views/admin/workorder/WorkOrderForm.vue')
+const WorkOrderDetail = () => import('@/views/admin/workorder/WorkOrderDetail.vue')
+const WorkReportList = () => import('@/views/admin/workreport/WorkReportList.vue')
+const WorkReportForm = () => import('@/views/admin/workreport/WorkReportForm.vue')
+const WorkReportDetail = () => import('@/views/admin/workreport/WorkReportDetail.vue')
+const DailyRecordList = () => import('@/views/admin/dailyrecord/DailyRecordList.vue')
+const DailyRecordForm = () => import('@/views/admin/dailyrecord/DailyRecordForm.vue')
+const DailyRecordDetail = () => import('@/views/admin/dailyrecord/DailyRecordDetail.vue')
+const DailyUsageReport = () => import('@/views/admin/dailyrecord/DailyUsageReport.vue')
+const JobTemplateList = () => import('@/views/admin/jobtemplate/JobTemplateList.vue')
+const JobTemplateForm = () => import('@/views/admin/jobtemplate/JobTemplateForm.vue')
+const RoleList = () => import('@/views/admin/role/RoleList.vue')
+const RoleForm = () => import('@/views/admin/role/RoleForm.vue')
+const WhatsAppSettings = () => import('@/views/admin/whatsapp/WhatsAppSettings.vue')
+const UserActivityMonitor = () => import('@/views/admin/user/UserActivityMonitor.vue')
+
+// Auth Views
+const Login = () => import('@/views/auth/Login.vue')
+const Register = () => import('@/views/auth/Register.vue')
+
+// App Views
+const AppDashboard = () => import('@/views/app/Dashboard.vue')
+const AppTicketDetail = () => import('@/views/app/TicketDetail.vue')
+const AppTicketCreate = () => import('@/views/app/TicketCreate.vue')
+const AppProfile = () => import('@/views/app/Profile.vue')
+
+// Error Views
+const Forbidden = () => import('@/views/errors/Forbidden.vue')
+const Unauthorized = () => import('@/views/errors/Unauthorized.vue')
+const ServerError = () => import('@/views/errors/ServerError.vue')
+const NotFound = () => import('@/views/errors/NotFound.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -77,31 +92,31 @@ const router = createRouter({
         {
           path: 'daily-records',
           name: 'app.daily-records',
-          component: AppDailyRecordList,
+          component: DailyRecordList,
           meta: { requiresAuth: true, title: 'Laporan Harian Cabang' }
         },
         {
           path: 'daily-record/create',
           name: 'app.daily-record.create',
-          component: AppDailyRecordForm,
+          component: DailyRecordForm,
           meta: { requiresAuth: true, title: 'Tambah Laporan Harian Cabang' }
         },
         {
           path: 'daily-record/:id/edit',
           name: 'app.daily-record.edit',
-          component: AppDailyRecordForm,
+          component: DailyRecordForm,
           meta: { requiresAuth: true, title: 'Edit Laporan Harian Cabang' }
         },
         {
           path: 'daily-record/:id',
           name: 'app.daily-record.detail',
-          component: AppDailyRecordDetail,
+          component: DailyRecordDetail,
           meta: { requiresAuth: true, title: 'Detail Laporan Harian Cabang' }
         },
         {
           path: 'daily-usage-report',
           name: 'app.daily-usage-report',
-          component: AppDailyUsageReport,
+          component: DailyUsageReport,
           meta: { requiresAuth: true, title: 'Laporan Daily Usage' }
         },
       ],
@@ -351,31 +366,31 @@ const router = createRouter({
         {
           path: 'roles',
           name: 'admin.roles',
-          component: () => import('@/views/admin/role/RoleList.vue'),
+          component: RoleList,
           meta: { requiresAuth: true, title: 'Data Role', permissions: ['role-list', 'role-create', 'role-edit', 'role-delete'] }
         },
         {
           path: 'role/create',
           name: 'admin.role.create',
-          component: () => import('@/views/admin/role/RoleForm.vue'),
+          component: RoleForm,
           meta: { requiresAuth: true, title: 'Tambah Role', permission: 'role-create' }
         },
         {
           path: 'role/:id/edit',
           name: 'admin.role.edit',
-          component: () => import('@/views/admin/role/RoleForm.vue'),
+          component: RoleForm,
           meta: { requiresAuth: true, title: 'Edit Role', permission: 'role-edit' }
         },
         {
           path: 'whatsapp-settings',
           name: 'admin.whatsapp-settings',
-          component: () => import('@/views/admin/whatsapp/WhatsAppSettings.vue'),
+          component: WhatsAppSettings,
           meta: { requiresAuth: true, title: 'Pengaturan WhatsApp', permissions: ['whatsapp-setting-list', 'whatsapp-setting-edit'] }
         },
         {
           path: 'user-activity',
           name: 'admin.user-activity',
-          component: () => import('@/views/admin/user/UserActivityMonitor.vue'),
+          component: UserActivityMonitor,
           meta: { requiresAuth: true, title: 'Monitoring Aktivitas User', permission: 'user-activity-list' }
         },
       ],
@@ -400,32 +415,32 @@ const router = createRouter({
     {
       path: '/error/403',
       name: 'error.forbidden',
-      component: () => import('@/views/errors/Forbidden.vue'),
+      component: Forbidden,
       meta: { title: 'Akses Ditolak' }
     },
     {
       path: '/error/401',
       name: 'error.unauthorized',
-      component: () => import('@/views/errors/Unauthorized.vue'),
+      component: Unauthorized,
       meta: { title: 'Tidak Terotentikasi' }
     },
     {
       path: '/error/500',
       name: 'error.server',
-      component: () => import('@/views/errors/ServerError.vue'),
+      component: ServerError,
       meta: { title: 'Kesalahan Server' }
     },
     {
       path: '/error/404',
       name: 'error.notfound',
-      component: () => import('@/views/errors/NotFound.vue'),
+      component: NotFound,
       meta: { title: 'Halaman Tidak Ditemukan' }
     },
     // Catch-all route for 404
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: () => import('@/views/errors/NotFound.vue'),
+      component: NotFound,
       meta: { title: 'Halaman Tidak Ditemukan' }
     },
   ],
@@ -444,13 +459,13 @@ router.beforeEach(async (to, from, next) => {
           await authStore.checkAuth()
         }
 
-        // Role-based redirect: Admin/Staff should go to admin dashboard, not app dashboard
-        const userRoles = authStore.user?.roles || []
-        const isAdminOrStaff = userRoles.includes('superadmin') || userRoles.includes('admin') || userRoles.includes('staff')
+        // Permission-based redirect: Check if user has admin panel access
+        const userPermissions = authStore.user?.permissions || []
+        const hasAdminPanelAccess = userPermissions.includes('system-admin-panel-access')
 
-        // Redirect admin/staff from app routes to admin routes
-        if (isAdminOrStaff && to.name?.startsWith('app.')) {
-          // Map app routes to admin routes
+        // Redirect users based on their layout access permission
+        if (hasAdminPanelAccess && to.name?.startsWith('app.')) {
+          // User has admin access but trying to access app routes -> redirect to admin routes
           const routeMapping = {
             'app.dashboard': 'admin.dashboard',
             'app.profile': 'admin.profile',
@@ -458,6 +473,19 @@ router.beforeEach(async (to, from, next) => {
 
           if (routeMapping[to.name]) {
             return next({ name: routeMapping[to.name] })
+          }
+        } else if (!hasAdminPanelAccess && to.name?.startsWith('admin.')) {
+          // User doesn't have admin access but trying to access admin routes -> redirect to app routes or forbidden
+          const routeMapping = {
+            'admin.dashboard': 'app.dashboard',
+            'admin.profile': 'app.profile',
+          }
+
+          if (routeMapping[to.name]) {
+            return next({ name: routeMapping[to.name] })
+          } else {
+            // No equivalent app route, show forbidden
+            return next({ name: 'error.forbidden' })
           }
         }
 
@@ -490,7 +518,10 @@ router.beforeEach(async (to, from, next) => {
       next({ name: 'login' })
     }
   } else if (to.meta.requiresUnauth && authStore.token) {
-    next({ name: 'admin.dashboard' })
+    // Redirect based on permission when already authenticated
+    const userPermissions = authStore.user?.permissions || []
+    const hasAdminPanelAccess = userPermissions.includes('system-admin-panel-access')
+    next({ name: hasAdminPanelAccess ? 'admin.dashboard' : 'app.dashboard' })
   } else {
     next()
   }

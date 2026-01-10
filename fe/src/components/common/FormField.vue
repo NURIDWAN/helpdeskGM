@@ -7,15 +7,27 @@
     </label>
 
     <div class="relative">
-      <!-- Select Dropdown -->
+      <!-- Searchable Select Dropdown -->
+      <SearchableSelect
+        v-if="type === 'select'"
+        :model-value="modelValue"
+        @update:model-value="handleSelectChange"
+        :options="options"
+        :placeholder="placeholder || 'Pilih...'"
+        :disabled="$attrs.disabled"
+        :error="hasError"
+        :clearable="clearable"
+      />
+
+      <!-- Native Multi-Select (fallback) -->
       <select
-        v-if="type === 'select' || type === 'multiselect'"
+        v-else-if="type === 'multiselect'"
         :id="id"
         :name="name"
         v-model="selectedValue"
         @blur="handleBlur"
         :required="required"
-        :multiple="type === 'multiselect'"
+        multiple
         :class="inputClasses"
         v-bind="$attrs"
       >
@@ -66,6 +78,7 @@
 
 <script setup>
 import { computed } from "vue";
+import SearchableSelect from "./SearchableSelect.vue";
 
 const props = defineProps({
   modelValue: {
@@ -124,13 +137,16 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  clearable: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits(["update:modelValue", "blur"]);
 
 const inputComponent = computed(() => {
   if (props.type === "textarea") return "textarea";
-  if (props.type === "select" || props.type === "multiselect") return "select";
   return "input";
 });
 
@@ -164,6 +180,10 @@ const selectedValue = computed({
     }
   },
 });
+
+const handleSelectChange = (value) => {
+  emit("update:modelValue", value);
+};
 
 const handleInput = (event) => {
   if (props.type === "multiselect") {

@@ -9,13 +9,19 @@ class PermissionSeeder extends Seeder
 {
 
     private $permissions = [
+        // System-level permissions (tidak terkait modul tertentu)
+        'system' => [
+            'admin-panel-access', // Menentukan user bisa akses Admin Layout
+        ],
+
         'dashboard' => [
             'menu',
             'view',
             'view-metrics',
             'view-charts',
             'view-staff-rankings',
-            'view-trends'
+            'view-trends',
+            'view-all' // Allow viewing unlimited data
         ],
 
         'user' => [
@@ -50,7 +56,8 @@ class PermissionSeeder extends Seeder
             'list',
             'create',
             'edit',
-            'delete'
+            'delete',
+            'view-all'
         ],
 
         'job-template' => [
@@ -58,7 +65,8 @@ class PermissionSeeder extends Seeder
             'list',
             'create',
             'edit',
-            'delete'
+            'delete',
+            'view-all'
         ],
 
         'ticket' => [
@@ -67,7 +75,8 @@ class PermissionSeeder extends Seeder
             'create',
             'edit',
             'delete',
-            'update-status'
+            'update-status',
+            'view-all'
         ],
 
         'ticket-category' => [
@@ -97,7 +106,8 @@ class PermissionSeeder extends Seeder
             'create',
             'edit',
             'delete',
-            'update-status'
+            'update-status',
+            'view-all'
         ],
 
         'work-report' => [
@@ -105,7 +115,8 @@ class PermissionSeeder extends Seeder
             'list',
             'create',
             'edit',
-            'delete'
+            'delete',
+            'view-all'
         ],
 
         'work-report-attachment' => [
@@ -119,14 +130,16 @@ class PermissionSeeder extends Seeder
             'list',
             'create',
             'edit',
-            'delete'
+            'delete',
+            'view-all'
         ],
 
         'utility-reading' => [
             'list',
             'create',
             'edit',
-            'delete'
+            'delete',
+            'view-all'
         ],
 
         'electricity-meter' => [

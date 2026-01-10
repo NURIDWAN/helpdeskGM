@@ -47,11 +47,11 @@ export const useElectricityMeterStore = defineStore("electricityMeter", {
             }
         },
 
-        async getByBranchId(branchId) {
+        async getByBranchId(branchId, params = {}) {
             this.loading = true;
             this.error = null;
             try {
-                const response = await axiosInstance.get(`/branches/${branchId}/electricity-meters`);
+                const response = await axiosInstance.get(`/branches/${branchId}/electricity-meters`, { params });
                 this.electricityMeters = response.data.data;
                 return response.data.data;
             } catch (error) {

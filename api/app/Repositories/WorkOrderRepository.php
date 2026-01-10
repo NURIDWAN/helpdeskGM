@@ -28,9 +28,9 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                 }
             });
 
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can see all work orders
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('work-order-view-all')) {
+            // admins and superadmins can see all work orders by permission
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('work-order-view-all'))) {
             $query->where('assigned_to', $user->id);
         } else {
             if ($user) {
@@ -76,9 +76,9 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $query = WorkOrder::with(['ticket', 'assignedUser'])
             ->where('id', $id);
 
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can access any work order
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('work-order-view-all')) {
+            // admins and superadmins can access any work order by permission
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('work-order-view-all'))) {
             $query->where('assigned_to', $user->id);
         } else {
             if ($user) {
@@ -223,9 +223,9 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $query = WorkOrder::with(['ticket', 'assignedUser'])
             ->where('ticket_id', $ticketId);
 
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can access any work order
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('work-order-view-all')) {
+            // admins and superadmins can access any work order by permission
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('work-order-view-all'))) {
             $query->where('assigned_to', $user->id);
         } else {
             if ($user) {

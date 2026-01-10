@@ -1,6 +1,6 @@
 <script setup>
 import Sidebar from "@/components/admin/Sidebar.vue";
-import { Bell, ChevronDown, Menu, X } from "lucide-vue-next";
+import { ChevronDown, Menu, X } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, onUnmounted } from "vue";
@@ -83,15 +83,6 @@ onUnmounted(() => {
           </div>
 
           <div class="flex items-center space-x-2 lg:space-x-4">
-            <!-- Notifications -->
-            <button
-              class="relative p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full"
-            >
-              <Bell :size="20" class="lg:w-6 lg:h-6" />
-              <span
-                class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"
-              ></span>
-            </button>
 
             <!-- User Menu -->
             <div class="relative">

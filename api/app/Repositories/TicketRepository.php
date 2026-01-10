@@ -71,9 +71,9 @@ class TicketRepository implements TicketRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can see all tickets
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('ticket-view-all')) {
+            // admins and superadmins can see all tickets by permission
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('ticket-view-all'))) {
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);
             });
@@ -135,8 +135,8 @@ class TicketRepository implements TicketRepositoryInterface
             ->withCount('replies')
             ->where('code', $code);
 
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can access any ticket
+        if ($user && $user->can('ticket-view-all')) {
+            // admins and superadmins can access any ticket by permission
         } elseif ($user && $user->hasRole('staff')) {
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);
@@ -162,8 +162,8 @@ class TicketRepository implements TicketRepositoryInterface
             ->withCount('replies')
             ->where('id', $id);
 
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins and superadmins can access any ticket
+        if ($user && $user->can('ticket-view-all')) {
+            // admins and superadmins can access any ticket by permission
         } elseif ($user && $user->hasRole('staff')) {
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);

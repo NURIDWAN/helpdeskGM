@@ -46,3 +46,39 @@ app/
 69 permissions managed via Spatie Permission.
 
 Roles: `superadmin`, `admin`, `staff`, `user`
+
+## ⏰ Scheduled Tasks (PENTING!)
+
+Aplikasi ini memiliki tugas terjadwal yang **WAJIB** dijalankan di server produksi.
+
+### Setup Cron Job (Produksi)
+
+Tambahkan entry berikut ke crontab server:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Tambahkan baris ini
+* * * * * cd /path/to/api && php artisan schedule:run >> /dev/null 2>&1
+```
+
+### Daftar Scheduled Commands
+
+| Command | Interval | Deskripsi |
+|---------|----------|-----------|
+| `tickets:check-unassigned` | Setiap menit | Alert jika tiket belum di-assign > 1 jam |
+| `tickets:auto-close` | Setiap jam | Auto-close tiket resolved yang sudah lama |
+
+### Testing Manual
+
+```bash
+# Jalankan semua schedule
+ddev exec php artisan schedule:run
+
+# Jalankan command spesifik
+ddev exec php artisan tickets:check-unassigned
+ddev exec php artisan tickets:auto-close
+```
+
+> ⚠️ **PENTING**: Tanpa cron job, fitur notifikasi otomatis TIDAK akan berjalan!

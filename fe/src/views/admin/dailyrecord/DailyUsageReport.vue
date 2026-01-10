@@ -82,25 +82,6 @@ const loadReportData = async () => {
       { params }
     );
     reportData.value = response.data.data;
-    // Debug: log data untuk melihat struktur
-    console.log("Report Data:", reportData.value);
-    if (reportData.value.length > 0) {
-      reportData.value.forEach((row, idx) => {
-        if (row.electricity) {
-          console.log(
-            `Row ${idx} Electricity:`,
-            JSON.parse(JSON.stringify(row.electricity))
-          );
-          console.log(`Row ${idx} Electricity Length:`, row.electricity.length);
-          row.electricity.forEach((elec, elecIdx) => {
-            console.log(
-              `Row ${idx} Electricity[${elecIdx}]:`,
-              JSON.parse(JSON.stringify(elec))
-            );
-          });
-        }
-      });
-    }
   } catch (err) {
     error.value = err.response?.data?.message || "Terjadi kesalahan";
     console.error("Error loading report:", err);

@@ -180,9 +180,7 @@ const handleSubmit = async () => {
         validationErrors.push(...gwErrors);
       }
     } else {
-      // If ref is missing for some reason, we should probably warn or skip? 
-      // It should be there.
-      console.warn("GasWater form ref invalid");
+      // If ref is missing, skip validation for this form
     }
     
     // Check Electricity
@@ -192,7 +190,7 @@ const handleSubmit = async () => {
         validationErrors.push(...elecErrors);
       }
     } else {
-        console.warn("Electricity form ref invalid");
+        // If ref is missing, skip validation for this form
     }
 
     if (validationErrors.length > 0) {

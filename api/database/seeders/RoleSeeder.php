@@ -13,6 +13,9 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
+        // Reset cached roles and permissions
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         // Create superadmin role with ALL permissions
         $superadmin = Role::firstOrCreate([
             'name' => 'superadmin',
@@ -57,6 +60,8 @@ class RoleSeeder extends Seeder
 
         // Staff permissions - operational access
         $staffPermissions = [
+            // admin panel access
+            'system-admin-panel-access',
             // dashboard (basic view)
             'dashboard-menu',
             'dashboard-view',

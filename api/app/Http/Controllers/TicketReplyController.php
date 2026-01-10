@@ -248,8 +248,8 @@ class TicketReplyController extends Controller implements HasMiddleware
                 return ResponseHelper::jsonResponse(false, 'Balasan Tidak Ditemukan', null, 404);
             }
 
-            // Check if user can edit this reply (only the author can edit)
-            if ($reply->user_id != $user?->id) {
+            // Check if user can edit this reply (only the author or superadmin/admin can edit)
+            if ($reply->user_id != $user?->id && !$user->hasAnyRole(['superadmin', 'admin'])) {
                 return ResponseHelper::jsonResponse(false, 'Anda tidak memiliki izin untuk mengedit balasan ini', null, 403);
             }
 
@@ -299,8 +299,8 @@ class TicketReplyController extends Controller implements HasMiddleware
                 return ResponseHelper::jsonResponse(false, 'Balasan Tidak Ditemukan', null, 404);
             }
 
-            // Check if user can delete this reply (only the author can delete)
-            if ($reply->user_id != $user?->id) {
+            // Check if user can delete this reply (only the author or superadmin/admin can delete)
+            if ($reply->user_id != $user?->id && !$user->hasAnyRole(['superadmin', 'admin'])) {
                 return ResponseHelper::jsonResponse(false, 'Anda tidak memiliki izin untuk menghapus balasan ini', null, 403);
             }
 
@@ -319,7 +319,7 @@ class TicketReplyController extends Controller implements HasMiddleware
         if (!$user)
             return false;
 
-        if ($user->hasRole('admin')) {
+        if ($user->hasAnyRole(['superadmin', 'admin'])) {
             return true;
         }
 

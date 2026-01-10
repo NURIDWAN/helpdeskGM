@@ -47,9 +47,9 @@ class UtilityReadingRepository implements UtilityReadingRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && $user->hasRole('admin')) {
-            // admins can see all utility readings
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('utility-reading-view-all')) {
+            // admins and superadmins can see all utility readings
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('utility-reading-view-all'))) {
             // staff can only see utility readings from their own daily records
             $query->whereHas('dailyRecord', function ($dailyRecordQuery) use ($user) {
                 $dailyRecordQuery->where('user_id', $user->id);

@@ -108,8 +108,6 @@ const loadTicketData = async () => {
     try {
       const ticket = await fetchTicket(ticketId.value);
 
-      console.log(ticket);
-
       if (ticket) {
         form.description = ticket.description;
         form.branch_id = ticket.branch?.id;

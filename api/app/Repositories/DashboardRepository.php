@@ -28,9 +28,9 @@ class DashboardRepository implements DashboardRepositoryInterface
         $workOrderQuery = DB::table('work_orders');
 
         // Role-based filtering
-        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
-            // No filter for admins
-        } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
+        if ($this->currentUser && $this->currentUser->can('dashboard-view-all')) {
+            // admins and superadmins can see all data
+        } elseif ($this->currentUser && ($this->currentUser->hasRole('staff') || !$this->currentUser->can('dashboard-view-all'))) {
             // Staff: Assigned tickets
             $ticketQuery->whereExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -101,8 +101,8 @@ class DashboardRepository implements DashboardRepositoryInterface
         $query = DB::table('tickets');
 
         // Role-based filtering
-        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
-            // No filter
+        if ($this->currentUser && $this->currentUser->can('dashboard-view-all')) {
+            // No filter by permission
         } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))
@@ -144,8 +144,8 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->leftJoin('branches', 'tickets.branch_id', '=', 'branches.id');
 
         // Role-based filtering
-        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
-            // No filter
+        if ($this->currentUser && $this->currentUser->can('dashboard-view-all')) {
+            // No filter by permission
         } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))
@@ -231,8 +231,8 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->where('created_at', '>=', $startDate);
 
         // Role-based filtering
-        if ($this->currentUser && ($this->currentUser->hasRole('admin') || $this->currentUser->hasRole('superadmin'))) {
-            // No filter
+        if ($this->currentUser && $this->currentUser->can('dashboard-view-all')) {
+            // No filter by permission
         } elseif ($this->currentUser && $this->currentUser->hasRole('staff')) {
             $query->whereExists(function ($subQuery) {
                 $subQuery->select(DB::raw(1))

@@ -25,7 +25,7 @@ class ElectricityMeterStoreRequest extends FormRequest
         return [
             'branch_id' => 'required|integer|exists:branches,id',
             'meter_name' => 'nullable|string|max:255',
-            'meter_number' => 'nullable|string|max:255',
+            'meter_number' => 'required|string|max:255|unique:electricity_meters,meter_number',
             'location' => 'nullable|string|max:255',
             'power_capacity' => 'nullable|numeric|min:0',
             'is_active' => 'nullable|boolean',
@@ -60,6 +60,8 @@ class ElectricityMeterStoreRequest extends FormRequest
             'branch_id.required' => 'Cabang wajib dipilih',
             'branch_id.exists' => 'Cabang tidak ditemukan',
             'meter_name.max' => 'Nama meter maksimal 255 karakter',
+            'meter_number.required' => 'Nomor meter wajib diisi',
+            'meter_number.unique' => 'Nomor meter sudah digunakan',
             'power_capacity.numeric' => 'Daya harus berupa angka',
             'power_capacity.min' => 'Daya tidak boleh negatif',
         ];

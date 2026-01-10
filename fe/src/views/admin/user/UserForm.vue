@@ -34,6 +34,7 @@ const branchStore = useBranchStore();
 const roleStore = useRoleStore();
 const { error, loading } = storeToRefs(userStore);
 const { branches } = storeToRefs(branchStore);
+const { roles } = storeToRefs(roleStore);
 const { createUser, updateUser, fetchUser } = userStore;
 const { fetchBranches } = branchStore;
 
@@ -61,7 +62,12 @@ const userTypes = [
   { value: "external", label: "External" },
 ];
 
-const availableRoles = ref([]);
+const availableRoles = computed(() => {
+  return roles.value.map((role) => ({
+    value: role.name,
+    label: role.name.charAt(0).toUpperCase() + role.name.slice(1),
+  }));
+});
 
 // Methods
 const handleSubmit = async () => {
@@ -133,10 +139,6 @@ const loadBranchesData = async () => {
 const loadRoles = async () => {
   try {
     await roleStore.fetchRoles();
-    availableRoles.value = roleStore.roles.map((role) => ({
-      value: role.name,
-      label: role.name.charAt(0).toUpperCase() + role.name.slice(1),
-    }));
   } catch (error) {
     console.error("Error loading roles:", error);
   }

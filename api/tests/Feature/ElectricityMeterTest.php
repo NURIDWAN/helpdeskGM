@@ -101,7 +101,7 @@ test('meter creation requires branch_id', function () {
         ->assertJsonValidationErrors(['branch_id']);
 });
 
-test('meter creation requires meter_name', function () {
+test('meter creation requires meter_number', function () {
     $admin = User::factory()->create();
     $admin->assignRole('admin');
 
@@ -112,7 +112,23 @@ test('meter creation requires meter_name', function () {
             'branch_id' => $branch->id,
         ])
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['meter_name']);
+        ->assertJsonValidationErrors(['meter_number']);
+});
+
+test('meter creation fails with duplicate meter_number', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $branch = Branch::factory()->create();
+    $existingMeter = ElectricityMeter::factory()->create(['meter_number' => 'MTR-UNIQUE']);
+
+    actingAs($admin)
+        ->postJson('/api/v1/electricity-meters', [
+            'branch_id' => $branch->id,
+            'meter_number' => 'MTR-UNIQUE', // Same as existing
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['meter_number']);
 });
 
 // =====================================================

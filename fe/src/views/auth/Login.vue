@@ -1,10 +1,12 @@
 <script setup>
 import { useAuthStore } from "@/stores/auth";
+import { useToastStore } from "@/stores/toast";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { Eye, EyeOff, Mail } from "lucide-vue-next";
 
 const authStore = useAuthStore();
+const toast = useToastStore();
 const { loading, error } = storeToRefs(authStore);
 const { login } = authStore;
 
@@ -20,7 +22,7 @@ const handleSubmit = async () => {
 
   if (error.value === "Unauthorized") {
     form.value.password = null;
-    alert("Email atau password salah");
+    toast.error("Email atau password salah");
   }
 };
 
@@ -37,7 +39,6 @@ const togglePassword = () => {
         >Email</label
       >
       <div class="mt-1 relative">
-        <!-- TODO: Add v-model binding for email -->
         <input
           v-model="form.email"
           type="email"
@@ -61,7 +62,6 @@ const togglePassword = () => {
         >Password</label
       >
       <div class="mt-1 relative">
-        <!-- TODO: Add v-model binding for password -->
         <input
           v-model="form.password"
           :type="showPassword ? 'text' : 'password'"
@@ -72,14 +72,14 @@ const togglePassword = () => {
           placeholder="••••••••"
         />
         <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
-          <!-- TODO: Add click handler for password toggle -->
           <button
             type="button"
             @click="togglePassword"
             class="text-gray-400 hover:text-gray-600 focus:outline-none"
+            aria-label="Toggle password visibility"
           >
-            <Eye v-if="!showPassword" :size="16" class="w-4 h-4" id="password-toggle" />
-            <EyeOff v-else :size="16" class="w-4 h-4" id="password-toggle" />
+            <Eye v-if="!showPassword" :size="16" class="w-4 h-4" />
+            <EyeOff v-else :size="16" class="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -105,7 +105,6 @@ const togglePassword = () => {
 
     <!-- Submit Button -->
     <div>
-      <!-- TODO: Add loading state to button -->
       <button
         type="submit"
         class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

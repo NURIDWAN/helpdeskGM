@@ -21,13 +21,15 @@ class ElectricityMeterUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $meterId = $this->route('electricity_meter');
+
         return [
             'branch_id' => 'sometimes|required|integer|exists:branches,id',
             'meter_name' => 'sometimes|required|string|max:255',
-            'meter_number' => 'nullable|string|max:255',
+            'meter_number' => 'sometimes|required|string|max:255|unique:electricity_meters,meter_number,' . $meterId,
             'location' => 'nullable|string|max:255',
             'power_capacity' => 'nullable|numeric|min:0',
-            'is_active' => 'nullable|boolean',
+            'is_active' => 'sometimes|boolean',
         ];
     }
 
@@ -43,6 +45,8 @@ class ElectricityMeterUpdateRequest extends FormRequest
             'branch_id.exists' => 'Cabang tidak ditemukan',
             'meter_name.required' => 'Nama meter wajib diisi',
             'meter_name.max' => 'Nama meter maksimal 255 karakter',
+            'meter_number.required' => 'Nomor meter wajib diisi',
+            'meter_number.unique' => 'Nomor meter sudah digunakan',
             'power_capacity.numeric' => 'Daya harus berupa angka',
             'power_capacity.min' => 'Daya tidak boleh negatif',
         ];

@@ -56,7 +56,12 @@ class AuthController extends Controller
 
             return ResponseHelper::jsonResponse(true, 'Login Berhasil', new UserResource($user), 200);
         } catch (\Exception $e) {
-            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, $e->getCode());
+            // Ensure status code is valid HTTP code, default to 401 for auth errors
+            $statusCode = $e->getCode();
+            if ($statusCode < 100 || $statusCode >= 600) {
+                $statusCode = 401;
+            }
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, $statusCode);
         }
     }
 

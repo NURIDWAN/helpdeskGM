@@ -8,6 +8,7 @@ export function handleError(error) {
     } else if (error.response && error.response.status === 500) {
         return error.response.data.message
     } else {
-        console.log(error)
+        // Return generic error message for unhandled cases
+        return error.message || 'An unexpected error occurred'
     }
 }

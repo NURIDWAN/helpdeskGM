@@ -39,8 +39,10 @@
                   {{ title }}
                 </h3>
                 <button
+                  type="button"
                   @click="$emit('close')"
                   class="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Tutup dialog"
                 >
                   <X :size="20" />
                 </button>
@@ -76,6 +78,7 @@
                 class="flex justify-end space-x-3 p-6 bg-gray-50 rounded-b-xl"
               >
                 <button
+                  type="button"
                   @click="$emit('close')"
                   :disabled="loading"
                   class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -83,6 +86,7 @@
                   {{ cancelText }}
                 </button>
                 <button
+                  type="button"
                   @click="$emit('confirm')"
                   :disabled="loading"
                   :class="[

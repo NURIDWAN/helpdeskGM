@@ -68,7 +68,8 @@ const loadMeters = async () => {
   if (!props.branchId) return;
   
   try {
-    await getByBranchId(props.branchId);
+    // Only load active meters for daily record form
+    await getByBranchId(props.branchId, { is_active: true });
     initializeMeterReadings();
   } catch (error) {
     console.error("Error loading meters:", error);
@@ -82,7 +83,7 @@ const loadExistingReadings = async () => {
     // First ensure meters are loaded if we have a branchId
     // This handles edit mode where meters might not be initialized yet
     if (props.branchId && electricityMeters.value.length === 0) {
-      await getByBranchId(props.branchId);
+      await getByBranchId(props.branchId, { is_active: true });
       initializeMeterReadings();
     }
     

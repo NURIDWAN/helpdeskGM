@@ -293,16 +293,33 @@ const getDurationBadge = (ticket) => {
       ? new Date(ticket.completed_at)
       : new Date();
   const diffTime = Math.abs(end - start);
+  const diffMinutes = Math.floor(diffTime / (1000 * 60));
+  const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
   const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
+  // Format label based on duration
+  let label;
+  if (diffMinutes < 60) {
+    label = `${diffMinutes} Menit`;
+  } else if (diffHours < 24) {
+    const remainingMinutes = diffMinutes % 60;
+    label = remainingMinutes > 0 
+      ? `${diffHours} Jam ${remainingMinutes} Menit` 
+      : `${diffHours} Jam`;
+  } else {
+    const days = Math.floor(diffDays);
+    const remainingHours = diffHours % 24;
+    label = remainingHours > 0 
+      ? `${days} Hari ${remainingHours} Jam` 
+      : `${days} Hari`;
+  }
+
+  // Badge color based on days (same logic as before)
   if (diffDays < 2)
-    return { color: "bg-green-100 text-green-800", label: "< 2 Hari" };
+    return { color: "bg-green-100 text-green-800", label };
   if (diffDays < 7)
-    return {
-      color: "bg-yellow-100 text-yellow-800",
-      label: Math.floor(diffDays) + " Hari",
-    };
-  return { color: "bg-red-100 text-red-800", label: "> 7 Hari" };
+    return { color: "bg-yellow-100 text-yellow-800", label };
+  return { color: "bg-red-100 text-red-800", label };
 };
 // Export methods
 const buildExportParams = () => {

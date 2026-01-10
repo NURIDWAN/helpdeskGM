@@ -649,7 +649,6 @@ class WhatsAppNotificationService
         $priorityText = $this->getPriorityText($ticket->priority->value);
         $statusText = $this->getStatusText($ticket->status->value);
         $branchName = $ticket->branch ? $ticket->branch->name : 'Tidak ditentukan';
-        $ticketUrl = $this->appUrl . '/admin/ticket/' . $ticket->id;
 
         // Determine technician name (first assigned staff or 'Tim Support')
         $technician = 'Tim Support';
@@ -675,7 +674,6 @@ class WhatsAppNotificationService
                 '{created_at}' => $ticket->created_at->format('d/m/Y H:i'),
                 '{updated_at}' => $ticket->updated_at->format('d/m/Y H:i'),
                 '{completed_at}' => $ticket->completed_at ? $ticket->completed_at->format('d/m/Y H:i') : '-',
-                '{ticket_url}' => $ticketUrl,
                 '{staff_name}' => $extraData['staff_name'] ?? $technician,
                 // Extra data keys
                 '{old_status}' => $extraData['old_status'] ?? '',

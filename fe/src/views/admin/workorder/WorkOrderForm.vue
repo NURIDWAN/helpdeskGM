@@ -207,12 +207,6 @@ const autoSelectBranchStaff = () => {
     (u) => String(u.branch_id) === String(ticketBranchId)
   );
   
-  console.log('Auto-select debug:', {
-    ticketBranchId,
-    staffUsers: staffUsers.value.map(s => ({ id: s.id, name: s.name, branch_id: s.branch_id })),
-    branchStaff: branchStaff.map(s => s.name)
-  });
-  
   if (branchStaff.length > 0) {
     // Auto-select ALL staff from branch
     form.assigned_staff = branchStaff.map(s => String(s.id));

@@ -2,37 +2,30 @@
 import { useAuthStore } from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { User, Mail, Eye } from "lucide-vue-next";
+import { User, Mail, Eye, EyeOff } from "lucide-vue-next";
 
 const authStore = useAuthStore();
 const { loading, error } = storeToRefs(authStore);
 const { register } = authStore;
 
-// TODO: Create form ref with registration fields
-// Hint: You'll need name, email, password
+// Form ref with registration fields
 const form = ref({
   name: null,
   email: null,
   password: null,
 });
 
-// TODO: Implement handleSubmit function
-// Hint: This should call the register function from auth store
-// and handle any errors
+// Password visibility state
+const showPassword = ref(false);
+
+// Handle form submit
 const handleSubmit = async () => {
   await register(form.value);
 };
 
-// TODO: Implement togglePassword function
-// Hint: This should toggle password visibility
+// Toggle password visibility
 const togglePassword = () => {
-  // Your code here
-};
-
-// TODO: Implement toggleConfirmPassword function
-// Hint: This should toggle confirm password visibility
-const toggleConfirmPassword = () => {
-  // Your code here
+  showPassword.value = !showPassword.value;
 };
 </script>
 
@@ -44,7 +37,6 @@ const toggleConfirmPassword = () => {
         >Nama Lengkap</label
       >
       <div class="mt-1 relative">
-        <!-- TODO: Add v-model binding for name -->
         <input
           v-model="form.name"
           type="text"
@@ -72,7 +64,6 @@ const toggleConfirmPassword = () => {
         >Email</label
       >
       <div class="mt-1 relative">
-        <!-- TODO: Add v-model binding for email -->
         <input
           v-model="form.email"
           type="email"
@@ -100,10 +91,9 @@ const toggleConfirmPassword = () => {
         >Password</label
       >
       <div class="mt-1 relative">
-        <!-- TODO: Add v-model binding for password -->
         <input
           v-model="form.password"
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           id="password"
           name="password"
           class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -111,12 +101,14 @@ const toggleConfirmPassword = () => {
           :class="{ 'border-red-500 ring-red-500': error?.password }"
         />
         <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
-          <!-- TODO: Add click handler for password toggle -->
           <button
             type="button"
+            @click="togglePassword"
             class="text-gray-400 hover:text-gray-600 focus:outline-none"
+            aria-label="Toggle password visibility"
           >
-            <Eye :size="16" id="password-toggle" />
+            <EyeOff v-if="showPassword" :size="16" />
+            <Eye v-else :size="16" />
           </button>
         </div>
 
@@ -128,7 +120,6 @@ const toggleConfirmPassword = () => {
 
     <!-- Submit Button -->
     <div>
-      <!-- TODO: Add loading state to button -->
       <button
         type="submit"
         class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

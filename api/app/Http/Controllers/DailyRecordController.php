@@ -576,11 +576,12 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                 if ($gasReading) {
                     $gasClosing = round($gasReading->meter_value, 2);
-                    // Opening = closing dari record sebelumnya (jika ada) dan LOKASI SAMA
+                    
+                    // Opening = closing dari record sebelumnya (tanpa strict location check)
+                    // Gas biasanya hanya 1 per cabang, jadi tidak perlu strict location matching
                     $prevGas = $previousClosings['gas'] ?? null;
-                    $currentLocation = $gasReading->location ?? '';
-
-                    if (is_array($prevGas) && isset($prevGas['value']) && ($prevGas['location'] == $currentLocation)) {
+                    
+                    if (is_array($prevGas) && isset($prevGas['value'])) {
                         $gasOpening = $prevGas['value'];
                     } else {
                         $gasOpening = 0;
@@ -589,6 +590,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                     $gasUsage = round($gasClosing - $gasOpening, 2);
 
                     // Update previous closing untuk record berikutnya
+                    $currentLocation = $gasReading->location ?? '';
                     $previousClosings['gas'] = [
                         'value' => $gasClosing,
                         'location' => $currentLocation
@@ -955,9 +957,9 @@ class DailyRecordController extends Controller implements HasMiddleware
                         if ($gasReading) {
                             $gasClosing = round($gasReading->meter_value, 2);
                             $prevGas = $previousClosings['gas'] ?? null;
-                            $currentLocation = $gasReading->location ?? '';
 
-                            $gasOpening = (is_array($prevGas) && isset($prevGas['value']) && ($prevGas['location'] == $currentLocation))
+                            // Opening from previous closing (no strict location check for gas)
+                            $gasOpening = (is_array($prevGas) && isset($prevGas['value']))
                                 ? $prevGas['value'] : 0;
                             $gasUsage = round($gasClosing - $gasOpening, 2);
 
@@ -972,7 +974,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                             $col++;
                             $sheet->setCellValue($columns[$col++] . $currentRow, $gasReading->location ?? '');
 
-                            $previousClosings['gas'] = ['value' => $gasClosing, 'location' => $currentLocation];
+                            $previousClosings['gas'] = ['value' => $gasClosing, 'location' => $gasReading->location ?? ''];
                         } else {
                             for ($j = 0; $j < 7; $j++)
                                 $sheet->setCellValue($columns[$col++] . $currentRow, '-');
@@ -1172,7 +1174,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $prevGas = $previousClosings['gas'] ?? null;
                         $currentLocation = $gasReading->location ?? '';
 
-                        if (is_array($prevGas) && isset($prevGas['value']) && ($prevGas['location'] == $currentLocation)) {
+                        // Opening from previous closing (no strict location check for gas)
+                        if (is_array($prevGas) && isset($prevGas['value'])) {
                             $gasOpening = $prevGas['value'];
                         } else {
                             $gasOpening = 0;

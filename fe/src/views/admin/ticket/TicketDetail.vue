@@ -154,17 +154,14 @@ const startPolling = () => {
   pollingInterval.value = setInterval(async () => {
     // Skip polling if user is typing
     if (isUserTyping.value) {
-      console.log("Skipping poll - user is typing");
       return;
     }
 
     // Skip if page is not visible
     if (document.hidden) {
-      console.log("Skipping poll - page is hidden");
       return;
     }
 
-    console.log("Polling for new replies...");
     await pollReplies();
   }, 10000); // Poll every 10 seconds
 };
@@ -206,14 +203,8 @@ const pollReplies = async () => {
     // Fetch new replies silently
     await getRepliesByTicketId(ticketId.value);
 
-    // Check if new replies were added
+    // Check if new replies were added (could add notification here if needed)
     const newCount = replies.value.length;
-    if (newCount > currentCount) {
-      console.log(
-        `New replies detected: ${newCount - currentCount} new replies`
-      );
-      // You could add a subtle notification here if needed
-    }
 
     lastPollingTime.value = new Date();
   } catch (error) {
@@ -234,7 +225,6 @@ const handleTypingStart = () => {
   // Set timeout to stop typing detection after 2 seconds of inactivity
   typingTimeout.value = setTimeout(() => {
     isUserTyping.value = false;
-    console.log("User stopped typing");
   }, 2000);
 };
 
@@ -246,7 +236,6 @@ const handleTypingStop = () => {
   // Stop typing detection after 1 second
   setTimeout(() => {
     isUserTyping.value = false;
-    console.log("User stopped typing");
   }, 1000);
 };
 

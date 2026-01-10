@@ -19,10 +19,10 @@ class TicketFactory extends Factory
             'user_id' => User::factory(),
             'branch_id' => Branch::factory(),
             'code' => fake()->unique()->bothify('TCKT-####'),
-            'title' => fake()->sentence(),
             'description' => fake()->paragraph(),
             'priority' => fake()->randomElement(TicketPriority::values()),
             'status' => TicketStatus::OPEN->value,
+            'category_id' => null,
         ];
     }
 }

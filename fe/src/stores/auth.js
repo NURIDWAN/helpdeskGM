@@ -29,11 +29,8 @@ export const useAuthStore = defineStore("auth", {
 
                 this.success = response.data.message
 
-                if (
-                    response.data.data.roles.includes('superadmin') ||
-                    response.data.data.roles.includes('admin') ||
-                    response.data.data.roles.includes('staff')
-                ) {
+                // Redirect based on admin panel access permission
+                if (response.data.data.permissions.includes('system-admin-panel-access')) {
                     router.push({ name: 'admin.dashboard' })
                 } else {
                     router.push({ name: 'app.dashboard' })

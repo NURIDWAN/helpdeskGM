@@ -4,9 +4,11 @@
     <div class="sm:hidden px-4 py-3">
       <div class="flex items-center justify-between">
         <button
+          type="button"
           @click="goToPage(meta.current_page - 1)"
           :disabled="meta.current_page === 1"
           class="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          aria-label="Halaman sebelumnya"
         >
           <ChevronLeft :size="16" class="mr-1" />
           Sebelumnya
@@ -17,9 +19,11 @@
         </span>
 
         <button
+          type="button"
           @click="goToPage(meta.current_page + 1)"
           :disabled="meta.current_page === meta.last_page"
           class="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          aria-label="Halaman selanjutnya"
         >
           Selanjutnya
           <ChevronRight :size="16" class="ml-1" />
@@ -51,9 +55,11 @@
         <div class="flex items-center space-x-1">
           <!-- Previous Button -->
           <button
+            type="button"
             @click="goToPage(meta.current_page - 1)"
             :disabled="meta.current_page === 1"
             class="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Halaman sebelumnya"
           >
             <ChevronLeft :size="16" class="mr-1" />
             Sebelumnya
@@ -63,9 +69,11 @@
           <div class="flex items-center space-x-1">
             <!-- First page -->
             <button
+              type="button"
               v-if="showFirstPage"
               @click="goToPage(1)"
               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors"
+              aria-label="Halaman pertama"
             >
               1
             </button>
@@ -80,6 +88,7 @@
 
             <!-- Visible pages -->
             <button
+              type="button"
               v-for="page in visiblePages"
               :key="page"
               @click="goToPage(page)"
@@ -89,6 +98,8 @@
                   ? 'bg-blue-600 text-white border border-blue-600'
                   : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700',
               ]"
+              :aria-label="`Halaman ${page}`"
+              :aria-current="page === meta.current_page ? 'page' : undefined"
             >
               {{ page }}
             </button>
@@ -103,9 +114,11 @@
 
             <!-- Last page -->
             <button
+              type="button"
               v-if="showLastPage"
               @click="goToPage(meta.last_page)"
               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors"
+              aria-label="Halaman terakhir"
             >
               {{ meta.last_page }}
             </button>
@@ -113,9 +126,11 @@
 
           <!-- Next Button -->
           <button
+            type="button"
             @click="goToPage(meta.current_page + 1)"
             :disabled="meta.current_page === meta.last_page"
             class="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Halaman selanjutnya"
           >
             Selanjutnya
             <ChevronRight :size="16" class="ml-1" />

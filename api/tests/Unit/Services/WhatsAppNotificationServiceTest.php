@@ -22,7 +22,7 @@ beforeEach(function () {
     // Seed default WhatsApp settings
     WhatsAppSetting::updateOrCreate(['key' => 'token'], ['value' => 'test-token']);
     WhatsAppSetting::updateOrCreate(['key' => 'group_id'], ['value' => '120363xxx@g.us']);
-    WhatsAppSetting::updateOrCreate(['key' => 'message_delay'], ['value' => '1']);
+    WhatsAppSetting::updateOrCreate(['key' => 'delay'], ['value' => '1']);
 
     // Seed templates
     WhatsAppTemplate::updateOrCreate(['type' => 'ticket_created'], [

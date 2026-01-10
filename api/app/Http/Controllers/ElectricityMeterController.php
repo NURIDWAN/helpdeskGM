@@ -127,15 +127,24 @@ class ElectricityMeterController extends Controller implements HasMiddleware
     }
 
     /**
-     * Get meters by branch for dropdown selection.
+     * Get meters by branch for management or forms.
+     * Use ?is_active=true for daily record forms (only active meters)
+     * Use ?is_active=false for inactive only
+     * Omit parameter for all meters (branch management)
      */
     public function getByBranch(Request $request, string $branchId)
     {
         try {
+            // Parse is_active filter from query parameter
+            $isActive = null;
+            if ($request->has('is_active')) {
+                $isActive = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);
+            }
+
             $electricityMeters = $this->electricityMeterRepository->getAll(
                 null,
                 (int) $branchId,
-                true // Only active meters
+                $isActive
             );
 
             return ResponseHelper::jsonResponse(true, 'Data Meter Listrik Berhasil Diambil', ElectricityMeterResource::collection($electricityMeters), 200);

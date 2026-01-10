@@ -35,9 +35,9 @@ class JobTemplateRepository implements JobTemplateRepositoryInterface
         }
 
         // Role-based visibility
-        if ($user && ($user->hasRole('admin') || $user->hasRole('superadmin'))) {
-            // admins can see all job templates
-        } elseif ($user && $user->hasRole('staff')) {
+        if ($user && $user->can('job-template-view-all')) {
+            // admins and superadmins can see all templates by permission
+        } elseif ($user && ($user->hasRole('staff') || !$user->can('job-template-view-all'))) {
             // staff can only see job templates assigned to their branch
             $query->whereHas('branches', function ($branchQuery) use ($user) {
                 $branchQuery->where('branch_id', $user->branch_id);

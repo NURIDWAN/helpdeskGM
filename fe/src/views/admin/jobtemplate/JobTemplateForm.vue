@@ -153,6 +153,14 @@ const isBranchSelected = (branchId) => {
   return selectedBranches.value.includes(branchId);
 };
 
+const selectAllBranches = () => {
+  selectedBranches.value = availableBranches.value.map(b => b.id);
+};
+
+const clearAllBranches = () => {
+  selectedBranches.value = [];
+};
+
 // Lifecycle
 onMounted(async () => {
   await fetchAvailableBranches();
@@ -351,12 +359,33 @@ onMounted(async () => {
         <!-- Branches Selection -->
         <div class="lg:col-span-2">
           <div class="space-y-3">
-            <label class="block text-sm font-medium text-gray-700">
-              <div class="flex items-center gap-2">
-                <Building :size="16" class="text-gray-500" />
-                Pilih Cabang
+            <div class="flex items-center justify-between">
+              <label class="block text-sm font-medium text-gray-700">
+                <div class="flex items-center gap-2">
+                  <Building :size="16" class="text-gray-500" />
+                  Pilih Cabang
+                  <span v-if="selectedBranches.length > 0" class="text-xs text-blue-600">
+                    ({{ selectedBranches.length }}/{{ availableBranches.length }} dipilih)
+                  </span>
+                </div>
+              </label>
+              <div v-if="availableBranches.length > 0" class="flex gap-2">
+                <button
+                  type="button"
+                  @click="selectAllBranches"
+                  class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  Pilih Semua
+                </button>
+                <button
+                  type="button"
+                  @click="clearAllBranches"
+                  class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Hapus Semua
+                </button>
               </div>
-            </label>
+            </div>
 
             <div
               v-if="availableBranches.length === 0"

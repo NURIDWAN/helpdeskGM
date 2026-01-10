@@ -28,9 +28,11 @@
 
             <!-- Close Button -->
             <button
+              type="button"
               v-if="dismissible"
               @click="handleClose"
               :class="closeButtonClasses"
+              aria-label="Tutup notifikasi"
             >
               <X :size="16" />
             </button>

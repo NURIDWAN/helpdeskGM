@@ -75,9 +75,11 @@ export const useBranchStore = defineStore("branch", {
 
                 this.success = response.data.message
 
-                router.push({ name: 'admin.branches' })
+                // Return the created branch data so caller can use it
+                return response.data.data
             } catch (error) {
                 this.error = handleError(error)
+                throw error
             } finally {
                 this.loading = false
             }

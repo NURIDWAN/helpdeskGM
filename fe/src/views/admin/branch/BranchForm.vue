@@ -62,6 +62,10 @@ const meterLoading = ref(false);
 const showDeleteMeterModal = ref(false);
 const meterToDelete = ref(null);
 
+// Local meters for create mode (before branch is saved)
+const localMeters = ref([]);
+let localMeterIdCounter = 1;
+
 const meterForm = reactive({
   meter_name: "",
   meter_number: "",
@@ -71,6 +75,11 @@ const meterForm = reactive({
 });
 
 const meterError = ref(null);
+
+// Computed: use electricityMeters for edit mode, localMeters for create mode
+const displayMeters = computed(() => {
+  return isEdit.value ? electricityMeters.value : localMeters.value;
+});
 
 // Methods
 const handleSubmit = async () => {
@@ -86,12 +95,31 @@ const handleSubmit = async () => {
 
     if (isEdit.value) {
       await updateBranch(branchId.value, formData);
+      if (branchStore.success) {
+        router.push({ name: "admin.branches" });
+      }
     } else {
-      await createBranch(formData);
-    }
-
-    if (branchStore.success) {
-      router.push({ name: "admin.branches" });
+      // Create branch first
+      const createdBranch = await createBranch(formData);
+      
+      if (createdBranch && createdBranch.id) {
+        // Save all local meters to the new branch
+        for (const meter of localMeters.value) {
+          try {
+            await createElectricityMeter({
+              branch_id: createdBranch.id,
+              meter_name: meter.meter_name,
+              meter_number: meter.meter_number,
+              location: meter.location || null,
+              power_capacity: meter.power_capacity || null,
+              is_active: meter.is_active,
+            });
+          } catch (meterErr) {
+            console.error("Error creating meter:", meterErr);
+          }
+        }
+        router.push({ name: "admin.branches" });
+      }
     }
   } catch (error) {
     console.error("Error submitting form:", error);
@@ -206,23 +234,60 @@ const handleMeterSubmit = async () => {
   meterError.value = null;
 
   try {
-    const payload = {
-      branch_id: branchId.value,
-      meter_name: meterForm.meter_name,
-      meter_number: meterForm.meter_number,
-      location: meterForm.location || null,
-      power_capacity: meterForm.power_capacity || null,
-      is_active: meterForm.is_active,
-    };
+    // Validate unique meter_number
+    const existingMeters = isEdit.value ? electricityMeters.value : localMeters.value;
+    const isDuplicate = existingMeters.some(m => 
+      m.meter_number === meterForm.meter_number && 
+      (!isEditingMeter.value || m.id !== editingMeterId.value)
+    );
+    
+    if (isDuplicate) {
+      meterError.value = { meter_number: ['Nomor meter sudah digunakan'] };
+      meterLoading.value = false;
+      return;
+    }
 
-    if (isEditingMeter.value) {
-      await updateElectricityMeter(editingMeterId.value, payload);
+    if (isEdit.value) {
+      // Edit mode: save to server
+      const payload = {
+        branch_id: branchId.value,
+        meter_name: meterForm.meter_name,
+        meter_number: meterForm.meter_number,
+        location: meterForm.location || null,
+        power_capacity: meterForm.power_capacity || null,
+        is_active: meterForm.is_active === true,
+      };
+
+      if (isEditingMeter.value) {
+        await updateElectricityMeter(editingMeterId.value, payload);
+      } else {
+        await createElectricityMeter(payload);
+      }
+      await loadElectricityMeters();
     } else {
-      await createElectricityMeter(payload);
+      // Create mode: save locally
+      const meterCount = localMeters.value.length + 1;
+      const newMeter = {
+        id: `local-${localMeterIdCounter++}`,
+        meter_name: meterForm.meter_name || `Meter ${meterCount}`,
+        meter_number: meterForm.meter_number,
+        location: meterForm.location || null,
+        power_capacity: meterForm.power_capacity || null,
+        is_active: meterForm.is_active === true,
+      };
+
+      if (isEditingMeter.value) {
+        // Update existing local meter
+        const index = localMeters.value.findIndex(m => m.id === editingMeterId.value);
+        if (index !== -1) {
+          localMeters.value[index] = { ...newMeter, id: editingMeterId.value };
+        }
+      } else {
+        localMeters.value.push(newMeter);
+      }
     }
 
     closeMeterModal();
-    await loadElectricityMeters();
   } catch (error) {
     console.error("Error saving meter:", error);
     meterError.value = electricityMeterStore.error;
@@ -240,10 +305,19 @@ const handleDeleteMeter = async () => {
   if (meterToDelete.value) {
     meterLoading.value = true;
     try {
-      await deleteElectricityMeter(meterToDelete.value.id);
+      if (isEdit.value) {
+        // Edit mode: delete from server
+        await deleteElectricityMeter(meterToDelete.value.id);
+        await loadElectricityMeters();
+      } else {
+        // Create mode: remove from local array
+        const index = localMeters.value.findIndex(m => m.id === meterToDelete.value.id);
+        if (index !== -1) {
+          localMeters.value.splice(index, 1);
+        }
+      }
       showDeleteMeterModal.value = false;
       meterToDelete.value = null;
-      await loadElectricityMeters();
     } catch (error) {
       console.error("Error deleting meter:", error);
     } finally {
@@ -462,11 +536,10 @@ onMounted(() => {
     </form>
   </FormCard>
 
-  <!-- Electricity Meters Section (Edit Mode Only) -->
+  <!-- Electricity Meters Section -->
   <FormCard
-    v-if="isEdit"
     title="Meter Listrik"
-    subtitle="Kelola daftar meter listrik untuk cabang ini"
+    :subtitle="isEdit ? 'Kelola daftar meter listrik untuk cabang ini' : 'Tambahkan meter listrik untuk cabang baru (opsional)'"
     :icon="Zap"
     class="mt-6"
   >
@@ -483,7 +556,7 @@ onMounted(() => {
       </div>
 
       <!-- Meters Table -->
-      <div v-if="electricityMeters.length > 0" class="overflow-x-auto">
+      <div v-if="displayMeters.length > 0" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -520,7 +593,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="meter in electricityMeters" :key="meter.id">
+            <tr v-for="meter in displayMeters" :key="meter.id">
               <td class="px-4 py-3 text-sm font-medium text-gray-900">
                 {{ meter.meter_name }}
               </td>
@@ -616,7 +689,7 @@ onMounted(() => {
               >Nama Meter <span class="text-gray-400 text-xs">(Otomatis)</span></label
             >
             <input
-              :value="isEditingMeter ? meterForm.meter_name : `Meter ${electricityMeters.length + 1}`"
+              :value="isEditingMeter ? meterForm.meter_name : `Meter ${displayMeters.length + 1}`"
               type="text"
               disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
@@ -632,9 +705,16 @@ onMounted(() => {
               v-model="meterForm.meter_number"
               type="text"
               required
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              :class="[
+                'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                meterError?.meter_number ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              ]"
               placeholder="Contoh: PLN-12345678"
+              @input="meterError && meterError.meter_number ? meterError.meter_number = null : null"
             />
+            <p v-if="meterError?.meter_number" class="mt-1 text-sm text-red-600">
+              {{ meterError.meter_number[0] }}
+            </p>
           </div>
 
           <div>
