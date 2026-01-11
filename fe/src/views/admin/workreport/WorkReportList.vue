@@ -105,16 +105,7 @@ const jobTemplateOptions = computed(() =>
   }))
 );
 
-// Default date range (last week)
-const defaultStartDate = computed(() => {
-  const date = new Date();
-  date.setDate(date.getDate() - 7);
-  return date.toISOString().split("T")[0];
-});
-
-const defaultEndDate = computed(() => {
-  return new Date().toISOString().split("T")[0];
-});
+// Default date range removed
 
 // Methods
 const fetchWorkReports = () => {
@@ -192,8 +183,8 @@ const clearFilters = () => {
     branchId: null,
     userId: null,
     jobTemplateId: null,
-    startDate: defaultStartDate.value,
-    endDate: defaultEndDate.value,
+    startDate: null,
+    endDate: null,
   };
   meta.value.current_page = 1;
   fetchWorkReports();
@@ -273,9 +264,7 @@ const exportToExcel = async () => {
 
 // Lifecycle
 onMounted(async () => {
-  // Set default date range
-  filters.value.startDate = defaultStartDate.value;
-  filters.value.endDate = defaultEndDate.value;
+  // No default date range
 
   await Promise.all([fetchBranches(), fetchUsers(), fetchJobTemplates()]);
   fetchWorkReports();

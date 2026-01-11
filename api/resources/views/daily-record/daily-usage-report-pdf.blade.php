@@ -97,6 +97,10 @@
             background-color: #ffffcc;
             font-weight: bold;
         }
+        
+        .align-top {
+            vertical-align: top;
+        }
     </style>
 </head>
 
@@ -174,55 +178,65 @@
             <tbody>
                 @foreach ($reportData as $index => $row)
                     @php
-                        // Calculate max rows needed for this record (only electricity supports multi-meter)
-                        $elecCount = isset($row['electricity']) && is_array($row['electricity']) ? count(array_filter($row['electricity'], fn($e) => isset($e['location']) && $e['location'] !== null)) : 0;
-                        $maxRows = max(1, $elecCount);
+                        // Filter valid electricity data
+                        $elecFiltered = isset($row['electricity']) && is_array($row['electricity']) 
+                            ? array_values(array_filter($row['electricity'], fn($e) => $e !== null)) 
+                            : [];
+                        $elecCount = count($elecFiltered);
                         
-                        // Get first water and electricity data
+                        // Calculate rowspan: meters + 1 (for TOTAL row) if > 1 meter, else 1
+                        $rowspan = $elecCount > 1 ? ($elecCount + 1) : 1;
+                        
+                        // Get first items
                         $firstWater = isset($row['water']) && is_array($row['water']) && count($row['water']) > 0 ? $row['water'][0] : null;
-                        $firstElec = $elecCount > 0 ? (array_values(array_filter($row['electricity'], fn($e) => isset($e['location']) && $e['location'] !== null))[0] ?? null) : null;
-                        $elecFiltered = $elecCount > 0 ? array_values(array_filter($row['electricity'], fn($e) => isset($e['location']) && $e['location'] !== null)) : [];
+                        $firstElec = $elecCount > 0 ? $elecFiltered[0] : null;
+                        
+                        // Calculate electricity total usage
+                        $elecTotalUsage = 0;
+                        foreach ($elecFiltered as $e) {
+                            $elecTotalUsage += floatval($e['usage'] ?? 0);
+                        }
                     @endphp
                     
                     {{-- First row of this daily record --}}
                     <tr>
-                        <td rowspan="{{ $maxRows }}">{{ $index + 1 }}</td>
-                        <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['timestamp'] ?? '-' }}</td>
-                        <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['tanggal'] ?? '-' }}</td>
-                        <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['nama'] ?? '-' }}</td>
-                        <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['outlet'] ?? '-' }}</td>
-                        <td rowspan="{{ $maxRows }}">{{ $row['total_customer'] ?? '-' }}</td>
+                        <td class="align-top" rowspan="{{ $rowspan }}">{{ $index + 1 }}</td>
+                        <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['timestamp'] ?? '-' }}</td>
+                        <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['tanggal'] ?? '-' }}</td>
+                        <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['nama'] ?? '-' }}</td>
+                        <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['outlet'] ?? '-' }}</td>
+                        <td class="align-top" rowspan="{{ $rowspan }}">{{ $row['total_customer'] ?? '-' }}</td>
                         
-                        {{-- Gas columns (always single row) --}}
+                        {{-- Gas columns (rowspan to match electricity) --}}
                         @if ($category === 'gas' || $category === 'all')
-                            <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['gas']['stove_type'] ?? '-' }}</td>
-                            <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['gas']['gas_type'] ?? '-' }}</td>
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ isset($row['gas']['opening']) && $row['gas']['opening'] !== null ? number_format($row['gas']['opening'], 2) : '-' }}</td>
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ isset($row['gas']['closing']) && $row['gas']['closing'] !== null ? number_format($row['gas']['closing'], 2) : '-' }}</td>
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ isset($row['gas']['usage']) && $row['gas']['usage'] !== null ? number_format($row['gas']['usage'], 2) : '-' }}</td>
-                            <td class="photo-cell" rowspan="{{ $maxRows }}">
+                            <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['gas']['stove_type'] ?? '-' }}</td>
+                            <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['gas']['gas_type'] ?? '-' }}</td>
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ isset($row['gas']['opening']) && $row['gas']['opening'] !== null ? number_format($row['gas']['opening'], 2) : '-' }}</td>
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ isset($row['gas']['closing']) && $row['gas']['closing'] !== null ? number_format($row['gas']['closing'], 2) : '-' }}</td>
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ isset($row['gas']['usage']) && $row['gas']['usage'] !== null ? number_format($row['gas']['usage'], 2) : '-' }}</td>
+                            <td class="photo-cell align-top" rowspan="{{ $rowspan }}">
                                 @if (isset($row['gas']['photo_path']) && $row['gas']['photo_path'])
                                     <a href="{{ asset('storage/' . $row['gas']['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="text-left" rowspan="{{ $maxRows }}">{{ $row['gas']['location'] ?? '-' }}</td>
+                            <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $row['gas']['location'] ?? '-' }}</td>
                         @endif
                         
-                        {{-- Water columns (always single row like Gas) --}}
+                        {{-- Water columns (rowspan to match electricity) --}}
                         @if ($category === 'water' || $category === 'all')
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ $firstWater && isset($firstWater['opening']) ? number_format($firstWater['opening'], 2) : '-' }}</td>
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ $firstWater && isset($firstWater['closing']) ? number_format($firstWater['closing'], 2) : '-' }}</td>
-                            <td class="text-right" rowspan="{{ $maxRows }}">{{ $firstWater && isset($firstWater['usage']) ? number_format($firstWater['usage'], 2) : '-' }}</td>
-                            <td class="photo-cell" rowspan="{{ $maxRows }}">
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ $firstWater && isset($firstWater['opening']) ? number_format($firstWater['opening'], 2) : '-' }}</td>
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ $firstWater && isset($firstWater['closing']) ? number_format($firstWater['closing'], 2) : '-' }}</td>
+                            <td class="text-right align-top" rowspan="{{ $rowspan }}">{{ $firstWater && isset($firstWater['usage']) ? number_format($firstWater['usage'], 2) : '-' }}</td>
+                            <td class="photo-cell align-top" rowspan="{{ $rowspan }}">
                                 @if ($firstWater && isset($firstWater['photo_path']) && $firstWater['photo_path'])
                                     <a href="{{ asset('storage/' . $firstWater['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="text-left" rowspan="{{ $maxRows }}">{{ $firstWater['location'] ?? '-' }}</td>
+                            <td class="text-left align-top" rowspan="{{ $rowspan }}">{{ $firstWater['location'] ?? '-' }}</td>
                         @endif
                         
                         {{-- Electricity columns (first meter) --}}
@@ -242,33 +256,40 @@
                         @endif
                     </tr>
                     
-                    {{-- Additional rows for multi-meter (if any) --}}
-                    @for ($i = 1; $i < $maxRows; $i++)
-                        <tr class="meter-row">
-                            {{-- Common columns already handled with rowspan --}}
-                            
-                            {{-- Gas columns already handled with rowspan --}}
-                            
-                            {{-- Water columns already handled with rowspan (like Gas) --}}
-                            
-                            {{-- Electricity columns (additional meters) --}}
+                    {{-- Additional rows for multi-meter electricity --}}
+                    @if ($elecCount > 1)
+                        @for ($i = 1; $i < $elecCount; $i++)
+                            @php $elec = $elecFiltered[$i]; @endphp
+                            <tr class="meter-row">
+                                {{-- Only electricity columns (no common/gas/water - they use rowspan) --}}
+                                @if ($category === 'electricity' || $category === 'all')
+                                    <td class="text-left">{{ $elec['meter_name'] ?? ('Meter ' . ($i + 1)) }}</td>
+                                    <td class="text-left">{{ $elec['location'] ?? '-' }}</td>
+                                    <td class="text-right">{{ isset($elec['opening']) ? number_format($elec['opening'], 2) : '-' }}</td>
+                                    <td class="text-right">{{ isset($elec['closing']) ? number_format($elec['closing'], 2) : '-' }}</td>
+                                    <td class="text-right">{{ isset($elec['usage']) ? number_format($elec['usage'], 2) : '-' }}</td>
+                                    <td class="photo-cell">
+                                        @if (isset($elec['photo_path']) && $elec['photo_path'])
+                                            <a href="{{ asset('storage/' . $elec['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                @endif
+                            </tr>
+                        @endfor
+                        
+                        {{-- TOTAL row for electricity --}}
+                        <tr class="total-row">
                             @if ($category === 'electricity' || $category === 'all')
-                                @php $elec = isset($elecFiltered[$i]) ? $elecFiltered[$i] : null; @endphp
-                                <td class="text-left">{{ $elec['meter_name'] ?? ('Meter ' . ($i + 1)) }}</td>
-                                <td class="text-left">{{ $elec['location'] ?? '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['opening']) ? number_format($elec['opening'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['closing']) ? number_format($elec['closing'], 2) : '-' }}</td>
-                                <td class="text-right">{{ $elec && isset($elec['usage']) ? number_format($elec['usage'], 2) : '-' }}</td>
-                                <td class="photo-cell">
-                                    @if ($elec && isset($elec['photo_path']) && $elec['photo_path'])
-                                        <a href="{{ asset('storage/' . $elec['photo_path']) }}" class="photo-link" target="_blank">Lihat Foto</a>
-                                    @else
-                                        -
-                                    @endif
-                                </td>
+                                <td class="text-left" colspan="2"><strong>TOTAL</strong></td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">-</td>
+                                <td class="text-right" style="color: green;"><strong>{{ number_format($elecTotalUsage, 2) }}</strong></td>
+                                <td class="text-center">-</td>
                             @endif
                         </tr>
-                    @endfor
+                    @endif
                 @endforeach
             </tbody>
         </table>

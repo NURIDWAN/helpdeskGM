@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\DailyRecord;
 use App\Enums\UtilityCategory;
+use App\Enums\UtilitySubType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,7 +17,7 @@ class UtilityReadingFactory extends Factory
         return [
             'daily_record_id' => DailyRecord::factory(),
             'category' => UtilityCategory::WATER->value,
-            'sub_type' => null,
+            'sub_type' => UtilitySubType::GENERAL->value,
             'location' => fake()->word() . ' ' . fake()->randomElement(['Kitchen', 'Bathroom', 'Garden', 'Main']),
             'meter_value' => fake()->randomFloat(2, 100, 10000),
             'photo' => null,

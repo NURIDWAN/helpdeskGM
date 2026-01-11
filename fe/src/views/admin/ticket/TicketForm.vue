@@ -260,8 +260,8 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Branch (hidden for staff - auto-set to their branch) -->
-        <div v-if="!isStaffUser">
+        <!-- Branch -->
+        <div>
           <FormField
             v-model="form.branch_id"
             id="branch_id"
@@ -310,8 +310,8 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Assign Staff (hidden for staff users - auto-assigned to their branch) -->
-        <div v-if="!isStaffUser">
+        <!-- Assign Staff -->
+        <div>
           <label
             for="assigned_staff"
             class="block text-sm font-medium text-gray-700 mb-2"

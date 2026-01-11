@@ -11,10 +11,38 @@ use Carbon\Carbon;
 class DashboardRepository implements DashboardRepositoryInterface
 {
     protected $currentUser;
+    protected $isSqlite;
 
     public function __construct()
     {
         $this->currentUser = auth()->user();
+        $this->isSqlite = DB::connection()->getDriverName() === 'sqlite';
+    }
+
+    /**
+     * Get time difference expression compatible with both SQLite and MySQL
+     */
+    private function getTimeDiffHoursExpression(string $startCol, string $endCol): string
+    {
+        if ($this->isSqlite) {
+            // SQLite: use julianday for time difference in days, then convert to hours
+            return "(julianday({$endCol}) - julianday({$startCol})) * 24";
+        }
+        // MySQL
+        return "TIMESTAMPDIFF(HOUR, {$startCol}, {$endCol})";
+    }
+
+    /**
+     * Get YEARWEEK expression compatible with both SQLite and MySQL
+     */
+    private function getYearWeekExpression(string $dateCol): string
+    {
+        if ($this->isSqlite) {
+            // SQLite: strftime('%Y%W', date) gives year + week number
+            return "strftime('%Y%W', {$dateCol})";
+        }
+        // MySQL
+        return "YEARWEEK({$dateCol}, 1)";
     }
 
     public function getMetrics(): array
@@ -65,10 +93,11 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->count();
 
         // Average resolution time (in hours) - only for staff's resolved tickets
+        $timeDiffExpr = $this->getTimeDiffHoursExpression('created_at', 'completed_at');
         $avgResolutionTime = (clone $ticketQuery)
             ->where('status', TicketStatus::RESOLVED->value)
             ->whereNotNull('completed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, created_at, completed_at)) as avg_hours')
+            ->selectRaw("AVG({$timeDiffExpr}) as avg_hours")
             ->value('avg_hours') ?? 0;
 
         // Active work orders
@@ -196,6 +225,8 @@ class DashboardRepository implements DashboardRepositoryInterface
 
     public function getFastestStaff(): array
     {
+        $timeDiffExpr = $this->getTimeDiffHoursExpression('tickets.created_at', 'tickets.completed_at');
+        
         return DB::table('tickets')
             ->join('ticket_staff', 'tickets.id', '=', 'ticket_staff.ticket_id')
             ->join('users', 'ticket_staff.user_id', '=', 'users.id')
@@ -203,7 +234,7 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->whereNotNull('tickets.completed_at')
             ->select(
                 'users.name',
-                DB::raw('AVG(TIMESTAMPDIFF(HOUR, tickets.created_at, tickets.completed_at)) as avg_resolution_hours'),
+                DB::raw("AVG({$timeDiffExpr}) as avg_resolution_hours"),
                 DB::raw('count(tickets.id) as total_resolved')
             )
             ->groupBy('users.id', 'users.name')
@@ -248,16 +279,21 @@ class DashboardRepository implements DashboardRepositoryInterface
         }
 
         if ($period === 'week') {
+            $yearWeekExpr = $this->getYearWeekExpression('created_at');
             $data = $query->select(
-                DB::raw('YEARWEEK(created_at) as period'),
+                DB::raw("{$yearWeekExpr} as period"),
                 DB::raw('count(*) as count')
             )
                 ->groupBy('period')
                 ->orderBy('period')
                 ->get()
                 ->map(function ($item) {
+                    // YEARWEEK returns format like 202601 (year + week number)
+                    $yearWeek = (string) $item->period;
+                    $year = (int) substr($yearWeek, 0, 4);
+                    $week = (int) substr($yearWeek, 4);
                     return [
-                        'period' => Carbon::createFromFormat('Y-m-d', $item->period . '-1')->format('M d'),
+                        'period' => Carbon::now()->setISODate($year, $week)->startOfWeek()->format('M d'),
                         'count' => $item->count,
                     ];
                 });
@@ -295,16 +331,21 @@ class DashboardRepository implements DashboardRepositoryInterface
         }
 
         if ($period === 'week') {
+            $yearWeekExpr = $this->getYearWeekExpression('created_at');
             $data = $query->select(
-                DB::raw('YEARWEEK(created_at) as period'),
+                DB::raw("{$yearWeekExpr} as period"),
                 DB::raw('count(*) as count')
             )
                 ->groupBy('period')
                 ->orderBy('period')
                 ->get()
                 ->map(function ($item) {
+                    // YEARWEEK returns format like 202601 (year + week number)
+                    $yearWeek = (string) $item->period;
+                    $year = (int) substr($yearWeek, 0, 4);
+                    $week = (int) substr($yearWeek, 4);
                     return [
-                        'period' => Carbon::createFromFormat('Y-m-d', $item->period . '-1')->format('M d'),
+                        'period' => Carbon::now()->setISODate($year, $week)->startOfWeek()->format('M d'),
                         'count' => $item->count,
                     ];
                 });

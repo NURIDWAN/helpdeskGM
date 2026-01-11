@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, onMounted, computed, ref } from "vue";
+import { reactive, onMounted, computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useJobTemplateStore } from "@/stores/jobTemplate";
 import { useBranchStore } from "@/stores/branch";
@@ -74,11 +74,28 @@ const toggleDate = (date) => {
   else selectedDates.value.push(date);
 };
 
+// Computed for excluded days summary (for daily frequency)
+const excludedDays = computed(() => {
+  if (form.frequency !== 'daily') return [];
+  return weekDays.filter(d => !selectedDays.value.includes(d.value));
+});
+
+// Watch frequency change to auto-select days for daily
+watch(() => form.frequency, (newFreq, oldFreq) => {
+  if (newFreq === 'daily' && oldFreq !== 'daily') {
+    // Auto-select all days for daily frequency
+    selectedDays.value = weekDays.map(d => d.value);
+  } else if (newFreq === 'weekly' && oldFreq !== 'weekly') {
+    // Clear days for weekly (user selects from empty)
+    selectedDays.value = [];
+  }
+});
+
 // Methods
 const handleSubmit = async () => {
   try {
     let scheduleDetails = null;
-    if (form.frequency === 'weekly') {
+    if (form.frequency === 'daily' || form.frequency === 'weekly') {
       scheduleDetails = { days: selectedDays.value };
     } else if (form.frequency === 'monthly') {
       scheduleDetails = { dates: selectedDates.value };
@@ -121,11 +138,16 @@ const loadJobTemplateData = async () => {
 
         // Load schedule details
         if (jobTemplate.schedule_details) {
-          if (form.frequency === 'weekly') {
+          if (form.frequency === 'daily' || form.frequency === 'weekly') {
              selectedDays.value = jobTemplate.schedule_details.days || [];
           } else if (form.frequency === 'monthly') {
              selectedDates.value = jobTemplate.schedule_details.dates || [];
           }
+        }
+
+        // If daily and no saved days, default to all days selected
+        if (form.frequency === 'daily' && selectedDays.value.length === 0) {
+          selectedDays.value = weekDays.map(d => d.value);
         }
 
         // Set selected branches
@@ -279,6 +301,33 @@ onMounted(async () => {
             <!-- Error Display -->
             <div v-if="error?.frequency" class="text-sm text-red-600">
               {{ error.frequency.join(", ") }}
+            </div>
+
+            <!-- Daily Selection -->
+            <div v-if="form.frequency === 'daily'" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <label class="block text-sm font-medium text-gray-700 mb-3">Hari Kerja (klik untuk mengecualikan):</label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="day in weekDays"
+                  :key="day.value"
+                  type="button"
+                  @click="toggleDay(day.value)"
+                  class="px-4 py-2 text-sm rounded-lg border transition-all duration-200"
+                  :class="selectedDays.includes(day.value)
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 line-through'"
+                >
+                  {{ day.label }}
+                </button>
+              </div>
+              <!-- Excluded days summary -->
+              <div v-if="excludedDays.length > 0" class="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-sm text-amber-700">
+                  <span class="font-medium">Libur:</span>
+                  {{ excludedDays.map(d => d.label).join(', ') }}
+                </p>
+              </div>
+              <p v-else class="text-xs text-gray-500 mt-2">Klik hari untuk mengecualikan dari jadwal harian.</p>
             </div>
 
             <!-- Weekly Selection -->

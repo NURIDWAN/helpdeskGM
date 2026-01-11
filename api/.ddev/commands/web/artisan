@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Define the command description
+## Description: Run artisan commands
+## Usage: artisan [flags] [args]
+## Example: "ddev artisan migrate"
+
+# Check if the command is running in the 'api' directory or if we need to change directory.
+# Since the ddev project seems to be rooted in 'api' (based on .ddev location), 
+# standard 'php artisan' should work if run inside the web container's /var/www/html/api (if mounted there) 
+# or /var/www/html (if docroot is public).
+
+# However, the user is likely running `ddev artisan` from the root of the repo (one level up from api) 
+# or inside `api/`. 
+# If ddev is running for the `api` project, `ddev ssh` puts us in /var/www/html. 
+# We saw `docroot: public` in the config.yaml, which typically means the web root is public/. 
+# Laravel's artisan is usually at the project root (one level up from public/, i.e., /var/www/html).
+
+php artisan "$@"

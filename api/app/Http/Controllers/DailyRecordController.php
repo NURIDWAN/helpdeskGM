@@ -587,7 +587,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $gasOpening = 0;
                     }
 
-                    $gasUsage = round($gasClosing - $gasOpening, 2);
+                    // As per user request: Opening + Closing = Total Pemakaian
+                    $gasUsage = round($gasClosing + $gasOpening, 2);
 
                     // Update previous closing untuk record berikutnya
                     $currentLocation = $gasReading->location ?? '';
@@ -606,12 +607,25 @@ class DailyRecordController extends Controller implements HasMiddleware
                     $location = $waterReading->location ?? 'default';
 
                     // Opening = closing dari record sebelumnya dengan lokasi yang sama
-                    // Jika tidak ada dengan lokasi yang sama, Opening harus 0 (karena meteran baru/beda lokasi)
-                    $waterOpening = $previousClosings['water'][$location] ?? 0;
-                    $waterUsage = round($waterClosing - $waterOpening, 2);
+                    // Normalisasi lokasi (lowercase + trim) agar tidak sensitif case/spasi
+                    $normalizedLocation = trim(strtolower($location));
+                    $waterOpening = $previousClosings['water'][$normalizedLocation] ?? null;
+
+                    // If exact match failed, try fallback (if previous record had only 1 water meter)
+                    if ($waterOpening === null && isset($previousClosings['water']['_single_fallback'])) {
+                         // Only use fallback if CURRENT record also has only 1 water meter (implied by loop if count=1)
+                        if ($waterReadingsSorted->count() === 1) {
+                             $waterOpening = $previousClosings['water']['_single_fallback'];
+                        }
+                    }
+                    
+                    $waterOpening = $waterOpening ?? 0;
+                    // As per user request: Opening + Closing = Total Pemakaian
+                    $waterUsage = round($waterClosing + $waterOpening, 2);
 
                     // Update previous closing untuk record berikutnya
-                    $previousClosings['water'][$location] = $waterClosing;
+                    // Update previous closing untuk record berikutnya
+                    $previousClosings['water'][$normalizedLocation] = $waterClosing;
 
                     $waterData[] = [
                         'location' => $waterReading->location,
@@ -620,6 +634,11 @@ class DailyRecordController extends Controller implements HasMiddleware
                         'usage' => $waterUsage,
                         'photo' => $waterReading->photo ? asset('storage/' . $waterReading->photo) : null,
                     ];
+                }
+                
+                // Update fallback for next iteration if this record has exactly 1 water meter
+                if ($waterReadingsSorted->count() === 1) {
+                     $previousClosings['water']['_single_fallback'] = $waterData[0]['closing'] ?? null;
                 }
 
                 // Get electricity readings (can be multiple) - Merge legacy and multi-meter
@@ -649,7 +668,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         // Calculate usage
                         $usage = null;
                         if ($closing !== null && $opening !== null) {
-                            $usage = round($closing - $opening, 2);
+                            // As per user request: Opening + Closing = Total Pemakaian
+                            $usage = round($closing + $opening, 2);
                         }
 
                         $electricityData[] = [
@@ -684,7 +704,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         $usage = null;
                         if ($closing !== null) {
-                            $usage = round($closing - $opening, 2);
+                            // As per user request: Opening + Closing = Total Pemakaian
+                            $usage = round($closing + $opening, 2);
                         }
 
                         $electricityData[] = [
@@ -929,7 +950,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                     return $r->electricityMeter->meter_name ?? '';
                 })->values();
 
-                $maxRows = max(1, $electricityReadings->count());
+                $maxRows = max(1, $electricityReadings->count(), $waterReadings->count());
                 $startRow = $currentRow;
 
                 $totalWbpUsage = 0;
@@ -939,7 +960,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                 for ($i = 0; $i < $maxRows; $i++) {
                     $col = 0;
 
-                    // Common Data (only first row)
+                    // Common Data (only first row checks if merged, but we write every time then merge later)
+                    // ... actually we just write on first row
                     if ($i === 0) {
                         $sheet->setCellValue($columns[$col++] . $currentRow, $rowNumber); // NO column
                         $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->created_at->format('m/d/Y H:i:s'));
@@ -961,7 +983,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             // Opening from previous closing (no strict location check for gas)
                             $gasOpening = (is_array($prevGas) && isset($prevGas['value']))
                                 ? $prevGas['value'] : 0;
-                            $gasUsage = round($gasClosing - $gasOpening, 2);
+                            // As per user request: Opening + Closing = Total Pemakaian
+                            $gasUsage = round($gasClosing + $gasOpening, 2);
 
                             $sheet->setCellValue($columns[$col++] . $currentRow, $gasReading->stove_type ?? '-');
                             $sheet->setCellValue($columns[$col++] . $currentRow, $gasReading->gas_type ?? '-');
@@ -983,31 +1006,50 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $col = 13; // Shifted by 1 for NO column
                     }
 
-                    // Water Data (only first row)
-                    if ($i === 0) {
-                        $waterReading = $waterReadings->first();
-                        if ($waterReading) {
-                            $waterClosing = round($waterReading->meter_value, 2);
-                            $location = $waterReading->location ?? 'default';
-                            $waterOpening = $previousClosings['water'][$location] ?? 0;
-                            $waterUsage = round($waterClosing - $waterOpening, 2);
+                    // Water Data (iterative)
+                    if (isset($waterReadings[$i])) {
+                        $waterReading = $waterReadings[$i];
+                        $waterClosing = round($waterReading->meter_value, 2);
+                        $location = $waterReading->location ?? 'default';
+                        $normalizedLocation = trim(strtolower($location));
+                        $waterOpening = $previousClosings['water'][$normalizedLocation] ?? null;
 
-                            $sheet->setCellValue($columns[$col++] . $currentRow, $waterOpening);
-                            $sheet->setCellValue($columns[$col++] . $currentRow, $waterClosing);
-                            $sheet->setCellValue($columns[$col++] . $currentRow, $waterUsage);
-                            // Water photo hyperlink
-                            $waterPhotoCell = $columns[$col] . $currentRow;
-                            $addPhotoHyperlink($sheet, $waterReading->photo, $waterPhotoCell, 'Foto Air');
-                            $col++;
-                            $sheet->setCellValue($columns[$col++] . $currentRow, $waterReading->location ?? '');
-
-                            $previousClosings['water'][$location] = $waterClosing;
-                        } else {
-                            for ($j = 0; $j < 5; $j++)
-                                $sheet->setCellValue($columns[$col++] . $currentRow, '-');
+                        // Fallback heuristic
+                        if ($waterOpening === null && isset($previousClosings['water']['_single_fallback'])) {
+                            if ($waterReadings->count() === 1) {
+                                    $waterOpening = $previousClosings['water']['_single_fallback'];
+                            }
                         }
+                        $waterOpening = $waterOpening ?? 0;
+                        // As per user request: Opening + Closing = Total Pemakaian
+                        $waterUsage = round($waterClosing + $waterOpening, 2);
+
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $waterOpening);
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $waterClosing);
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $waterUsage);
+                        // Water photo hyperlink
+                        $waterPhotoCell = $columns[$col] . $currentRow;
+                        $addPhotoHyperlink($sheet, $waterReading->photo, $waterPhotoCell, 'Foto Air');
+                        $col++;
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $waterReading->location ?? '');
+
+                        $previousClosings['water'][$normalizedLocation] = $waterClosing;
                     } else {
-                        $col = 18; // Shifted by 1 for NO column
+                        // If checking row 0 and no water reading, put dash
+                        if ($i === 0 && $waterReadings->isEmpty()) {
+                             for ($j = 0; $j < 5; $j++)
+                                $sheet->setCellValue($columns[$col++] . $currentRow, '-');
+                        } else if ($i > 0) {
+                             // Do nothing / leave empty for subsequent rows if no water data
+                             $col += 5;
+                        }
+                    }
+
+                    // Update fallback for next iteration if this record has exactly 1 water meter
+                    // Note: Excel export loop `if ($i === 0)` handles the water data.
+                    // We need to check the count of water readings for this daily record.
+                    if ($i === 0 && $waterReadings->count() === 1 && isset($waterClosing)) {
+                         $previousClosings['water']['_single_fallback'] = $waterClosing;
                     }
 
                     // Electricity Data (each row = one meter)
@@ -1019,7 +1061,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         $closing = $elec->meter_value !== null ? round($elec->meter_value, 2) : 0;
                         $opening = $previousClosings['electricity'][$meterId] ?? 0;
-                        $usage = round($closing - $opening, 2);
+                        // As per user request: Opening + Closing = Total Pemakaian
+                        $usage = round($closing + $opening, 2);
 
                         $totalElecUsage += $usage;
 
@@ -1181,7 +1224,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             $gasOpening = 0;
                         }
 
-                        $gasUsage = round($gasClosing - $gasOpening, 2);
+                        // As per user request: Opening + Closing = Total Pemakaian
+                        $gasUsage = round($gasClosing + $gasOpening, 2);
                         $previousClosings['gas'] = [
                             'value' => $gasClosing,
                             'location' => $currentLocation
@@ -1206,9 +1250,18 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $waterClosing = round($waterReading->meter_value, 2);
                         $location = $waterReading->location ?? 'default';
                         // Opening = closing dari record sebelumnya dengan lokasi yang sama
-                        $waterOpening = $previousClosings['water'][$location] ?? 0;
-                        $waterUsage = round($waterClosing - $waterOpening, 2);
-                        $previousClosings['water'][$location] = $waterClosing;
+                        $normalizedLocation = trim(strtolower($location));
+                        $waterOpening = $previousClosings['water'][$normalizedLocation] ?? null;
+                         
+                        if ($waterOpening === null && isset($previousClosings['water']['_single_fallback'])) {
+                            if ($waterReadings->count() === 1) {
+                                    $waterOpening = $previousClosings['water']['_single_fallback'];
+                            }
+                        }
+                        $waterOpening = $waterOpening ?? 0;
+                        // As per user request: Opening + Closing = Total Pemakaian
+                        $waterUsage = round($waterClosing + $waterOpening, 2);
+                        $previousClosings['water'][$normalizedLocation] = $waterClosing;
 
                         $waterData[] = [
                             'location' => $waterReading->location,
@@ -1218,6 +1271,12 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $waterReading->photo ? $waterReading->photo : null,
                         ];
                     }
+                    
+                    // Update fallback for next iteration if this record has exactly 1 water meter
+                    if ($waterReadings->count() === 1 && isset($waterData[0]['closing'])) {
+                         $previousClosings['water']['_single_fallback'] = $waterData[0]['closing'];
+                    }
+                    
                     $rowData['water'] = $waterData;
                 }
 
@@ -1242,7 +1301,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         // Hitung usage jika ada closing
                         if ($closing !== null) {
-                            $usage = round($closing - $opening, 2);
+                            // As per user request: Opening + Closing = Total Pemakaian
+                            $usage = round($closing + $opening, 2);
                         }
 
                         $electricityData[] = [

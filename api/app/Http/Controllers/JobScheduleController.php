@@ -130,9 +130,17 @@ class JobScheduleController extends Controller
 
         switch ($frequency->value ?? $frequency) {
             case 'daily':
+                // Get target days from schedule_details, default to all days if not set
+                $targetDays = $scheduleDetails['days'] ?? [
+                    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+                ];
+                // Ensure targetDays are lowercase
+                $targetDays = array_map('strtolower', $targetDays);
+
                 while ($current->lte($endOfMonth)) {
                     if (!$endedAt || $current->lte($endedAt)) {
-                        if ($current->isWeekday()) { // Only weekdays
+                        // Check if current day is in target days
+                        if (in_array(strtolower($current->format('l')), $targetDays)) {
                             $dates[] = $current->copy();
                         }
                     }

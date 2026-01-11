@@ -6,6 +6,7 @@ use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Interfaces\TicketRepositoryInterface;
 use App\Models\Ticket;
+use App\Models\User;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -181,29 +182,6 @@ class TicketRepository implements TicketRepositoryInterface
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // Auto-assign logic for regular users and staff
-            $autoAssignStaff = [];
-            $creator = \App\Models\User::find($data['user_id']);
-
-            // Auto-assign if creator is 'user' or 'staff' and has a branch
-            // This ensures tickets are assigned to all staff in the creator's branch
-            if ($creator && ($creator->hasRole('user') || $creator->hasRole('staff')) && $creator->branch_id) {
-                // Find all staff in the same branch
-                $branchStaff = \App\Models\User::where('branch_id', $creator->branch_id)
-                    ->role('staff')
-                    ->pluck('id')
-                    ->toArray();
-
-                $autoAssignStaff = $branchStaff;
-
-                Log::info('Auto-assign staff for new ticket', [
-                    'creator_id' => $creator->id,
-                    'creator_role' => $creator->getRoleNames(),
-                    'branch_id' => $creator->branch_id,
-                    'auto_assigned_staff' => $autoAssignStaff,
-                ]);
-            }
-
             $ticket = new Ticket();
             $ticket->user_id = $data['user_id'];
             $ticket->code = $this->generateTicketCode($data['branch_id'] ?? null);
@@ -215,11 +193,21 @@ class TicketRepository implements TicketRepositoryInterface
             $ticket->completed_at = $data['completed_at'] ?? null;
             $ticket->save();
 
-            // Handle assigned staff - merge manual assigned_staff with auto-assigned staff
+            // Handle assigned staff
             $assignedStaff = $data['assigned_staff'] ?? [];
-            if (!empty($autoAssignStaff)) {
-                $assignedStaff = array_unique(array_merge($assignedStaff, $autoAssignStaff));
+
+            // Auto-assign all staff from reporter's branch if no staff selected
+            if (empty($assignedStaff) && $ticket->branch_id) {
+                $branchStaff = User::where('branch_id', $ticket->branch_id)
+                    ->role('staff')
+                    ->pluck('id')
+                    ->toArray();
+                
+                if (!empty($branchStaff)) {
+                    $assignedStaff = $branchStaff;
+                }
             }
+
             if (!empty($assignedStaff)) {
                 $ticket->assignedStaff()->sync($assignedStaff);
             }

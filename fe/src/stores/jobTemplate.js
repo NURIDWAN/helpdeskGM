@@ -10,10 +10,7 @@ export const useJobTemplateStore = defineStore("jobTemplate", {
         frequencies: [
             { value: 'daily', label: 'Harian' },
             { value: 'weekly', label: 'Mingguan' },
-            { value: 'monthly', label: 'Bulanan' },
-            { value: 'quarterly', label: 'Triwulanan' },
-            { value: 'yearly', label: 'Tahunan' },
-            { value: 'on_demand', label: 'Sesuai Kebutuhan' }
+            { value: 'monthly', label: 'Bulanan' }
         ],
         meta: {
             current_page: 1,

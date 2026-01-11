@@ -74,7 +74,16 @@ class TicketExport
 
             $duration = null;
             if ($ticket->completed_at && $ticket->created_at) {
-                $duration = round($ticket->created_at->diffInHours($ticket->completed_at), 1);
+                $totalMinutes = $ticket->created_at->diffInMinutes($ticket->completed_at);
+                if ($totalMinutes < 60) {
+                    $duration = $totalMinutes . ' menit';
+                } elseif ($totalMinutes < 1440) { // less than 24 hours
+                    $duration = round($totalMinutes / 60, 1) . ' jam';
+                } else {
+                    $days = floor($totalMinutes / 1440);
+                    $hours = round(($totalMinutes % 1440) / 60, 1);
+                    $duration = $days . ' hari ' . $hours . ' jam';
+                }
             }
 
             $sheet->setCellValue('A' . $row, $no);

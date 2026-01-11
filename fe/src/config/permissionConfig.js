@@ -699,62 +699,126 @@ export const permissionDependencies = {
  * Role Presets - Template role yang sudah dikonfigurasi
  * 
  * Mempercepat pembuatan role dengan preset yang umum digunakan.
+ * Disesuaikan dengan RoleSeeder.php
  */
 export const rolePresets = {
-  "viewer": {
-    label: "Viewer Only",
-    description: "Hanya dapat melihat data tanpa melakukan perubahan",
-    icon: "Eye",
-    permissions: [
-      "dashboard-menu", "dashboard-view", "dashboard-view-metrics", "dashboard-view-charts",
-      "ticket-menu", "ticket-list",
-      "work-order-menu", "work-order-list",
-      "work-report-menu", "work-report-list",
-      "daily-record-menu", "daily-record-list"
-    ]
-  },
-  "staff-operasional": {
-    label: "Staff Operasional",
-    description: "Akses penuh ke tiket, SPK, dan laporan pekerjaan",
+  "staff": {
+    label: "Staff",
+    description: "Akses operasional tiket, SPK, dan laporan pekerjaan",
     icon: "Wrench",
     permissions: [
-      "dashboard-menu", "dashboard-view", "dashboard-view-metrics",
-      "ticket-menu", "ticket-list", "ticket-create", "ticket-edit", "ticket-update-status",
-      "ticket-reply-list", "ticket-reply-create", "ticket-reply-edit",
-      "ticket-attachment-list", "ticket-attachment-create",
-      "work-order-menu", "work-order-list", "work-order-create", "work-order-edit", "work-order-update-status",
-      "work-report-menu", "work-report-list", "work-report-create", "work-report-edit",
-      "work-report-attachment-list", "work-report-attachment-create"
+      // admin panel access
+      "system-admin-panel-access",
+      // dashboard (basic view)
+      "dashboard-menu",
+      "dashboard-view",
+      // branches (readonly for dropdowns)
+      "branch-list",
+      // ticket categories (for ticket forms)
+      "ticket-category-list",
+      // job templates (for work orders/reports)
+      "job-template-list",
+      // users (readonly for dropdowns/assign)
+      "user-list",
+      // tickets
+      "ticket-menu",
+      "ticket-list",
+      "ticket-create",
+      "ticket-update-status",
+      // ticket replies
+      "ticket-reply-list",
+      "ticket-reply-create",
+      "ticket-reply-edit",
+      "ticket-reply-delete",
+      // ticket attachments
+      "ticket-attachment-list",
+      "ticket-attachment-create",
+      "ticket-attachment-delete",
+      // work orders
+      "work-order-menu",
+      "work-order-list",
+      "work-order-update-status",
+      // work reports
+      "work-report-menu",
+      "work-report-list",
+      "work-report-create",
+      "work-report-edit",
+      "work-report-attachment-list",
+      "work-report-attachment-create",
+      "work-report-attachment-delete"
     ]
   },
-  "admin-cabang": {
-    label: "Admin Cabang",
-    description: "Kelola laporan harian dan data cabang",
-    icon: "Building",
-    permissions: [
-      "dashboard-menu", "dashboard-view", "dashboard-view-metrics", "dashboard-view-charts",
-      "branch-menu", "branch-list", "branch-edit",
-      "daily-record-menu", "daily-record-list", "daily-record-create", "daily-record-edit",
-      "utility-reading-list", "utility-reading-create", "utility-reading-edit",
-      "electricity-meter-menu", "electricity-meter-list",
-      "electricity-reading-list", "electricity-reading-create", "electricity-reading-edit"
-    ]
-  },
-  "supervisor": {
-    label: "Supervisor",
-    description: "Akses lengkap untuk supervisi tim",
+  "user": {
+    label: "User",
+    description: "Akses dasar tiket dan laporan harian",
     icon: "UserCheck",
     permissions: [
-      "dashboard-menu", "dashboard-view", "dashboard-view-metrics", "dashboard-view-charts", 
-      "dashboard-view-staff-rankings", "dashboard-view-trends",
-      "ticket-menu", "ticket-list", "ticket-create", "ticket-edit", "ticket-delete", "ticket-update-status",
+      // ticket categories (for dropdown in ticket form)
+      "ticket-category-list",
+      // tickets
+      "ticket-menu",
+      "ticket-list",
+      "ticket-create",
+      "ticket-update-status",
+      // ticket replies
+      "ticket-reply-list",
+      "ticket-reply-create",
+      // ticket attachments
+      "ticket-attachment-list",
+      "ticket-attachment-create",
+      "ticket-attachment-delete",
+      // resources needed for forms
+      "branch-list",
+      "user-list",
+      "electricity-meter-list",
+      // daily reports
+      "daily-record-menu",
+      "daily-record-list",
+      "daily-record-create",
+      "daily-record-edit",
+      "utility-reading-list",
+      "utility-reading-create",
+      "utility-reading-edit",
+      "electricity-reading-list",
+      "electricity-reading-create",
+      "electricity-reading-edit"
+    ]
+  },
+  "admin": {
+    label: "Admin",
+    description: "Akses semua fitur kecuali manajemen role dan pengaturan WhatsApp",
+    icon: "Shield",
+    permissions: [
+      // System
+      "system-admin-panel-access",
+      // Dashboard
+      "dashboard-menu", "dashboard-view", "dashboard-view-metrics", "dashboard-view-charts",
+      "dashboard-view-staff-rankings", "dashboard-view-trends", "dashboard-view-all",
+      // User management
+      "user-menu", "user-list", "user-create", "user-edit", "user-delete",
+      // Role (view only)
+      "role-menu", "role-list",
+      // Branch
+      "branch-menu", "branch-list", "branch-create", "branch-edit", "branch-delete", "branch-view-all",
+      // Job Template
+      "job-template-menu", "job-template-list", "job-template-create", "job-template-edit", "job-template-delete", "job-template-view-all",
+      // Ticket Category
+      "ticket-category-menu", "ticket-category-list", "ticket-category-create", "ticket-category-edit", "ticket-category-delete",
+      // Tickets
+      "ticket-menu", "ticket-list", "ticket-create", "ticket-edit", "ticket-delete", "ticket-update-status", "ticket-view-all",
       "ticket-reply-list", "ticket-reply-create", "ticket-reply-edit", "ticket-reply-delete",
       "ticket-attachment-list", "ticket-attachment-create", "ticket-attachment-delete",
-      "work-order-menu", "work-order-list", "work-order-create", "work-order-edit", "work-order-delete", "work-order-update-status",
-      "work-report-menu", "work-report-list", "work-report-create", "work-report-edit", "work-report-delete",
+      // Work Order
+      "work-order-menu", "work-order-list", "work-order-create", "work-order-edit", "work-order-delete", "work-order-update-status", "work-order-view-all",
+      // Work Report
+      "work-report-menu", "work-report-list", "work-report-create", "work-report-edit", "work-report-delete", "work-report-view-all",
       "work-report-attachment-list", "work-report-attachment-create", "work-report-attachment-delete",
-      "daily-record-menu", "daily-record-list", "daily-record-create", "daily-record-edit", "daily-record-delete",
-      "utility-reading-list", "utility-reading-create", "utility-reading-edit", "utility-reading-delete"
+      // Daily Record
+      "daily-record-menu", "daily-record-list", "daily-record-create", "daily-record-edit", "daily-record-delete", "daily-record-view-all",
+      "utility-reading-list", "utility-reading-create", "utility-reading-edit", "utility-reading-delete", "utility-reading-view-all",
+      // Electricity
+      "electricity-meter-menu", "electricity-meter-list", "electricity-meter-create", "electricity-meter-edit", "electricity-meter-delete",
+      "electricity-reading-list", "electricity-reading-create", "electricity-reading-edit", "electricity-reading-delete"
     ]
   }
 };

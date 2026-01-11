@@ -7,12 +7,17 @@ use App\Models\ElectricityMeter;
 use App\Models\ElectricityReading;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 use function Pest\Laravel\{postJson, putJson, deleteJson, getJson, actingAs};
 
 beforeEach(function () {
     Storage::fake('public');
+    $this->seed(PermissionSeeder::class);
+    $this->seed(RoleSeeder::class);
 
     $this->user = User::factory()->create();
+    $this->user->assignRole('user'); // user role has electricity-reading-create permission
     $this->branch = Branch::factory()->create();
     $this->dailyRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
@@ -45,19 +50,19 @@ test('can create electricity reading with meter_value and photo', function () {
                 'photo',
             ]
         ])
-        ->assertJsonPath('data.meter_value', 12345.67);
+        ->assertJsonPath('data.meter_value', '12345.67'); // JSON returns string for decimal
 });
 
-test('can create electricity reading without photo', function () {
+test('electricity reading requires photo', function () {
+    // Photo is required for electricity readings per validation rules
     actingAs($this->user)
         ->postJson('/api/v1/electricity-readings', [
             'daily_record_id' => $this->dailyRecord->id,
             'electricity_meter_id' => $this->electricityMeter->id,
             'meter_value' => 9999.99,
         ])
-        ->assertStatus(201)
-        ->assertJsonPath('data.meter_value', 9999.99)
-        ->assertJsonPath('data.photo', null);
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['photo']);
 });
 
 test('can update electricity reading meter_value', function () {
@@ -72,7 +77,7 @@ test('can update electricity reading meter_value', function () {
             'meter_value' => 2000.50,
         ])
         ->assertOk()
-        ->assertJsonPath('data.meter_value', 2000.50);
+        ->assertJsonPath('data.meter_value', '2000.50'); // JSON returns string for decimal
 });
 
 test('can update electricity reading photo', function () {
@@ -84,8 +89,10 @@ test('can update electricity reading photo', function () {
 
     $newPhoto = UploadedFile::fake()->image('new_meter.jpg');
 
+    // meter_value is required for update per validation rules
     actingAs($this->user)
         ->putJson("/api/v1/electricity-readings/{$reading->id}", [
+            'meter_value' => 1000.00, // must include meter_value as it's required
             'photo' => $newPhoto,
         ])
         ->assertOk()
@@ -96,26 +103,43 @@ test('can update electricity reading photo', function () {
 });
 
 test('can delete electricity reading', function () {
+    // Admin has electricity-reading-delete permission
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+    
     $reading = ElectricityReading::factory()->create([
         'daily_record_id' => $this->dailyRecord->id,
         'electricity_meter_id' => $this->electricityMeter->id,
         'meter_value' => 1000.00,
     ]);
 
-    actingAs($this->user)
+    actingAs($admin)
         ->deleteJson("/api/v1/electricity-readings/{$reading->id}")
         ->assertOk();
 
     expect(ElectricityReading::find($reading->id))->toBeNull();
 });
 
-test('can store multiple electricity readings', function () {
+test('can store multiple electricity readings with existing readings', function () {
+    // Create existing readings (photos are only required for NEW readings)
     $meter1 = ElectricityMeter::factory()->create(['branch_id' => $this->branch->id]);
     $meter2 = ElectricityMeter::factory()->create(['branch_id' => $this->branch->id]);
+    
+    // Create existing readings so photo is not required
+    ElectricityReading::factory()->create([
+        'daily_record_id' => $this->dailyRecord->id,
+        'electricity_meter_id' => $meter1->id,
+        'meter_value' => 50.00,
+    ]);
+    ElectricityReading::factory()->create([
+        'daily_record_id' => $this->dailyRecord->id,
+        'electricity_meter_id' => $meter2->id,
+        'meter_value' => 75.00,
+    ]);
 
+    // Update existing readings (no photo required)
     actingAs($this->user)
-        ->postJson('/api/v1/electricity-readings/store-multiple', [
-            'daily_record_id' => $this->dailyRecord->id,
+        ->postJson("/api/v1/daily-records/{$this->dailyRecord->id}/electricity-readings/multiple", [
             'readings' => [
                 [
                     'electricity_meter_id' => $meter1->id,
@@ -127,10 +151,19 @@ test('can store multiple electricity readings', function () {
                 ],
             ],
         ])
-        ->assertOk()
+        ->assertStatus(201)
         ->assertJsonPath('success', true);
 
-    expect(ElectricityReading::where('daily_record_id', $this->dailyRecord->id)->count())->toBe(2);
+    // Verify readings were updated
+    $reading1 = ElectricityReading::where('daily_record_id', $this->dailyRecord->id)
+        ->where('electricity_meter_id', $meter1->id)
+        ->first();
+    $reading2 = ElectricityReading::where('daily_record_id', $this->dailyRecord->id)
+        ->where('electricity_meter_id', $meter2->id)
+        ->first();
+    
+    expect((float)$reading1->meter_value)->toBe(100.00);
+    expect((float)$reading2->meter_value)->toBe(200.00);
 });
 
 test('electricity reading requires valid daily_record_id', function () {

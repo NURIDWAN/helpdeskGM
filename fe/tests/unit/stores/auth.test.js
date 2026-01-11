@@ -57,6 +57,7 @@ describe('Auth Store', () => {
                     data: {
                         token: 'test-token',
                         roles: ['admin'],
+                        permissions: ['system-admin-panel-access'],
                     },
                     message: 'Login successful',
                 },
@@ -81,6 +82,7 @@ describe('Auth Store', () => {
                     data: {
                         token: 'test-token',
                         roles: ['user'],
+                        permissions: [],
                     },
                     message: 'Login successful',
                 },

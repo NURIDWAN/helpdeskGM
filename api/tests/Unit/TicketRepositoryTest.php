@@ -7,6 +7,8 @@ use App\Repositories\TicketRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 
 class TicketRepositoryTest extends TestCase
 {
@@ -17,6 +19,8 @@ class TicketRepositoryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(PermissionSeeder::class);
+        $this->seed(RoleSeeder::class);
         $this->ticketRepository = new TicketRepository(new Ticket());
     }
 
@@ -28,7 +32,6 @@ class TicketRepositoryTest extends TestCase
         $category = \App\Models\TicketCategory::factory()->create();
 
         $data = [
-            'title' => 'Test Ticket',
             'description' => 'Test Description',
             'priority' => 'medium',
             'category_id' => $category->id,
@@ -43,19 +46,19 @@ class TicketRepositoryTest extends TestCase
         // If WhatsAppService is triggered, we should mock IT, not the Ticket model.
 
         $whatsappMock = Mockery::mock(\App\Services\WhatsAppNotificationService::class);
-        $whatsappMock->shouldReceive('sendNewTicketNotification')->andReturn(['status' => 'success']);
+        $whatsappMock->shouldReceive('sendNewTicketNotification')->andReturn(['status' => 'success', 'group' => true, 'staff' => true]);
+        $whatsappMock->shouldReceive('sendTicketCreatedUser')->andReturn(['status' => 'success']);
         $this->app->instance(\App\Services\WhatsAppNotificationService::class, $whatsappMock);
 
         $repository = new TicketRepository(new Ticket());
         $ticket = $repository->create($data);
 
         $this->assertDatabaseHas('tickets', [
-            'title' => 'Test Ticket',
             'description' => 'Test Description',
             'user_id' => $user->id,
         ]);
 
-        $this->assertEquals($data['title'], $ticket->title);
+        $this->assertEquals($data['description'], $ticket->description);
     }
 
     protected function tearDown(): void

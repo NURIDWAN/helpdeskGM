@@ -124,7 +124,7 @@ npm run dev
 
 ```bash
 cd api
-ddev exec php artisan test
+ddev artisan test
 ```
 
 **Status**: ✅ 17 tests passed

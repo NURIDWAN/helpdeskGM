@@ -16,9 +16,6 @@ class JobTemplateFactory extends Factory
             JobTemplateFrequency::DAILY->value,
             JobTemplateFrequency::WEEKLY->value,
             JobTemplateFrequency::MONTHLY->value,
-            JobTemplateFrequency::QUARTERLY->value,
-            JobTemplateFrequency::YEARLY->value,
-            JobTemplateFrequency::ON_DEMAND->value,
         ];
 
         return [

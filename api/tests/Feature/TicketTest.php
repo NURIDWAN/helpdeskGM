@@ -37,7 +37,7 @@ class TicketTest extends TestCase
                 'success',
                 'message',
                 'data' => [
-                    '*' => ['id', 'title', 'status']
+                    '*' => ['id', 'code', 'status'] // Ticket has 'code' not 'title'
                 ]
             ]);
     }
@@ -52,7 +52,6 @@ class TicketTest extends TestCase
         $category = TicketCategory::factory()->create();
 
         $data = [
-            'title' => 'Feature Test Ticket',
             'description' => 'Description from feature test',
             'priority' => 'high',
             'category_id' => $category->id,
@@ -64,7 +63,7 @@ class TicketTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.title', $data['title']);
+            ->assertJsonPath('data.description', $data['description']);
     }
 
     public function test_user_can_view_single_ticket()

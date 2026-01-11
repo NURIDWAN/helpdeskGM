@@ -69,8 +69,7 @@ describe('errorHelper', () => {
             expect(result).toBe('Internal Server Error')
         })
 
-        it('should log error for unknown status', () => {
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
+        it('should return error message for unknown status', () => {
             const error = {
                 response: {
                     status: 418,
@@ -78,20 +77,17 @@ describe('errorHelper', () => {
                 },
             }
 
-            handleError(error)
+            const result = handleError(error)
 
-            expect(consoleSpy).toHaveBeenCalledWith(error)
-            consoleSpy.mockRestore()
+            expect(result).toBe('An unexpected error occurred')
         })
 
-        it('should log error when no response', () => {
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { })
+        it('should return error message when no response', () => {
             const error = new Error('Network error')
 
-            handleError(error)
+            const result = handleError(error)
 
-            expect(consoleSpy).toHaveBeenCalled()
-            consoleSpy.mockRestore()
+            expect(result).toBe('Network error')
         })
     })
 })

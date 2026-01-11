@@ -15,7 +15,7 @@ ddev exec php artisan migrate --seed
 ## 🧪 Testing
 
 ```bash
-ddev exec php artisan test
+ddev artisan test
 ```
 
 ## 📊 API Routes

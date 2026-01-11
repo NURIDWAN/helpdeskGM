@@ -35,17 +35,18 @@ test('initialize previous closings returns empty array when no previous records'
 });
 
 test('initialize previous closings finds last record before start date', function () {
-    // Create a previous day record
+    // Create a previous day record - use created_at instead of record_date
     $previousRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'record_date' => now()->subDays(2)->format('Y-m-d'),
+        'created_at' => now()->subDays(2),
     ]);
 
     // Create utility reading for it
     UtilityReading::factory()->water()->create([
         'daily_record_id' => $previousRecord->id,
         'meter_value' => 1000.00,
+        'location' => 'Main',
     ]);
 
     $filters = [
@@ -56,7 +57,9 @@ test('initialize previous closings finds last record before start date', functio
 
     $result = $this->service->initializePreviousClosings($filters);
 
+    // Check water has values (water readings are grouped by location)
     expect($result)->toHaveKey('water');
+    expect($result['water'])->not->toBeEmpty();
 });
 
 // =====================================================
@@ -99,7 +102,7 @@ test('process electricity readings calculates usage from previous readings', fun
     $previousRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'record_date' => now()->subDay()->format('Y-m-d'),
+        'created_at' => now()->subDay(),
     ]);
 
     ElectricityReading::factory()->create([
@@ -111,7 +114,7 @@ test('process electricity readings calculates usage from previous readings', fun
     $currentRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'record_date' => now()->format('Y-m-d'),
+        'created_at' => now(),
     ]);
 
     ElectricityReading::factory()->create([
@@ -121,9 +124,10 @@ test('process electricity readings calculates usage from previous readings', fun
     ]);
 
     $readings = ElectricityReading::where('daily_record_id', $currentRecord->id)->get();
+    // Previous closings format: electricity[meter_id] => numeric value (not array)
     $previousClosings = [
         'electricity' => [
-            $meter->id => ['closing' => 1000.00],
+            $meter->id => 1000.00,
         ],
     ];
 
@@ -141,10 +145,10 @@ test('build report row creates complete data structure', function () {
     $dailyRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'record_date' => now()->format('Y-m-d'),
     ]);
 
     $gasData = [
+        'reading' => null,
         'opening' => 100.00,
         'closing' => 150.00,
         'usage' => 50.00,
@@ -168,8 +172,9 @@ test('build report row creates complete data structure', function () {
 
     $result = $this->service->buildReportRow($dailyRecord, $gasData, $waterData, $electricityData);
 
-    expect($result)->toHaveKey('date');
-    expect($result)->toHaveKey('branch_name');
+    // Service returns 'tanggal' and 'outlet' instead of 'date' and 'branch_name'
+    expect($result)->toHaveKey('tanggal');
+    expect($result)->toHaveKey('outlet');
     expect($result)->toHaveKey('gas');
     expect($result)->toHaveKey('water');
     expect($result)->toHaveKey('electricity');

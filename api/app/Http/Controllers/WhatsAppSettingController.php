@@ -58,8 +58,13 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
                 'enabled' => 'sometimes|string',
                 'token' => 'sometimes|string|nullable',
                 'group_id' => 'sometimes|string|nullable',
-                'delay' => 'sometimes|string',
+                'delay' => 'sometimes|numeric|min:1|max:60',
             ]);
+
+            // Convert delay to string before saving (database stores as text)
+            if (isset($validated['delay'])) {
+                $validated['delay'] = (string) $validated['delay'];
+            }
 
             foreach ($validated as $key => $value) {
                 WhatsAppSetting::setValue($key, $value);

@@ -59,6 +59,23 @@ class DailyUsageReportService
                 return $reading->location ?? 'default';
             });
 
+        // Check for single meter fallback
+        if ($waterReadings->count() === 1) {
+            $sortedReadings = $waterReadings->first()->sortByDesc(function ($reading) {
+                if ($reading->getAttribute('daily_record_created_at')) {
+                    return strtotime($reading->getAttribute('daily_record_created_at'));
+                }
+                if ($reading->dailyRecord && $reading->dailyRecord->created_at) {
+                    return $reading->dailyRecord->created_at->timestamp;
+                }
+                return $reading->created_at ? $reading->created_at->timestamp : 0;
+            });
+            $waterReading = $sortedReadings->first();
+             if ($waterReading && $waterReading->meter_value !== null) {
+                $previousClosings['water']['_single_fallback'] = round((float) $waterReading->meter_value, 2);
+            }
+        }
+
         foreach ($waterReadings as $location => $readings) {
             $sortedReadings = $readings->sortByDesc(function ($reading) {
                 if ($reading->getAttribute('daily_record_created_at')) {
@@ -71,7 +88,9 @@ class DailyUsageReportService
             });
             $waterReading = $sortedReadings->first();
             if ($waterReading && $waterReading->meter_value !== null) {
-                $previousClosings['water'][$location] = round((float) $waterReading->meter_value, 2);
+                // Normalize location key: lowercase and trim
+                $normalizedLocation = trim(strtolower($location));
+                $previousClosings['water'][$normalizedLocation] = round((float) $waterReading->meter_value, 2);
             }
         }
 
@@ -223,14 +242,14 @@ class DailyUsageReportService
         ];
 
         if (!$category || $category === 'gas') {
-            $gasReading = $gasData['reading'];
+            $gasReading = $gasData['reading'] ?? null;
             $rowData['gas'] = [
                 'stove_type' => $gasReading->stove_type ?? null,
                 'gas_type' => $gasReading->gas_type ?? null,
                 'location' => $gasReading->location ?? null,
-                'opening' => $gasData['opening'],
-                'closing' => $gasData['closing'],
-                'usage' => $gasData['usage'],
+                'opening' => $gasData['opening'] ?? null,
+                'closing' => $gasData['closing'] ?? null,
+                'usage' => $gasData['usage'] ?? null,
                 'photo' => $gasReading && $gasReading->photo ? asset('storage/' . $gasReading->photo) : null,
                 'photo_path' => $gasReading && $gasReading->photo ? $gasReading->photo : null,
             ];
