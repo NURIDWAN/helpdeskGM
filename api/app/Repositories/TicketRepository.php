@@ -73,18 +73,17 @@ class TicketRepository implements TicketRepositoryInterface
         // Role-based visibility
         if ($user && $user->can('ticket-view-all')) {
             // admins and superadmins can see all tickets by permission
-        } elseif ($user && ($user->hasRole('staff') || !$user->can('ticket-view-all'))) {
+        } elseif ($user && $user->hasRole('staff')) {
+            // staff can only see tickets assigned to them
             $query->whereHas('assignedStaff', function ($staffQuery) use ($user) {
                 $staffQuery->where('user_id', $user->id);
             });
+        } elseif ($user) {
+            // regular user can only see their own tickets
+            $query->where('user_id', $user->id);
         } else {
-            // default: regular user can only see own tickets
-            if ($user) {
-                $query->where('user_id', $user->id);
-            } else {
-                // no auth user, return empty
-                $query->whereRaw('1=0');
-            }
+            // no auth user, return empty
+            $query->whereRaw('1=0');
         }
 
         if ($limit) {
@@ -286,7 +285,7 @@ class TicketRepository implements TicketRepositoryInterface
                 // Staff can ONLY update status
                 $status = $data['status'] ?? $ticket->status;
                 $update = ['status' => $status];
-                if ($status === TicketStatus::RESOLVED && !$ticket->completed_at) {
+                if (($status === TicketStatus::RESOLVED || $status === TicketStatus::CLOSED) && !$ticket->completed_at) {
                     $update['completed_at'] = now();
                 }
                 $ticket->fill($update)->save();
@@ -301,7 +300,7 @@ class TicketRepository implements TicketRepositoryInterface
                 ];
 
                 $newStatus = $data['status'] ?? $ticket->status;
-                if ($newStatus == TicketStatus::RESOLVED && !$ticket->completed_at) {
+                if (($newStatus == TicketStatus::RESOLVED || $newStatus == TicketStatus::CLOSED) && !$ticket->completed_at) {
                     $update['completed_at'] = now();
                 } else {
                     $update['completed_at'] = $data['completed_at'] ?? $ticket->completed_at;

@@ -112,6 +112,7 @@ class RoleSeeder extends Seeder
             'ticket-menu',
             'ticket-list',
             'ticket-create',
+            'ticket-update-status', // User can update status on their own tickets
             // ticket replies
             'ticket-reply-list',
             'ticket-reply-create',

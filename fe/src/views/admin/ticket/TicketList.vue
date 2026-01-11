@@ -110,16 +110,7 @@ const categoryOptions = computed(() =>
   }))
 );
 
-// Default date range (last month)
-const defaultStartDate = computed(() => {
-  const date = new Date();
-  date.setMonth(date.getMonth() - 1);
-  return date.toISOString().split("T")[0];
-});
 
-const defaultEndDate = computed(() => {
-  return new Date().toISOString().split("T")[0];
-});
 
 // Table columns configuration
 const tableColumns = [
@@ -276,10 +267,6 @@ const handleUpdateStatus = async (ticket, newStatus) => {
 
 // Lifecycle
 onMounted(async () => {
-  // Set default date range
-  filters.value.startDate = defaultStartDate.value;
-  filters.value.endDate = defaultEndDate.value;
-
   // Load filter data and tickets
   await loadFilterData();
   fetchTickets();

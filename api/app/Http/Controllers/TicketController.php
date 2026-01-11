@@ -462,8 +462,11 @@ class TicketController extends Controller implements HasMiddleware
             // Store old status for notification
             $oldStatus = $ticket->status;
 
-            // Update status to closed
+            // Update status to closed and set completion time
             $ticket->status = \App\Enums\TicketStatus::CLOSED->value;
+            if (!$ticket->completed_at) {
+                $ticket->completed_at = now();
+            }
             $ticket->save();
 
             // Send WhatsApp notification for closed ticket

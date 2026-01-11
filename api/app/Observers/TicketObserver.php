@@ -16,6 +16,12 @@ class TicketObserver
     {
         // Check if status was changed
         if ($ticket->isDirty('status')) {
+            // Auto-fill completed_at when ticket is resolved or closed
+            if (($ticket->status === TicketStatus::RESOLVED || $ticket->status === TicketStatus::CLOSED) && !$ticket->completed_at) {
+                $ticket->completed_at = now();
+                $ticket->saveQuietly(); // Save without triggering events again
+            }
+            
             $this->syncWorkOrderStatus($ticket);
         }
     }

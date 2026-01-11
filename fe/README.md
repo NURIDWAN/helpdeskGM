@@ -2,6 +2,13 @@
 
 Frontend Vue 3 untuk Helpdesk System General Maintenance - sistem manajemen tiket, work order, dan laporan pekerjaan untuk maintenance gedung.
 
+## Dokumentasi
+
+| Dokumen | Deskripsi |
+|---------|-----------|
+| [README.md](README.md) | Dokumentasi utama (ini) |
+| [docs/WORKFLOW.md](docs/WORKFLOW.md) | Alur proses & flowchart sistem (Mermaid) |
+
 ## Tech Stack
 
 | Category | Technology |

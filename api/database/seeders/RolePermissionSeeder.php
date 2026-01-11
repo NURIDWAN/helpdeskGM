@@ -31,7 +31,19 @@ class RolePermissionSeeder extends Seeder
                     ->orWhere('name', 'dashboard-view-charts')
                     ->orWhere('name', 'dashboard-view-trends');
             })
-                ->whereNotIn('name', ['ticket-create', 'ticket-delete', 'ticket-edit', 'work-order-create', 'work-order-delete', 'work-order-edit', 'dashboard-view-staff-rankings'])
+                // Staff should NOT have these permissions (they should only see assigned tickets)
+                ->whereNotIn('name', [
+                    'ticket-create',
+                    'ticket-delete',
+                    'ticket-edit',
+                    'ticket-view-all',
+                    'work-order-create',
+                    'work-order-delete',
+                    'work-order-edit',
+                    'work-order-view-all',
+                    'work-report-view-all',
+                    'dashboard-view-staff-rankings',
+                ])
                 ->get()
         );
 
@@ -44,7 +56,16 @@ class RolePermissionSeeder extends Seeder
                     ->orWhere('name', 'like', 'utility-reading-%')
                     ->orWhere('name', 'like', 'electricity-meter-list')
                     ->orWhere('name', 'like', 'electricity-reading-%');
-            })->get()
+            })
+                // User should NOT have these permissions (they should only see their own data)
+                ->whereNotIn('name', [
+                    'ticket-view-all',
+                    'ticket-delete',
+                    'ticket-edit',
+                    'daily-record-view-all',
+                    'utility-reading-view-all',
+                ])
+                ->get()
         );
     }
 }
