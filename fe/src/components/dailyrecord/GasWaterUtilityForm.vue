@@ -220,13 +220,21 @@ const saveGas = async (recordId) => {
       photo: gasForm.photo,
     };
 
+    let response;
     if (gasForm.id) {
-      await updateUtilityReading(gasForm.id, payload);
+      response = await updateUtilityReading(gasForm.id, payload);
     } else {
-      await createUtilityReading(payload, targetId);
+      response = await createUtilityReading(payload, targetId);
     }
     
-    await loadExistingData();
+    // Update local ID if new creation
+    if (response && response.id) {
+       gasForm.id = response.id;
+    }
+    gasExists.value = true;
+    
+    // DO NOT loadExistingData() here because it will overwrite the OTHER form (Water) 
+    // if this is called sequentially in "Save All"
   } catch (err) {
     console.error("Error saving gas:", err);
     throw err;
@@ -262,13 +270,20 @@ const saveWater = async (recordId) => {
       photo: waterForm.photo,
     };
 
+    let response;
     if (waterForm.id) {
-      await updateUtilityReading(waterForm.id, payload);
+      response = await updateUtilityReading(waterForm.id, payload);
     } else {
-      await createUtilityReading(payload, targetId);
+      response = await createUtilityReading(payload, targetId);
     }
+
+    // Update local ID if new creation
+    if (response && response.id) {
+       waterForm.id = response.id;
+    }
+    waterExists.value = true;
     
-    await loadExistingData();
+    // DO NOT loadExistingData() here
   } catch (err) {
     console.error("Error saving water:", err);
     throw err;

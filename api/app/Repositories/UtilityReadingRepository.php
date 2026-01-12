@@ -50,15 +50,23 @@ class UtilityReadingRepository implements UtilityReadingRepositoryInterface
         if ($user && $user->can('utility-reading-view-all')) {
             // admins and superadmins can see all utility readings
         } elseif ($user && ($user->hasRole('staff') || !$user->can('utility-reading-view-all'))) {
-            // staff can only see utility readings from their own daily records
+            // staff/user can see utility readings from their branch, or their own daily records
             $query->whereHas('dailyRecord', function ($dailyRecordQuery) use ($user) {
-                $dailyRecordQuery->where('user_id', $user->id);
+                if ($user->branch_id) {
+                    $dailyRecordQuery->where('branch_id', $user->branch_id);
+                } else {
+                    $dailyRecordQuery->where('user_id', $user->id);
+                }
             });
         } else {
-            // default: regular user can only see own utility readings
+            // default fallback
             if ($user) {
                 $query->whereHas('dailyRecord', function ($dailyRecordQuery) use ($user) {
-                    $dailyRecordQuery->where('user_id', $user->id);
+                    if ($user->branch_id) {
+                        $dailyRecordQuery->where('branch_id', $user->branch_id);
+                    } else {
+                        $dailyRecordQuery->where('user_id', $user->id);
+                    }
                 });
             } else {
                 // no auth user, return empty
@@ -105,9 +113,13 @@ class UtilityReadingRepository implements UtilityReadingRepositoryInterface
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
-        if ($user && $user->hasRole('staff')) {
+        if ($user && ($user->hasRole('staff') || !$user->can('utility-reading-view-all'))) {
             $query->whereHas('dailyRecord', function ($dailyRecordQuery) use ($user) {
-                $dailyRecordQuery->where('user_id', $user->id);
+                if ($user->branch_id) {
+                    $dailyRecordQuery->where('branch_id', $user->branch_id);
+                } else {
+                    $dailyRecordQuery->where('user_id', $user->id);
+                }
             });
         }
 

@@ -102,7 +102,11 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
         $user = Auth::user();
 
         if ($user && !$user->hasRole('admin') && !$user->hasRole('superadmin') && $user->hasRole('staff')) {
-            $query->where('user_id', $user->id);
+            if ($user->branch_id) {
+                $query->where('branch_id', $user->branch_id);
+            } else {
+                $query->where('user_id', $user->id);
+            }
         }
 
         return $query->findOrFail($id);

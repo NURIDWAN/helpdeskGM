@@ -62,6 +62,9 @@ const monthDates = Array.from({ length: 31 }, (_, i) => i + 1);
 const selectedDays = ref([]);
 const selectedDates = ref([]);
 
+// Flag to prevent watcher from overwriting data during load
+const isLoadingData = ref(false);
+
 const toggleDay = (day) => {
   const index = selectedDays.value.indexOf(day);
   if (index > -1) selectedDays.value.splice(index, 1);
@@ -82,6 +85,9 @@ const excludedDays = computed(() => {
 
 // Watch frequency change to auto-select days for daily
 watch(() => form.frequency, (newFreq, oldFreq) => {
+  // Skip watcher if we're loading existing data to prevent overwriting
+  if (isLoadingData.value) return;
+  
   if (newFreq === 'daily' && oldFreq !== 'daily') {
     // Auto-select all days for daily frequency
     selectedDays.value = weekDays.map(d => d.value);
@@ -129,6 +135,9 @@ const handleSubmit = async () => {
 const loadJobTemplateData = async () => {
   if (isEdit.value && jobTemplateId.value) {
     try {
+      // Set flag to prevent watcher from overwriting loaded data
+      isLoadingData.value = true;
+      
       const jobTemplate = await fetchJobTemplate(jobTemplateId.value);
       if (jobTemplate) {
         form.name = jobTemplate.name;
@@ -158,6 +167,9 @@ const loadJobTemplateData = async () => {
     } catch (error) {
       console.error("Error loading job template data:", error);
       router.push({ name: "admin.job-templates" });
+    } finally {
+      // Reset flag after loading is complete
+      isLoadingData.value = false;
     }
   }
 };
