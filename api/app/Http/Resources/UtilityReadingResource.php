@@ -17,7 +17,7 @@ class UtilityReadingResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'category' => $this->category,
+            'category' => $this->category->toArray(),
             'sub_type' => $this->sub_type,
             'location' => $this->location,
             'meter_value' => $this->meter_value,

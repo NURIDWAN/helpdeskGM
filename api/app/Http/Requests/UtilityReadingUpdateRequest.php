@@ -25,6 +25,17 @@ class UtilityReadingUpdateRequest extends FormRequest
     {
         $category = $this->input('category');
 
+        // If category is not provided, fetch it from the existing record
+        if (!$category && $this->route('utility_reading')) {
+            $utilityReading = \App\Models\UtilityReading::find($this->route('utility_reading'));
+            if ($utilityReading && $utilityReading->category) {
+                // Handle both Enum object and raw value cases
+                $category = $utilityReading->category instanceof \App\Enums\UtilityCategory 
+                    ? $utilityReading->category->value 
+                    : $utilityReading->category;
+            }
+        }
+
         $rules = [
             'daily_record_id' => ['sometimes', 'exists:daily_records,id'],
             'category' => ['sometimes', 'in:' . implode(',', UtilityCategory::values())],
@@ -50,8 +61,8 @@ class UtilityReadingUpdateRequest extends FormRequest
 
         // Fields for Gas category
         if ($category === 'gas') {
-            $rules['stove_type'] = ['sometimes', 'required', 'string', 'max:255'];
-            $rules['gas_type'] = ['sometimes', 'required', 'string', 'max:255'];
+            $rules['stove_type'] = ['sometimes', 'nullable', 'string', 'max:255'];
+            $rules['gas_type'] = ['sometimes', 'nullable', 'string', 'max:255'];
         } else {
             $rules['stove_type'] = ['sometimes', 'nullable', 'string', 'max:255'];
             $rules['gas_type'] = ['sometimes', 'nullable', 'string', 'max:255'];

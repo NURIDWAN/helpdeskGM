@@ -131,6 +131,31 @@ const loadExistingData = async () => {
   }
 };
 
+const ensureExistingIds = async (recordId) => {
+  if (gasForm.id || waterForm.id) return;
+  const targetId = recordId || props.dailyRecordId;
+  if (!targetId) return;
+
+  try {
+    const readings = await getByDailyRecordId(targetId);
+    const gasReading = readings.find(
+      (r) => (r.category?.value || r.category) === "gas"
+    );
+    const waterReading = readings.find(
+      (r) => (r.category?.value || r.category) === "water"
+    );
+
+    if (gasReading && !gasForm.id) {
+      gasForm.id = gasReading.id;
+    }
+    if (waterReading && !waterForm.id) {
+      waterForm.id = waterReading.id;
+    }
+  } catch (error) {
+    console.error("Error ensuring utility reading IDs:", error);
+  }
+};
+
 // Watch for dailyRecordId changes - defined AFTER loadExistingData
 watch(
   () => props.dailyRecordId,
@@ -169,6 +194,7 @@ const handleWaterPhotoSelect = (event) => {
 const saveGas = async (recordId) => {
   const targetId = recordId || props.dailyRecordId;
   if (!targetId) return;
+  await ensureExistingIds(targetId);
   // If empty and not exists, skip silently
   if (!gasForm.meter_value && !gasForm.id) return;
   
@@ -212,6 +238,7 @@ const saveGas = async (recordId) => {
 const saveWater = async (recordId) => {
   const targetId = recordId || props.dailyRecordId;
   if (!targetId) return;
+  await ensureExistingIds(targetId);
   // If empty and not exists, skip silently
   if (!waterForm.meter_value && !waterForm.id) return;
 

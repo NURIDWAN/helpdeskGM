@@ -95,11 +95,7 @@ export const useUtilityReadingStore = defineStore("utilityReading", {
                     }
                 });
 
-                const response = await axiosInstance.post(url, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                const response = await axiosInstance.post(url, formData);
                 this.success = response.data.message;
                 return response.data.data;
             } catch (error) {
@@ -128,11 +124,9 @@ export const useUtilityReadingStore = defineStore("utilityReading", {
                     }
                 });
 
-                const response = await axiosInstance.put(`/utility-readings/${id}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                formData.append('_method', 'PUT');
+
+                const response = await axiosInstance.post(`/utility-readings/${id}`, formData);
                 this.success = response.data.message;
                 this.utilityReading = response.data.data;
                 return response.data.data;

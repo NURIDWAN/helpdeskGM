@@ -99,11 +99,7 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
                     }
                 });
 
-                const response = await axiosInstance.post(url, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                const response = await axiosInstance.post(url, formData);
                 this.success = response.data.message;
                 return response.data.data;
             } catch (error) {
@@ -136,12 +132,7 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
 
                 const response = await axiosInstance.post(
                     `/daily-records/${dailyRecordId}/electricity-readings/multiple`,
-                    formData,
-                    {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                    }
+                    formData
                 );
                 this.success = response.data.message;
                 return response.data.data;
@@ -170,11 +161,9 @@ export const useElectricityReadingStore = defineStore("electricityReading", {
                     }
                 });
 
-                const response = await axiosInstance.put(`/electricity-readings/${id}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                formData.append('_method', 'PUT');
+
+                const response = await axiosInstance.post(`/electricity-readings/${id}`, formData);
                 this.success = response.data.message;
                 this.electricityReading = response.data.data;
                 return response.data.data;

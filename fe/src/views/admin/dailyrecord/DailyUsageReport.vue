@@ -58,8 +58,8 @@ const filters = ref({
 });
 
 const loadReportData = async () => {
-  // Validasi: branch_id harus dipilih (kecuali untuk user role yang sudah auto-set)
-  if (!filters.value.branch_id && !isUser.value) {
+  // Validasi: branch_id harus dipilih
+  if (!filters.value.branch_id) {
     error.value =
       "Silakan pilih cabang terlebih dahulu untuk menampilkan laporan";
     reportData.value = [];
@@ -96,33 +96,19 @@ const handleFilterChange = () => {
 };
 
 const clearFilters = () => {
-  // For user role, preserve branch_id and user_id
-  if (isUser.value && currentUser.value) {
-    filters.value = {
-      user_id: currentUser.value?.id ? String(currentUser.value.id) : "",
-      branch_id: currentUser.value?.branch?.id
-        ? String(currentUser.value.branch.id)
-        : "",
-      start_date: "",
-      end_date: "",
-      category: "",
-    };
-  } else {
-    filters.value = {
-      user_id: "",
-      branch_id: "",
-      start_date: "",
-      end_date: "",
-      category: "",
-    };
-  }
-  reportData.value = [];
-  error.value = null;
+  // Clear filters for everyone
+  filters.value = {
+    user_id: "",
+    branch_id: "",
+    start_date: "",
+    end_date: "",
+    category: "",
+  };
 };
 
 const handleExport = async () => {
-  // Validasi: branch_id harus dipilih (kecuali untuk user role yang sudah auto-set)
-  if (!filters.value.branch_id && !isUser.value) {
+  // Validasi: branch_id harus dipilih
+  if (!filters.value.branch_id) {
     error.value = "Silakan pilih cabang terlebih dahulu untuk export laporan";
     return;
   }
@@ -163,8 +149,8 @@ const handleExport = async () => {
 };
 
 const handleExportPdf = async () => {
-  // Validasi: branch_id dan category harus dipilih (kecuali untuk user role yang sudah auto-set)
-  if (!filters.value.branch_id && !isUser.value) {
+  // Validasi: branch_id dan category harus dipilih
+  if (!filters.value.branch_id) {
     error.value = "Silakan pilih cabang terlebih dahulu untuk export PDF";
     return;
   }
@@ -275,22 +261,20 @@ const hasMultipleMeters = (electricityArray) => {
 };
 
 onMounted(() => {
-  // Auto-set branch_id and user_id for user role
+  // Always fetch branches and users for everyone
+  fetchBranches();
+  
+  // Also fetch users for everyone
+  fetchUsers();
+
+  // For user role, OPTIONALLY auto-select their branch but DON'T force user_id
+  // and DON't auto-load so they can change filters first if they want
   if (isUser.value && currentUser.value) {
     if (currentUser.value?.branch?.id) {
       filters.value.branch_id = String(currentUser.value.branch.id);
+      // Auto-load IS convenient if branch is set, but user can change it now
+      loadReportData(); 
     }
-    if (currentUser.value?.id) {
-      filters.value.user_id = String(currentUser.value.id);
-    }
-    // Auto-load data if branch is set
-    if (filters.value.branch_id) {
-      loadReportData();
-    }
-  } else {
-    // Only fetch branches and users if not user role
-    fetchBranches();
-    fetchUsers();
   }
 });
 </script>
@@ -383,8 +367,8 @@ onMounted(() => {
           isUser ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2',
         ]"
       >
-        <!-- User Filter - Hide for user role -->
-        <div v-if="!isUser">
+        <!-- User Filter - Show for ALL -->
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
             >User</label
           >
@@ -400,8 +384,8 @@ onMounted(() => {
           </select>
         </div>
 
-        <!-- Branch Filter - Hide for user role -->
-        <div v-if="!isUser">
+        <!-- Branch Filter - Show for ALL -->
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
             >Cabang <span class="text-red-500">*</span></label
           >
@@ -484,9 +468,9 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Empty State: Belum Pilih Branch - Only show for non-user role -->
+    <!-- Empty State: Belum Pilih Branch -->
     <div
-      v-if="!filters.branch_id && !isUser"
+      v-if="!filters.branch_id"
       class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center"
     >
       <div class="max-w-md mx-auto">

@@ -143,17 +143,29 @@ const processedUtilityReadings = computed(() => {
   const prevReadings = dailyRecord.value?.previous_readings?.utility || [];
   
   return utilityReadings.value.map(reading => {
-    const prev = prevReadings.find(p => 
-      p.category === reading.category && 
-      (p.location === reading.location || (!p.location && !reading.location))
+    const category = reading.category?.value || reading.category;
+    const sameCategoryPrevs = prevReadings.filter(p => (p.category?.value || p.category) === category);
+    
+    // 1. Exact Location Match
+    let prev = sameCategoryPrevs.find(p => 
+      (p.location === reading.location) || (!p.location && !reading.location)
     );
     
-    // Default Opening is 0 if no prev record found? Or maybe null? 
-    // Usually 0 for first record, but simpler to show '-' if unknown.
-    // However, for calculation, 0 is dangerous. Let's use null if no prev record.
+    // 2. Fallback: Case-insensitive Location Match
+    if (!prev && reading.location) {
+        prev = sameCategoryPrevs.find(p => p.location && p.location.toLowerCase() === reading.location.toLowerCase());
+    }
+    
+    // 3. Fallback: Single Record Assumption (matches Form logic)
+    // If we have only 1 previous reading for this category, assume it's the one (even if location typo)
+    if (!prev && sameCategoryPrevs.length === 1) {
+        prev = sameCategoryPrevs[0];
+    }
+    
+    // Opening + Closing = Total Pemakaian
     const opening = prev ? parseFloat(prev.meter_value) : 0; 
     const closing = parseFloat(reading.meter_value);
-    const usage = closing - opening;
+    const usage = opening + closing;
     
     return {
       ...reading,
@@ -176,9 +188,10 @@ const processedElectricityReadings = computed(() => {
       p.electricity_meter_id === reading.electricity_meter_id
     );
     
+    // Opening + Closing = Total Pemakaian
     const opening = prev ? parseFloat(prev.meter_value || 0) : 0;
     const closing = parseFloat(reading.meter_value || 0);
-    const usage = closing - opening;
+    const usage = opening + closing;
     
     return {
       ...reading,

@@ -227,7 +227,7 @@ const validate = () => {
   
   // Get all meters
   const meters = electricityMeters.value;
-  if (meters.length === 0) return ["Listrik (Belum ada meter)"];
+  if (meters.length === 0) return [];
 
   // Check if AT LEAST ONE meter is filled AND complete
   let hasAtLeastOneFilled = false;
@@ -254,7 +254,7 @@ const validate = () => {
   }
   
   if (!hasAtLeastOneFilled) {
-    missing.push("Listrik (Minimal satu meter diisi lengkap)");
+    return [];
   }
 
   return missing;

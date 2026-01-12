@@ -46,21 +46,21 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
             $query->whereDate('created_at', '<=', $endDate);
         }
 
-        // Role-based visibility
-        if ($user && $user->can('daily-record-view-all')) {
-            // admins and superadmins can see all daily records by permission
-        } elseif ($user && ($user->hasRole('staff') || !$user->can('daily-record-view-all'))) {
-            // staff can only see their own daily records
-            $query->where('user_id', $user->id);
-        } else {
-            // default: regular user can only see own daily records
-            if ($user) {
-                $query->where('user_id', $user->id);
-            } else {
-                // no auth user, return empty
-                $query->whereRaw('1=0');
-            }
-        }
+        // Role-based visibility - REMOVED per user request to show ALL records to everyone
+        // if ($user && $user->can('daily-record-view-all')) {
+        //     // admins and superadmins can see all daily records by permission
+        // } elseif ($user && ($user->hasRole('staff') || !$user->can('daily-record-view-all'))) {
+        //     // staff can only see their own daily records
+        //     $query->where('user_id', $user->id);
+        // } else {
+        //     // default: regular user can only see own daily records
+        //     if ($user) {
+        //         $query->where('user_id', $user->id);
+        //     } else {
+        //         // no auth user, return empty
+        //         $query->whereRaw('1=0');
+        //     }
+        // }
 
         if ($limit) {
             $query->take($limit);

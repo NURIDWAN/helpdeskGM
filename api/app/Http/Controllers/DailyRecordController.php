@@ -276,8 +276,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
             // Attach previous readings for calculation
             $dailyRecord->previous_readings = [
-                'electricity' => $previousRecord ? $previousRecord->electricityReadings : [],
-                'utility' => $previousRecord ? $previousRecord->utilityReadings : [],
+                'electricity' => $previousRecord ? \App\Http\Resources\ElectricityReadingResource::collection($previousRecord->electricityReadings) : [],
+                'utility' => $previousRecord ? \App\Http\Resources\UtilityReadingResource::collection($previousRecord->utilityReadings) : [],
                 'record_date' => $previousRecord ? $previousRecord->created_at : null
             ];
 
@@ -587,7 +587,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $gasOpening = 0;
                     }
 
-                    // As per user request: Opening + Closing = Total Pemakaian
+                    // Opening + Closing = Total Pemakaian
                     $gasUsage = round($gasClosing + $gasOpening, 2);
 
                     // Update previous closing untuk record berikutnya
@@ -620,7 +620,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                     }
                     
                     $waterOpening = $waterOpening ?? 0;
-                    // As per user request: Opening + Closing = Total Pemakaian
+                    // Opening + Closing = Total Pemakaian
                     $waterUsage = round($waterClosing + $waterOpening, 2);
 
                     // Update previous closing untuk record berikutnya

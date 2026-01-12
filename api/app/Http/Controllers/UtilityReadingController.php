@@ -208,6 +208,9 @@ class UtilityReadingController extends Controller implements HasMiddleware
 
             // Handle photo upload based on category
             $category = $data['category'] ?? $utilityReading->category;
+            if ($category instanceof \App\Enums\UtilityCategory) {
+                $category = $category->value;
+            }
 
             if ($category === 'electricity') {
                 // For electricity: handle photo_wbp and photo_lwbp

@@ -1,9 +1,8 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDailyRecordStore } from "@/stores/dailyRecord";
 import { useBranchStore } from "@/stores/branch";
-import { useUserStore } from "@/stores/user";
 import SearchInput from "@/components/common/SearchInput.vue";
 import DataTable from "@/components/common/DataTable.vue";
 import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
@@ -73,13 +72,11 @@ const { user: currentUser } = storeToRefs(authStore);
 
 const dailyRecordStore = useDailyRecordStore();
 const branchStore = useBranchStore();
-const userStore = useUserStore();
 
 const { dailyRecords, meta, loading, success, error } =
   storeToRefs(dailyRecordStore);
 const { fetchDailyRecordsPaginated, deleteDailyRecord } = dailyRecordStore;
 const { fetchBranches } = branchStore;
-const { fetchUsers } = userStore;
 
 // Reactive data
 const searchQuery = ref("");
@@ -90,7 +87,6 @@ const showFilters = ref(false);
 // Filter state
 const filters = ref({
   branchId: null,
-  userId: null,
   startDate: null,
   endDate: null,
 });
@@ -112,12 +108,20 @@ const branchOptions = computed(() =>
   }))
 );
 
-const userOptions = computed(() =>
-  userStore.users.map((user) => ({
-    value: user.id,
-    label: user.name,
-  }))
-);
+const getUserBranchId = () => {
+  const branchId = currentUser.value?.branch?.id;
+  return branchId ? String(branchId) : null;
+};
+
+const ensureUserBranch = () => {
+  if (!isUser.value) return false;
+  const userBranchId = getUserBranchId();
+  if (!userBranchId) return false;
+  if (filters.value.branchId !== userBranchId) {
+    filters.value.branchId = userBranchId;
+  }
+  return true;
+};
 
 // Default date range (last month)
 const defaultStartDate = computed(() => {
@@ -141,12 +145,19 @@ const tableColumns = [
 
 // Methods
 const fetchDailyRecords = () => {
+  if (isUser.value) {
+    const hasBranch = ensureUserBranch();
+    if (!hasBranch) {
+      error.value = "Cabang belum tersedia untuk user ini";
+      dailyRecords.value = [];
+      return;
+    }
+  }
   const params = {
     search: searchQuery.value,
     row_per_page: meta.value.per_page || 10,
     page: meta.value.current_page || 1,
     branch_id: filters.value.branchId,
-    user_id: filters.value.userId,
     start_date: filters.value.startDate,
     end_date: filters.value.endDate,
   };
@@ -195,8 +206,7 @@ const handleFilterChange = () => {
 
 const clearFilters = () => {
   filters.value = {
-    branchId: null,
-    userId: null,
+    branchId: isUser.value ? getUserBranchId() : null,
     startDate: null,
     endDate: null,
   };
@@ -206,12 +216,8 @@ const clearFilters = () => {
 
 const loadFilterData = async () => {
   try {
-    // Only load branches and users if not user role
     if (!isUser.value) {
-      await Promise.all([
-        fetchBranches({ limit: 100 }),
-        fetchUsers({ limit: 100 }),
-      ]);
+      await fetchBranches({ limit: 100 });
     }
   } catch (error) {
     console.error("Error loading filter data:", error);
@@ -247,8 +253,21 @@ onMounted(async () => {
 
   // Load filter data and daily records
   await loadFilterData();
+  if (isUser.value) {
+    ensureUserBranch();
+  }
   fetchDailyRecords();
 });
+
+watch(
+  () => currentUser.value,
+  () => {
+    if (isUser.value && ensureUserBranch()) {
+      meta.value.current_page = 1;
+      fetchDailyRecords();
+    }
+  }
+);
 </script>
 
 <template>
@@ -350,49 +369,37 @@ onMounted(async () => {
             'grid gap-4',
             isUser
               ? 'grid-cols-1 md:grid-cols-2'
-              : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+              : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
           ]"
         >
-          <!-- Branch Filter - Hide for user role -->
-          <div v-if="!isUser">
+          <!-- Branch Filter - Show for admin, fixed for user -->
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
               >Cabang</label
             >
-            <select
-              v-model="filters.branchId"
-              @change="handleFilterChange"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Semua Cabang</option>
-              <option
-                v-for="option in branchOptions"
-                :key="option.value"
-                :value="option.value"
+            <template v-if="isUser">
+              <div
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
               >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <!-- User Filter - Hide for user role -->
-          <div v-if="!isUser">
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >User</label
-            >
-            <select
-              v-model="filters.userId"
-              @change="handleFilterChange"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Semua User</option>
-              <option
-                v-for="option in userOptions"
-                :key="option.value"
-                :value="option.value"
+                {{ currentUser?.branch?.name ?? "-" }}
+              </div>
+            </template>
+            <template v-else>
+              <select
+                v-model="filters.branchId"
+                @change="handleFilterChange"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                {{ option.label }}
-              </option>
-            </select>
+                <option value="">Semua Cabang</option>
+                <option
+                  v-for="option in branchOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
+            </template>
           </div>
 
           <!-- Start Date Filter -->
