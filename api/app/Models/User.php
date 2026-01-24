@@ -36,6 +36,8 @@ class User extends Authenticatable
         'type',
         'last_login_at',
         'last_activity_at',
+        'telegram_chat_id',
+        'telegram_linked_at',
     ];
 
     /**
@@ -60,6 +62,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_login_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'telegram_linked_at' => 'datetime',
         ];
     }
 

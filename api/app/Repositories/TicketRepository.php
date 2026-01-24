@@ -7,7 +7,7 @@ use App\Enums\TicketStatus;
 use App\Interfaces\TicketRepositoryInterface;
 use App\Models\Ticket;
 use App\Models\User;
-use App\Services\WhatsAppNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -214,10 +214,10 @@ class TicketRepository implements TicketRepositoryInterface
 
             $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
-            // Send WhatsApp notification for new ticket
+            // Send notification for new ticket
             try {
-                $whatsappService = app(WhatsAppNotificationService::class);
-                $notifResult = $whatsappService->sendNewTicketNotification($ticket);
+                $notificationService = app(NotificationService::class);
+                $notifResult = $notificationService->sendNewTicketNotification($ticket);
 
                 // Save notification status to ticket
                 $ticket->notif_group_sent = $notifResult['group'];
@@ -231,11 +231,11 @@ class TicketRepository implements TicketRepositoryInterface
                 ]);
 
                 // Send Confirmation to User
-                $whatsappService->sendTicketCreatedUser($ticket);
+                $notificationService->sendTicketCreatedUser($ticket);
 
             } catch (\Exception $e) {
                 // Log error but don't fail the ticket creation
-                Log::error('Failed to send WhatsApp notification for new ticket', [
+                Log::error('Failed to send notification for new ticket', [
                     'ticket_id' => $ticket->id,
                     'error' => $e->getMessage()
                 ]);
@@ -304,14 +304,14 @@ class TicketRepository implements TicketRepositoryInterface
 
             $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
-            // Send WhatsApp notification for status update if status changed
+            // Send notification for status update if status changed
             if ($oldStatus !== $ticket->status) {
                 try {
-                    $whatsappService = app(WhatsAppNotificationService::class);
-                    $whatsappService->sendTicketStatusUpdateNotification($ticket, $oldStatus->value);
+                    $notificationService = app(NotificationService::class);
+                    $notificationService->sendTicketStatusUpdateNotification($ticket, $oldStatus->value);
                 } catch (\Exception $e) {
                     // Log error but don't fail the ticket update
-                    Log::error('Failed to send WhatsApp notification for status update', [
+                    Log::error('Failed to send notification for status update', [
                         'ticket_id' => $ticket->id,
                         'old_status' => $oldStatus,
                         'new_status' => $ticket->status,
@@ -320,15 +320,15 @@ class TicketRepository implements TicketRepositoryInterface
                 }
             }
 
-            // Send WhatsApp notification for staff assignment changes
+            // Send notification for staff assignment changes
             $newAssignedStaff = $ticket->assignedStaff->pluck('id')->toArray();
             if ($oldAssignedStaff !== $newAssignedStaff) {
                 try {
-                    $whatsappService = app(WhatsAppNotificationService::class);
-                    $whatsappService->sendTicketAssignmentNotification($ticket, $oldAssignedStaff);
+                    $notificationService = app(NotificationService::class);
+                    $notificationService->sendTicketAssignmentNotification($ticket, $oldAssignedStaff);
                 } catch (\Exception $e) {
                     // Log error but don't fail the ticket update
-                    Log::error('Failed to send WhatsApp notification for staff assignment', [
+                    Log::error('Failed to send notification for staff assignment', [
                         'ticket_id' => $ticket->id,
                         'old_assigned_staff' => $oldAssignedStaff,
                         'new_assigned_staff' => $newAssignedStaff,
@@ -361,15 +361,15 @@ class TicketRepository implements TicketRepositoryInterface
             $ticket->assignedStaff()->sync($staffIds);
             $ticket = $ticket->load(['user', 'branch', 'category', 'assignedStaff'])->loadCount('replies');
 
-            // Send WhatsApp notification for staff assignment changes
+            // Send notification for staff assignment changes
             $newAssignedStaff = $ticket->assignedStaff->pluck('id')->toArray();
             if ($oldAssignedStaff !== $newAssignedStaff) {
                 try {
-                    $whatsappService = app(WhatsAppNotificationService::class);
-                    $whatsappService->sendTicketAssignmentNotification($ticket, $oldAssignedStaff);
+                    $notificationService = app(NotificationService::class);
+                    $notificationService->sendTicketAssignmentNotification($ticket, $oldAssignedStaff);
                 } catch (\Exception $e) {
                     // Log error but don't fail the assignment
-                    Log::error('Failed to send WhatsApp notification for staff assignment', [
+                    Log::error('Failed to send notification for staff assignment', [
                         'ticket_id' => $ticket->id,
                         'old_assigned_staff' => $oldAssignedStaff,
                         'new_assigned_staff' => $newAssignedStaff,

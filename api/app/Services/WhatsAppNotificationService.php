@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Contracts\NotificationChannelInterface;
+use App\Models\JobTemplate;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
@@ -11,7 +13,7 @@ use App\Models\WorkOrder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class WhatsAppNotificationService
+class WhatsAppNotificationService implements NotificationChannelInterface
 {
     private string $apiUrl;
     private ?string $token;
@@ -918,5 +920,62 @@ class WhatsAppNotificationService
             'rejected' => '❌ Rejected',
             default => '❓ Tidak diketahui',
         };
+    }
+
+    /**
+     * Get the channel name
+     */
+    public function getChannelName(): string
+    {
+        return 'whatsapp';
+    }
+
+    /**
+     * Check if channel is properly configured
+     */
+    public function isConfigured(): bool
+    {
+        return !empty($this->token);
+    }
+
+    /**
+     * Send test message to specific recipient
+     */
+    public function sendTestMessage(string $recipient, string $message): bool
+    {
+        try {
+            if (!$this->token) {
+                return false;
+            }
+
+            $phone = $this->formatPhoneNumber($recipient);
+            if (!$phone) {
+                return false;
+            }
+
+            $this->sendMessage($message, [$phone]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('WhatsApp test message failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /**
+     * Send test message to group
+     */
+    public function sendTestMessageToGroup(string $message): bool
+    {
+        try {
+            if (!$this->token || !$this->groupId) {
+                return false;
+            }
+
+            $this->sendMessageToGroup($message);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('WhatsApp test group message failed', ['error' => $e->getMessage()]);
+            return false;
+        }
     }
 }

@@ -15,8 +15,8 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['whatsapp-setting-list']), only: ['index', 'getTemplates', 'getPlaceholders']),
-            new Middleware(PermissionMiddleware::using(['whatsapp-setting-edit']), only: ['updateSettings', 'updateTemplate']),
+            new Middleware(PermissionMiddleware::using(['whatsapp-setting-list']), only: ['index', 'getTemplates', 'getPlaceholders', 'getNotificationSettings']),
+            new Middleware(PermissionMiddleware::using(['whatsapp-setting-edit']), only: ['updateSettings', 'updateTemplate', 'updateNotificationSettings']),
         ];
     }
 
@@ -241,6 +241,147 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
             \Illuminate\Support\Facades\Log::error('WhatsApp Group Send Error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Get notification settings (channel, WhatsApp, Telegram)
+     */
+    public function getNotificationSettings()
+    {
+        try {
+            $settings = [
+                'notification_channel' => WhatsAppSetting::getValue('notification_channel') ?: 'whatsapp',
+                // WhatsApp settings
+                'whatsapp_enabled' => WhatsAppSetting::getValue('enabled') ?: 'true',
+                'whatsapp_token' => WhatsAppSetting::getValue('token') ?: '',
+                'whatsapp_group_id' => WhatsAppSetting::getValue('group_id') ?: '',
+                'whatsapp_delay' => WhatsAppSetting::getValue('delay') ?: '2',
+                // Telegram settings
+                'telegram_bot_token' => WhatsAppSetting::getValue('telegram_bot_token') ?: '',
+                'telegram_chat_id' => WhatsAppSetting::getValue('telegram_chat_id') ?: '',
+                'telegram_bot_username' => WhatsAppSetting::getValue('telegram_bot_username') ?: '',
+            ];
+
+            return ResponseHelper::jsonResponse(true, 'Notification settings berhasil diambil', $settings, 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
+        }
+    }
+
+    /**
+     * Update notification settings (channel switching + Telegram config)
+     */
+    public function updateNotificationSettings(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'notification_channel' => 'sometimes|string|in:whatsapp,telegram',
+                'telegram_bot_token' => 'sometimes|string|nullable',
+                'telegram_chat_id' => 'sometimes|string|nullable',
+                'telegram_bot_username' => 'sometimes|string|nullable',
+            ]);
+
+            foreach ($validated as $key => $value) {
+                WhatsAppSetting::setValue($key, $value);
+            }
+
+            return ResponseHelper::jsonResponse(true, 'Notification settings berhasil diperbarui', null, 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ResponseHelper::jsonResponse(false, 'Validasi gagal', $e->errors(), 422);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Test send Telegram message to individual
+     */
+    public function testTelegramSend(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'chat_id' => 'required|string',
+                'message' => 'required|string',
+            ]);
+
+            $botToken = WhatsAppSetting::getValue('telegram_bot_token') ?: config('services.telegram.bot_token');
+
+            if (empty($botToken)) {
+                return ResponseHelper::jsonResponse(false, 'Bot Token Telegram belum dikonfigurasi', null, 400);
+            }
+
+            $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->post($url, [
+                'chat_id' => $validated['chat_id'],
+                'text' => $validated['message'],
+                'parse_mode' => 'Markdown',
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful() && ($responseData['ok'] ?? false)) {
+                return ResponseHelper::jsonResponse(true, 'Pesan berhasil dikirim via Telegram', $responseData, 200);
+            } else {
+                return ResponseHelper::jsonResponse(false, 'Gagal mengirim pesan: ' . ($responseData['description'] ?? 'Unknown error'), $responseData, 400);
+            }
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Test send Telegram message to Group/Channel
+     */
+    public function testTelegramSendGroup(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'message' => 'sometimes|string',
+            ]);
+
+            $botToken = WhatsAppSetting::getValue('telegram_bot_token') ?: config('services.telegram.bot_token');
+            $chatId = WhatsAppSetting::getValue('telegram_chat_id') ?: config('services.telegram.chat_id');
+
+            if (empty($botToken)) {
+                return ResponseHelper::jsonResponse(false, 'Bot Token Telegram belum dikonfigurasi', null, 400);
+            }
+
+            if (empty($chatId)) {
+                return ResponseHelper::jsonResponse(false, 'Chat ID Telegram belum dikonfigurasi', null, 400);
+            }
+
+            $message = $validated['message'] ?? "🔔 *Test Message* 🔔\n" .
+                "Ini adalah pesan test dari sistem GA Maintenance.\n" .
+                "Waktu: " . now()->format('d/m/Y H:i:s');
+
+            $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->post($url, [
+                'chat_id' => $chatId,
+                'text' => $message,
+                'parse_mode' => 'Markdown',
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful() && ($responseData['ok'] ?? false)) {
+                return ResponseHelper::jsonResponse(true, 'Pesan berhasil dikirim ke grup Telegram', [
+                    'chat_id' => $chatId,
+                    'response' => $responseData,
+                ], 200);
+            } else {
+                return ResponseHelper::jsonResponse(false, 'Gagal mengirim pesan: ' . ($responseData['description'] ?? 'Unknown error'), [
+                    'chat_id' => $chatId,
+                    'response' => $responseData,
+                ], 400);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Telegram Group Send Error', [
+                'error' => $e->getMessage(),
             ]);
             return ResponseHelper::jsonResponse(false, $e->getMessage(), null, 500);
         }

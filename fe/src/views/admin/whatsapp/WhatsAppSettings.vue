@@ -3,17 +3,25 @@ import { ref, onMounted, computed } from "vue";
 import { useWhatsAppSettingStore } from "@/stores/whatsappSetting";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
-import { MessageSquare, Settings, Save, Send, Edit, Check, X, Info } from "lucide-vue-next";
+import { MessageSquare, Settings, Save, Send, Edit, Check, X, Info, Radio } from "lucide-vue-next";
 import { can } from "@/helpers/permissionHelper";
 
 const store = useWhatsAppSettingStore();
-const { settings, templates, placeholders, loading, success, error } = storeToRefs(store);
-const { fetchSettings, updateSettings, fetchTemplates, updateTemplate, fetchPlaceholders, testSend, testSendGroup, clearMessages } = store;
+const { settings, notificationSettings, templates, placeholders, loading, success, error } = storeToRefs(store);
+const { fetchSettings, updateSettings, fetchNotificationSettings, updateNotificationSettings, fetchTemplates, updateTemplate, fetchPlaceholders, testSend, testSendGroup, testTelegramSend, testTelegramSendGroup, clearMessages } = store;
 
 // Tab state
-const activeTab = ref("settings");
+const activeTab = ref("channel");
 
-// Settings form
+// Channel settings form
+const channelForm = ref({
+  notification_channel: "whatsapp",
+  telegram_bot_token: "",
+  telegram_chat_id: "",
+  telegram_bot_username: "",
+});
+
+// Settings form (WhatsApp)
 const settingsForm = ref({
   enabled: "true",
   token: "",
@@ -36,21 +44,48 @@ const showTestModal = ref(false);
 const showTestGroupModal = ref(false);
 const testGroupMessage = ref("");
 
+// Telegram test state
+const testTelegramChatId = ref("");
+const testTelegramMessage = ref("Test pesan Telegram dari GA Maintenance");
+const showTelegramTestModal = ref(false);
+const showTelegramGroupTestModal = ref(false);
+const testTelegramGroupMessage = ref("");
+
 // Template type labels
 const templateLabels = {
-  new_ticket: "🚨 Tiket Baru",
-  status_update: "📢 Update Status",
-  reply: "💬 Balasan Tiket",
-  assignment: "👋 Penugasan Staff",
+  new_ticket: "Tiket Baru",
+  status_update: "Update Status",
+  reply: "Balasan Tiket",
+  assignment: "Penugasan Staff",
 };
+
+// Channel options
+const channelOptions = [
+  { value: "whatsapp", label: "WhatsApp", description: "Notifikasi via WhatsApp (Fonnte)" },
+  { value: "telegram", label: "Telegram", description: "Notifikasi via Telegram Bot" },
+];
 
 // Methods
 const loadData = async () => {
   try {
-    await Promise.all([fetchSettings(), fetchTemplates()]);
+    await Promise.all([fetchSettings(), fetchNotificationSettings(), fetchTemplates()]);
     settingsForm.value = { ...settings.value };
+    channelForm.value = {
+      notification_channel: notificationSettings.value.notification_channel || "whatsapp",
+      telegram_bot_token: notificationSettings.value.telegram_bot_token || "",
+      telegram_chat_id: notificationSettings.value.telegram_chat_id || "",
+      telegram_bot_username: notificationSettings.value.telegram_bot_username || "",
+    };
   } catch (e) {
     console.error("Error loading data:", e);
+  }
+};
+
+const handleSaveChannelSettings = async () => {
+  try {
+    await updateNotificationSettings(channelForm.value);
+  } catch (e) {
+    console.error("Error saving channel settings:", e);
   }
 };
 
@@ -119,6 +154,29 @@ const handleTestSendGroup = async () => {
   }
 };
 
+const handleTestTelegramSend = async () => {
+  if (!testTelegramChatId.value || !testTelegramMessage.value) return;
+
+  try {
+    await testTelegramSend(testTelegramChatId.value, testTelegramMessage.value);
+    showTelegramTestModal.value = false;
+    testTelegramChatId.value = "";
+    testTelegramMessage.value = "Test pesan Telegram dari GA Maintenance";
+  } catch (e) {
+    console.error("Error sending Telegram test:", e);
+  }
+};
+
+const handleTestTelegramSendGroup = async () => {
+  try {
+    await testTelegramSendGroup(testTelegramGroupMessage.value || null);
+    showTelegramGroupTestModal.value = false;
+    testTelegramGroupMessage.value = "";
+  } catch (e) {
+    console.error("Error sending Telegram test to group:", e);
+  }
+};
+
 const insertPlaceholder = (placeholder) => {
   editForm.value.content += placeholder;
 };
@@ -133,26 +191,47 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex justify-between items-center">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Pengaturan WhatsApp</h1>
-        <p class="text-gray-600">Kelola pengaturan dan template pesan WhatsApp</p>
+        <h1 class="text-2xl font-bold text-gray-900">Pengaturan Notifikasi</h1>
+        <p class="text-gray-600">Kelola pengaturan notifikasi WhatsApp dan Telegram</p>
       </div>
       <div class="flex gap-2">
-        <button
-          v-if="can('whatsapp-setting-edit')"
-          @click="showTestGroupModal = true"
-          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Send :size="16" class="mr-2" />
-          Test Grup
-        </button>
-        <button
-          v-if="can('whatsapp-setting-edit')"
-          @click="showTestModal = true"
-          class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        >
-          <Send :size="16" class="mr-2" />
-          Test Kirim
-        </button>
+        <!-- Conditional buttons based on active channel -->
+        <template v-if="channelForm.notification_channel === 'whatsapp'">
+          <button
+            v-if="can('whatsapp-setting-edit')"
+            @click="showTestGroupModal = true"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Send :size="16" class="mr-2" />
+            Test WA Grup
+          </button>
+          <button
+            v-if="can('whatsapp-setting-edit')"
+            @click="showTestModal = true"
+            class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            <Send :size="16" class="mr-2" />
+            Test WA
+          </button>
+        </template>
+        <template v-else>
+          <button
+            v-if="can('whatsapp-setting-edit')"
+            @click="showTelegramGroupTestModal = true"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Send :size="16" class="mr-2" />
+            Test TG Grup
+          </button>
+          <button
+            v-if="can('whatsapp-setting-edit')"
+            @click="showTelegramTestModal = true"
+            class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            <Send :size="16" class="mr-2" />
+            Test TG
+          </button>
+        </template>
       </div>
     </div>
 
@@ -178,6 +257,18 @@ onMounted(() => {
     <div class="border-b border-gray-200">
       <nav class="-mb-px flex space-x-8">
         <button
+          @click="activeTab = 'channel'"
+          :class="[
+            'py-4 px-1 border-b-2 font-medium text-sm',
+            activeTab === 'channel'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+          ]"
+        >
+          <Radio :size="16" class="inline mr-2" />
+          Channel
+        </button>
+        <button
           @click="activeTab = 'settings'"
           :class="[
             'py-4 px-1 border-b-2 font-medium text-sm',
@@ -187,7 +278,7 @@ onMounted(() => {
           ]"
         >
           <Settings :size="16" class="inline mr-2" />
-          Pengaturan
+          WhatsApp
         </button>
         <button
           @click="activeTab = 'templates'"
@@ -199,9 +290,102 @@ onMounted(() => {
           ]"
         >
           <MessageSquare :size="16" class="inline mr-2" />
-          Template Pesan
+          Template
         </button>
       </nav>
+    </div>
+
+    <!-- Channel Tab -->
+    <div v-if="activeTab === 'channel'" class="bg-white rounded-lg shadow p-6">
+      <div class="space-y-6">
+        <!-- Channel Selection -->
+        <div>
+          <label class="block text-sm font-medium text-gray-900 mb-3">Pilih Channel Notifikasi</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label
+              v-for="option in channelOptions"
+              :key="option.value"
+              :class="[
+                'relative flex cursor-pointer rounded-lg border p-4 focus:outline-none',
+                channelForm.notification_channel === option.value
+                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                  : 'border-gray-300 bg-white hover:bg-gray-50',
+              ]"
+            >
+              <input
+                type="radio"
+                :value="option.value"
+                v-model="channelForm.notification_channel"
+                class="sr-only"
+              />
+              <span class="flex flex-1">
+                <span class="flex flex-col">
+                  <span class="block text-sm font-medium text-gray-900">{{ option.label }}</span>
+                  <span class="mt-1 flex items-center text-sm text-gray-500">{{ option.description }}</span>
+                </span>
+              </span>
+              <Check
+                v-if="channelForm.notification_channel === option.value"
+                class="h-5 w-5 text-blue-600"
+              />
+            </label>
+          </div>
+        </div>
+
+        <!-- Telegram Settings (shown when Telegram is selected) -->
+        <div v-if="channelForm.notification_channel === 'telegram'" class="border-t pt-6 space-y-4">
+          <h3 class="text-lg font-medium text-gray-900">Pengaturan Telegram</h3>
+          
+          <!-- Bot Token -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Bot Token</label>
+            <input
+              v-model="channelForm.telegram_bot_token"
+              type="password"
+              placeholder="Masukkan bot token dari @BotFather"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-500">Token dari @BotFather (format: 123456789:ABC-DEF...)</p>
+          </div>
+
+          <!-- Chat ID / Group ID -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Group/Channel Chat ID</label>
+            <input
+              v-model="channelForm.telegram_chat_id"
+              type="text"
+              placeholder="Contoh: -1001234567890"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-500">ID grup/channel untuk notifikasi (format: -100...)</p>
+          </div>
+
+          <!-- Bot Username -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Bot Username</label>
+            <input
+              v-model="channelForm.telegram_bot_username"
+              type="text"
+              placeholder="Contoh: MyHelpdeskBot"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-500">Username bot (tanpa @) untuk generate link connect user</p>
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="pt-4 border-t">
+          <button
+            v-if="can('whatsapp-setting-edit')"
+            @click="handleSaveChannelSettings"
+            :disabled="loading"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Save :size="16" class="mr-2" />
+            {{ loading ? "Menyimpan..." : "Simpan Channel" }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Settings Tab -->
@@ -488,6 +672,97 @@ onMounted(() => {
           <button
             @click="handleTestSendGroup"
             :disabled="loading || !settingsForm.group_id"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Send :size="16" class="mr-2" />
+            {{ loading ? "Mengirim..." : "Kirim ke Grup" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telegram Test Send Modal -->
+    <div
+      v-if="showTelegramTestModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold mb-4">Test Kirim Telegram</h3>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Chat ID Tujuan</label>
+            <input
+              v-model="testTelegramChatId"
+              type="text"
+              placeholder="Contoh: 123456789"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pesan</label>
+            <textarea
+              v-model="testTelegramMessage"
+              rows="4"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+          <button
+            @click="showTelegramTestModal = false"
+            class="px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Batal
+          </button>
+          <button
+            @click="handleTestTelegramSend"
+            :disabled="loading || !testTelegramChatId || !testTelegramMessage"
+            class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
+            <Send :size="16" class="mr-2" />
+            {{ loading ? "Mengirim..." : "Kirim" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telegram Test Send Group Modal -->
+    <div
+      v-if="showTelegramGroupTestModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold mb-4">Test Kirim ke Grup Telegram</h3>
+
+        <div class="space-y-4">
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-blue-800">
+              <strong>Chat ID:</strong> {{ channelForm.telegram_chat_id || 'Belum dikonfigurasi' }}
+            </p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pesan (opsional)</label>
+            <textarea
+              v-model="testTelegramGroupMessage"
+              rows="4"
+              placeholder="Kosongkan untuk menggunakan pesan default"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+          <button
+            @click="showTelegramGroupTestModal = false"
+            class="px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Batal
+          </button>
+          <button
+            @click="handleTestTelegramSendGroup"
+            :disabled="loading || !channelForm.telegram_chat_id"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             <Send :size="16" class="mr-2" />

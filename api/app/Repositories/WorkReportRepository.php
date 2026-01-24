@@ -128,12 +128,12 @@ class WorkReportRepository implements WorkReportRepositoryInterface
             $data['user_id'] = Auth::id();
             $workReport = WorkReport::create($data);
 
-            // Send WhatsApp Notifications
+            // Send Notifications
             try {
-                $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
+                $notificationService = app(\App\Services\NotificationService::class);
 
                 // 1. Send Report Notification to Group/Admin
-                $whatsappService->sendWorkReportNotification($workReport);
+                $notificationService->sendWorkReportNotification($workReport);
 
                 // Removed auto-complete and completion notification logic as per request
             } catch (\Exception $e) {

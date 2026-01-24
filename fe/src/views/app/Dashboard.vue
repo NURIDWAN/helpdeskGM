@@ -4,6 +4,7 @@ import { useTicketStore } from "@/stores/ticket";
 import { storeToRefs } from "pinia";
 import { debounce } from "lodash";
 import { useRouter } from "vue-router";
+import { useFilterStorage } from "@/composables/useFilterStorage";
 import Pagination from "@/components/common/Pagination.vue";
 import Alert from "@/components/common/Alert.vue";
 import {
@@ -27,6 +28,26 @@ import { DateTime } from "luxon";
 const ticketStore = useTicketStore();
 const { tickets, meta, loading, success, error } = storeToRefs(ticketStore);
 const { fetchTicketsPaginated } = ticketStore;
+
+// Default values for filter storage
+const defaultFilters = {
+  search: "",
+  status: "",
+  priority: "",
+  date: "",
+};
+
+const defaultPagination = {
+  current_page: 1,
+  per_page: 10,
+};
+
+// Filter storage for persistence across navigation
+const { saveState, loadState, clearState } = useFilterStorage(
+  "ticket_filter_app",
+  defaultFilters,
+  defaultPagination
+);
 
 // Filter state
 const filters = ref({
@@ -147,6 +168,7 @@ const clearFilters = () => {
     date: "",
   };
   pagination.value.current_page = 1;
+  clearState(); // Clear session storage
   fetchTickets();
 };
 
@@ -159,8 +181,24 @@ watch(
   { deep: true }
 );
 
+// Watch filters and pagination for auto-save to session storage
+watch(
+  [filters, pagination],
+  () => {
+    saveState(filters.value, pagination.value);
+  },
+  { deep: true }
+);
+
 // Lifecycle
 onMounted(async () => {
+  // Load saved filter state from session storage
+  const savedState = loadState();
+  if (savedState.hasStoredState) {
+    filters.value = { ...defaultFilters, ...savedState.filters };
+    pagination.value = { ...defaultPagination, ...savedState.pagination };
+  }
+  
   await fetchTickets();
 });
 </script>

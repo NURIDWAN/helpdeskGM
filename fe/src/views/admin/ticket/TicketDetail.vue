@@ -42,8 +42,11 @@ const isAssignedStaff = computed(() => {
   );
 });
 
-// Check if user is admin
-const isAdmin = computed(() => (user.value?.roles || []).includes("admin"));
+// Check if user is admin or superadmin
+const isAdmin = computed(() => {
+  const roles = user.value?.roles || [];
+  return roles.includes("admin") || roles.includes("superadmin");
+});
 
 // Check if user can reply or update status
 const canInteractWithTicket = computed(() => {

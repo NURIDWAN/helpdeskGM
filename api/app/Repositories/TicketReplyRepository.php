@@ -4,7 +4,7 @@ namespace App\Repositories;
 
 use App\Interfaces\TicketReplyRepositoryInterface;
 use App\Models\TicketReply;
-use App\Services\WhatsAppNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -42,17 +42,17 @@ class TicketReplyRepository implements TicketReplyRepositoryInterface
 
             $reply = $reply->load(['user', 'ticket']);
 
-            // Send WhatsApp notification for new reply
+            // Send notification for new reply
             try {
-                $whatsappService = app(WhatsAppNotificationService::class);
-                $whatsappService->sendTicketReplyNotification(
+                $notificationService = app(NotificationService::class);
+                $notificationService->sendTicketReplyNotification(
                     $reply->ticket,
                     $reply->content,
                     $reply->user->name
                 );
             } catch (\Exception $e) {
                 // Log error but don't fail the reply creation
-                Log::error('Failed to send WhatsApp notification for ticket reply', [
+                Log::error('Failed to send notification for ticket reply', [
                     'reply_id' => $reply->id,
                     'ticket_id' => $reply->ticket_id,
                     'error' => $e->getMessage()

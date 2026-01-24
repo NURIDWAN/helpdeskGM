@@ -124,13 +124,13 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
 
             $workOrder = $workOrder->load(['ticket.branch', 'assignedUser', 'assignedStaff']);
 
-            // Send WhatsApp notification to assigned technicians
+            // Send notification to assigned technicians
             try {
-                $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
-                $whatsappService->sendWorkOrderNotification($workOrder);
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->sendWorkOrderNotification($workOrder);
             } catch (\Exception $e) {
                 // Log error but don't fail the work order creation
-                \Illuminate\Support\Facades\Log::error('Failed to send WhatsApp notification for work order', [
+                \Illuminate\Support\Facades\Log::error('Failed to send notification for work order', [
                     'work_order_id' => $workOrder->id,
                     'error' => $e->getMessage()
                 ]);
@@ -192,8 +192,8 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
             $newStatus = $workOrder->status;
             if ($oldStatus !== $newStatus && $newStatus->value === 'done') {
                 try {
-                    $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
-                    $whatsappService->sendWorkOrderDoneNotification($workOrder->load(['ticket', 'assignedUser', 'assignedStaff']));
+                    $notificationService = app(\App\Services\NotificationService::class);
+                    $notificationService->sendWorkOrderDoneNotification($workOrder->load(['ticket', 'assignedUser', 'assignedStaff']));
                     Log::info('Work Order done notification sent', ['work_order_id' => $workOrder->id]);
                 } catch (\Exception $e) {
                     Log::error('Failed to send Work Order done notification', [

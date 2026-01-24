@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useTicketStore } from "@/stores/ticket";
 import { useBranchStore } from "@/stores/branch";
 import { useUserStore } from "@/stores/user";
 import { useTicketCategoryStore } from "@/stores/ticketCategory";
 import { useAuthStore } from "@/stores/auth";
+import { useFilterStorage } from "@/composables/useFilterStorage";
 
 
 import SearchInput from "@/components/common/SearchInput.vue";
@@ -47,6 +48,28 @@ const { tickets, meta, loading, success, error } = storeToRefs(ticketStore);
 const { fetchTicketsPaginated, deleteTicket, updateTicket, closeTicket } = ticketStore;
 const { fetchBranches } = branchStore;
 const { fetchUsers } = userStore;
+
+// Filter storage for persistence across navigation
+const defaultFilters = {
+  status: null,
+  priority: null,
+  branchId: null,
+  categoryId: null,
+  startDate: null,
+  endDate: null,
+  duration: null,
+};
+
+const defaultPagination = {
+  current_page: 1,
+  per_page: 10,
+};
+
+const { saveState, loadState, clearState } = useFilterStorage(
+  "ticket_filter_admin",
+  defaultFilters,
+  defaultPagination
+);
 
 // Filter options
 const statusOptions = [
@@ -194,7 +217,9 @@ const clearFilters = () => {
     endDate: null,
     duration: null,
   };
+  searchQuery.value = "";
   meta.value.current_page = 1;
+  clearState(); // Clear session storage
   fetchTickets();
 };
 
@@ -267,10 +292,46 @@ const handleUpdateStatus = async (ticket, newStatus) => {
 
 // Lifecycle
 onMounted(async () => {
-  // Load filter data and tickets
+  // Load filter data
   await loadFilterData();
+  
+  // Load saved filter state from session storage
+  const savedState = loadState();
+  if (savedState.hasStoredState) {
+    // Restore filters (excluding search which is stored separately in filters object)
+    const { search, ...filterValues } = savedState.filters;
+    filters.value = { ...defaultFilters, ...filterValues };
+    
+    // Restore search query
+    if (search) {
+      searchQuery.value = search;
+    }
+    
+    // Restore pagination
+    meta.value.current_page = savedState.pagination.current_page || 1;
+    meta.value.per_page = savedState.pagination.per_page || 10;
+    
+    // Show filters panel if there are active filters
+    const hasActiveFilters = Object.values(filterValues).some(v => v !== null && v !== '');
+    if (hasActiveFilters) {
+      showFilters.value = true;
+    }
+  }
+  
   fetchTickets();
 });
+
+// Watch filters and pagination for auto-save to session storage
+watch(
+  [filters, () => meta.value.current_page, () => meta.value.per_page, searchQuery],
+  () => {
+    saveState(
+      { ...filters.value, search: searchQuery.value },
+      { current_page: meta.value.current_page, per_page: meta.value.per_page }
+    );
+  },
+  { deep: true }
+);
 const getDurationBadge = (ticket) => {
   if (!ticket || !ticket.created_at)
     return { color: "bg-gray-100 text-gray-800", label: "-" };

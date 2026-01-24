@@ -19,6 +19,9 @@ use App\Http\Controllers\ElectricityReadingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    // Telegram webhook (public, no auth required)
+    Route::post('telegram/webhook', [\App\Http\Controllers\TelegramBotController::class, 'webhook']);
+
     Route::prefix('auth')->group(function () {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
 
@@ -128,6 +131,19 @@ Route::prefix('v1')->group(function () {
         Route::get('whatsapp-placeholders/{type}', [\App\Http\Controllers\WhatsAppSettingController::class, 'getPlaceholders']);
         Route::post('whatsapp-test', [\App\Http\Controllers\WhatsAppSettingController::class, 'testSend']);
         Route::post('whatsapp-test-group', [\App\Http\Controllers\WhatsAppSettingController::class, 'testSendGroup']);
+
+        // Notification Settings (Channel Switching)
+        Route::get('notification-settings', [\App\Http\Controllers\WhatsAppSettingController::class, 'getNotificationSettings']);
+        Route::put('notification-settings', [\App\Http\Controllers\WhatsAppSettingController::class, 'updateNotificationSettings']);
+        Route::post('telegram-test', [\App\Http\Controllers\WhatsAppSettingController::class, 'testTelegramSend']);
+        Route::post('telegram-test-group', [\App\Http\Controllers\WhatsAppSettingController::class, 'testTelegramSendGroup']);
+
+        // Telegram Bot (User Profile Integration)
+        Route::get('telegram/status', [\App\Http\Controllers\TelegramBotController::class, 'status']);
+        Route::post('telegram/generate-token', [\App\Http\Controllers\TelegramBotController::class, 'generateToken']);
+        Route::post('telegram/disconnect', [\App\Http\Controllers\TelegramBotController::class, 'disconnect']);
+        Route::post('telegram/set-webhook', [\App\Http\Controllers\TelegramBotController::class, 'setWebhook']);
+        Route::get('telegram/webhook-info', [\App\Http\Controllers\TelegramBotController::class, 'getWebhookInfo']);
 
         // Job Schedule routes (Calendar)
         Route::get('job-schedules', [\App\Http\Controllers\JobScheduleController::class, 'getSchedule']);
