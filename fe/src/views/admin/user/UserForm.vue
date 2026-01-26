@@ -20,6 +20,7 @@ import {
   CreditCard,
   Shield,
   Phone,
+  MessageCircle,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { useToast } from "vue-toastification";
@@ -52,6 +53,7 @@ const form = reactive({
   position: "",
   identity_number: "",
   phone_number: "",
+  telegram_chat_id: "",
   type: "",
   roles: [],
 });
@@ -79,6 +81,7 @@ const handleSubmit = async () => {
       position: form.position.trim(),
       identity_number: form.identity_number.trim(),
       phone_number: form.phone_number.trim(),
+      telegram_chat_id: form.telegram_chat_id.trim() || null,
       type: form.type,
       roles: form.roles,
     };
@@ -118,6 +121,7 @@ const loadUserData = async () => {
         form.position = user.position;
         form.identity_number = user.identity_number;
         form.phone_number = user.phone_number || "";
+        form.telegram_chat_id = user.telegram_chat_id || "";
         form.type = user.type;
         form.roles = user.roles;
       }
@@ -319,6 +323,23 @@ onMounted(() => {
             :error="error?.phone_number?.join(', ')"
             :required="false"
           />
+        </div>
+
+        <!-- Telegram ID Field -->
+        <div>
+          <FormField
+            v-model="form.telegram_chat_id"
+            id="telegram_chat_id"
+            name="telegram_chat_id"
+            label="Telegram Chat ID"
+            :label-icon="MessageCircle"
+            placeholder="Contoh: 123456789"
+            :error="error?.telegram_chat_id?.join(', ')"
+            :required="false"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            ID Telegram untuk notifikasi. User juga bisa menghubungkan sendiri via profil.
+          </p>
         </div>
 
         <!-- Type Field -->
