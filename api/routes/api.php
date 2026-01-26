@@ -145,6 +145,10 @@ Route::prefix('v1')->group(function () {
         Route::post('telegram/set-webhook', [\App\Http\Controllers\TelegramBotController::class, 'setWebhook']);
         Route::get('telegram/webhook-info', [\App\Http\Controllers\TelegramBotController::class, 'getWebhookInfo']);
 
+        // Telegram Login Widget
+        Route::post('telegram/widget-login', [\App\Http\Controllers\TelegramLoginWidgetController::class, 'verifyAndLink']);
+        Route::get('telegram/bot-info', [\App\Http\Controllers\TelegramLoginWidgetController::class, 'getBotInfo']);
+
         // Job Schedule routes (Calendar)
         Route::get('job-schedules', [\App\Http\Controllers\JobScheduleController::class, 'getSchedule']);
         Route::get('job-schedules/today', [\App\Http\Controllers\JobScheduleController::class, 'getTodaysSummary']);

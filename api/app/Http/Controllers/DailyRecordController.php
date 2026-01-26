@@ -587,8 +587,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $gasOpening = 0;
                     }
 
-                    // Opening + Closing = Total Pemakaian
-                    $gasUsage = round($gasClosing + $gasOpening, 2);
+                    // Usage = Closing - Opening
+                    $gasUsage = round($gasClosing - $gasOpening, 2);
 
                     // Update previous closing untuk record berikutnya
                     $currentLocation = $gasReading->location ?? '';
@@ -620,8 +620,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                     }
                     
                     $waterOpening = $waterOpening ?? 0;
-                    // Opening + Closing = Total Pemakaian
-                    $waterUsage = round($waterClosing + $waterOpening, 2);
+                    // Usage = Closing - Opening
+                    $waterUsage = round($waterClosing - $waterOpening, 2);
 
                     // Update previous closing untuk record berikutnya
                     // Update previous closing untuk record berikutnya
@@ -668,8 +668,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         // Calculate usage
                         $usage = null;
                         if ($closing !== null && $opening !== null) {
-                            // As per user request: Opening + Closing = Total Pemakaian
-                            $usage = round($closing + $opening, 2);
+                            // Usage = Closing - Opening
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [
@@ -704,8 +704,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         $usage = null;
                         if ($closing !== null) {
-                            // As per user request: Opening + Closing = Total Pemakaian
-                            $usage = round($closing + $opening, 2);
+                            // Usage = Closing - Opening
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [
@@ -983,8 +983,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             // Opening from previous closing (no strict location check for gas)
                             $gasOpening = (is_array($prevGas) && isset($prevGas['value']))
                                 ? $prevGas['value'] : 0;
-                            // As per user request: Opening + Closing = Total Pemakaian
-                            $gasUsage = round($gasClosing + $gasOpening, 2);
+                            // Usage = Closing - Opening
+                            $gasUsage = round($gasClosing - $gasOpening, 2);
 
                             $sheet->setCellValue($columns[$col++] . $currentRow, $gasReading->stove_type ?? '-');
                             $sheet->setCellValue($columns[$col++] . $currentRow, $gasReading->gas_type ?? '-');
@@ -1021,8 +1021,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             }
                         }
                         $waterOpening = $waterOpening ?? 0;
-                        // As per user request: Opening + Closing = Total Pemakaian
-                        $waterUsage = round($waterClosing + $waterOpening, 2);
+                        // Usage = Closing - Opening
+                        $waterUsage = round($waterClosing - $waterOpening, 2);
 
                         $sheet->setCellValue($columns[$col++] . $currentRow, $waterOpening);
                         $sheet->setCellValue($columns[$col++] . $currentRow, $waterClosing);
@@ -1061,8 +1061,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         $closing = $elec->meter_value !== null ? round($elec->meter_value, 2) : 0;
                         $opening = $previousClosings['electricity'][$meterId] ?? 0;
-                        // As per user request: Opening + Closing = Total Pemakaian
-                        $usage = round($closing + $opening, 2);
+                        // Usage = Closing - Opening
+                        $usage = round($closing - $opening, 2);
 
                         $totalElecUsage += $usage;
 
@@ -1224,8 +1224,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             $gasOpening = 0;
                         }
 
-                        // As per user request: Opening + Closing = Total Pemakaian
-                        $gasUsage = round($gasClosing + $gasOpening, 2);
+                        // Usage = Closing - Opening
+                        $gasUsage = round($gasClosing - $gasOpening, 2);
                         $previousClosings['gas'] = [
                             'value' => $gasClosing,
                             'location' => $currentLocation
@@ -1259,8 +1259,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             }
                         }
                         $waterOpening = $waterOpening ?? 0;
-                        // As per user request: Opening + Closing = Total Pemakaian
-                        $waterUsage = round($waterClosing + $waterOpening, 2);
+                        // Usage = Closing - Opening
+                        $waterUsage = round($waterClosing - $waterOpening, 2);
                         $previousClosings['water'][$normalizedLocation] = $waterClosing;
 
                         $waterData[] = [
@@ -1301,8 +1301,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
                         // Hitung usage jika ada closing
                         if ($closing !== null) {
-                            // As per user request: Opening + Closing = Total Pemakaian
-                            $usage = round($closing + $opening, 2);
+                            // Usage = Closing - Opening
+                            $usage = round($closing - $opening, 2);
                         }
 
                         $electricityData[] = [

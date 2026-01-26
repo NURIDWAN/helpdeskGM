@@ -27,6 +27,8 @@ const telegramLink = ref("");
 const telegramLoading = ref(false);
 const telegramError = ref(null);
 const telegramSuccess = ref(null);
+const botUsername = ref("");
+const widgetLoaded = ref(false);
 
 const syncForm = () => {
   form.name = user.value?.name || "";
@@ -42,6 +44,8 @@ onMounted(async () => {
   }
   syncForm();
   await fetchTelegramStatus();
+  await fetchBotInfo();
+  loadTelegramWidget();
 });
 
 const handleSubmit = async () => {
@@ -62,6 +66,74 @@ const fetchTelegramStatus = async () => {
     telegramStatus.value = response.data.data || { connected: false };
   } catch (e) {
     console.error("Error fetching Telegram status:", e);
+  }
+};
+
+const fetchBotInfo = async () => {
+  try {
+    const response = await axiosInstance.get("/telegram/bot-info");
+    if (response.data.success) {
+      botUsername.value = response.data.data.bot_username;
+    }
+  } catch (e) {
+    console.error("Error fetching bot info:", e);
+  }
+};
+
+const loadTelegramWidget = () => {
+  // Create callback function for Telegram widget
+  window.onTelegramAuth = async (telegramUser) => {
+    await handleTelegramWidgetAuth(telegramUser);
+  };
+  widgetLoaded.value = true;
+
+  // Dynamically load the widget script after container is ready
+  setTimeout(() => {
+    if (!botUsername.value) return;
+    
+    const container = document.getElementById('telegram-widget-container');
+    if (!container) return;
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create script element
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', botUsername.value);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-radius', '8');
+    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-request-access', 'write');
+    
+    container.appendChild(script);
+  }, 100);
+};
+
+const handleTelegramWidgetAuth = async (telegramUser) => {
+  telegramLoading.value = true;
+  telegramError.value = null;
+  telegramSuccess.value = null;
+
+  try {
+    const response = await axiosInstance.post("/telegram/widget-login", telegramUser);
+    if (response.data.success) {
+      telegramStatus.value = {
+        connected: true,
+        chat_id: response.data.data.chat_id,
+        linked_at: response.data.data.linked_at,
+      };
+      telegramSuccess.value = "Telegram berhasil dihubungkan via Login Widget!";
+      telegramLink.value = "";
+      await checkAuth();
+    } else {
+      telegramError.value = response.data.message || "Gagal menghubungkan Telegram";
+    }
+  } catch (e) {
+    telegramError.value = e.response?.data?.message || "Gagal menghubungkan Telegram";
+  } finally {
+    telegramLoading.value = false;
   }
 };
 
@@ -294,43 +366,69 @@ const formatDate = (dateString) => {
             </p>
           </div>
 
-          <!-- Generate Link Section -->
-          <div v-if="!telegramLink" class="flex justify-center">
-            <button
-              @click="generateTelegramLink"
-              :disabled="telegramLoading"
-              class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Link2 :size="16" class="mr-2" />
-              {{ telegramLoading ? "Membuat Link..." : "Hubungkan Telegram" }}
-            </button>
-          </div>
-
-          <!-- Link Ready Section -->
-          <div v-else class="space-y-3">
-            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p class="text-sm text-blue-800 mb-2">
-                Klik tombol di bawah untuk membuka Telegram dan menghubungkan akun Anda:
-              </p>
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  :value="telegramLink"
-                  readonly
-                  class="flex-1 px-3 py-2 text-sm border border-blue-200 rounded bg-white"
-                />
-                <button
-                  @click="openTelegramLink"
-                  class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <ExternalLink :size="16" class="mr-2" />
-                  Buka Telegram
-                </button>
-              </div>
+          <!-- Option 1: Telegram Login Widget -->
+          <div v-if="botUsername && widgetLoaded" class="space-y-2">
+            <p class="text-sm font-medium text-gray-700 text-center">Opsi 1: Login dengan Telegram</p>
+            <div class="flex justify-center">
+              <div id="telegram-widget-container"></div>
             </div>
             <p class="text-xs text-gray-500 text-center">
-              Setelah membuka link, klik "Start" di Telegram. Halaman ini akan otomatis update.
+              Klik tombol di atas, lalu konfirmasi di Telegram.
             </p>
+          </div>
+
+          <!-- Divider -->
+          <div v-if="botUsername && widgetLoaded" class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-200"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white text-gray-500">atau</span>
+            </div>
+          </div>
+
+          <!-- Option 2: Generate Link (Deep Link) -->
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-gray-700 text-center">
+              {{ botUsername && widgetLoaded ? 'Opsi 2:' : '' }} Hubungkan via Bot
+            </p>
+            <div v-if="!telegramLink" class="flex justify-center">
+              <button
+                @click="generateTelegramLink"
+                :disabled="telegramLoading"
+                class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Link2 :size="16" class="mr-2" />
+                {{ telegramLoading ? "Membuat Link..." : "Hubungkan Telegram" }}
+              </button>
+            </div>
+
+            <!-- Link Ready Section -->
+            <div v-else class="space-y-3">
+              <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-sm text-blue-800 mb-2">
+                  Klik tombol di bawah untuk membuka Telegram dan menghubungkan akun Anda:
+                </p>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    :value="telegramLink"
+                    readonly
+                    class="flex-1 px-3 py-2 text-sm border border-blue-200 rounded bg-white"
+                  />
+                  <button
+                    @click="openTelegramLink"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <ExternalLink :size="16" class="mr-2" />
+                    Buka Telegram
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 text-center">
+                Setelah membuka link, klik "Start" di Telegram. Halaman ini akan otomatis update.
+              </p>
+            </div>
           </div>
         </div>
       </div>

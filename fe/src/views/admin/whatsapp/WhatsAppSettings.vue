@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { useWhatsAppSettingStore } from "@/stores/whatsappSetting";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
-import { MessageSquare, Settings, Save, Send, Edit, Check, X, Info, Radio } from "lucide-vue-next";
+import { MessageSquare, Settings, Save, Send, Edit, Check, X, Info } from "lucide-vue-next";
 import { can } from "@/helpers/permissionHelper";
 
 const store = useWhatsAppSettingStore();
@@ -11,7 +11,7 @@ const { settings, notificationSettings, templates, placeholders, loading, succes
 const { fetchSettings, updateSettings, fetchNotificationSettings, updateNotificationSettings, fetchTemplates, updateTemplate, fetchPlaceholders, testSend, testSendGroup, testTelegramSend, testTelegramSendGroup, clearMessages } = store;
 
 // Tab state
-const activeTab = ref("channel");
+const activeTab = ref("settings");
 
 // Channel settings form
 const channelForm = ref({
@@ -92,6 +92,18 @@ const handleSaveChannelSettings = async () => {
 const handleSaveSettings = async () => {
   try {
     await updateSettings(settingsForm.value);
+  } catch (e) {
+    console.error("Error saving settings:", e);
+  }
+};
+
+const handleSaveAllSettings = async () => {
+  try {
+    // Save both channel settings and WhatsApp settings
+    await updateNotificationSettings(channelForm.value);
+    if (channelForm.value.notification_channel === 'whatsapp') {
+      await updateSettings(settingsForm.value);
+    }
   } catch (e) {
     console.error("Error saving settings:", e);
   }
@@ -257,18 +269,6 @@ onMounted(() => {
     <div class="border-b border-gray-200">
       <nav class="-mb-px flex space-x-8">
         <button
-          @click="activeTab = 'channel'"
-          :class="[
-            'py-4 px-1 border-b-2 font-medium text-sm',
-            activeTab === 'channel'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-          ]"
-        >
-          <Radio :size="16" class="inline mr-2" />
-          Channel
-        </button>
-        <button
           @click="activeTab = 'settings'"
           :class="[
             'py-4 px-1 border-b-2 font-medium text-sm',
@@ -278,7 +278,7 @@ onMounted(() => {
           ]"
         >
           <Settings :size="16" class="inline mr-2" />
-          WhatsApp
+          Pengaturan
         </button>
         <button
           @click="activeTab = 'templates'"
@@ -295,12 +295,12 @@ onMounted(() => {
       </nav>
     </div>
 
-    <!-- Channel Tab -->
-    <div v-if="activeTab === 'channel'" class="bg-white rounded-lg shadow p-6">
-      <div class="space-y-6">
-        <!-- Channel Selection -->
+    <!-- Settings Tab (Combined Channel + WhatsApp) -->
+    <div v-if="activeTab === 'settings'" class="bg-white rounded-lg shadow p-6">
+      <div class="space-y-8">
+        <!-- Channel Selection Section -->
         <div>
-          <label class="block text-sm font-medium text-gray-900 mb-3">Pilih Channel Notifikasi</label>
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Pilih Channel Notifikasi</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label
               v-for="option in channelOptions"
@@ -373,82 +373,69 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Save Button -->
-        <div class="pt-4 border-t">
-          <button
-            v-if="can('whatsapp-setting-edit')"
-            @click="handleSaveChannelSettings"
-            :disabled="loading"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Save :size="16" class="mr-2" />
-            {{ loading ? "Menyimpan..." : "Simpan Channel" }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Tab -->
-    <div v-if="activeTab === 'settings'" class="bg-white rounded-lg shadow p-6">
-      <div class="space-y-6">
-        <!-- Enable Toggle -->
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="text-sm font-medium text-gray-900">Aktifkan Notifikasi WhatsApp</label>
-            <p class="text-sm text-gray-500">Kirim notifikasi ke WhatsApp saat ada aktivitas tiket</p>
+        <!-- WhatsApp Settings (shown when WhatsApp is selected) -->
+        <div v-if="channelForm.notification_channel === 'whatsapp'" class="border-t pt-6 space-y-4">
+          <h3 class="text-lg font-medium text-gray-900">Pengaturan WhatsApp</h3>
+          
+          <!-- Enable Toggle -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-900">Aktifkan Notifikasi WhatsApp</label>
+              <p class="text-sm text-gray-500">Kirim notifikasi ke WhatsApp saat ada aktivitas tiket</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="settingsForm.enabled === 'true'"
+                @change="settingsForm.enabled = $event.target.checked ? 'true' : 'false'"
+                class="sr-only peer"
+              />
+              <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
           </div>
-          <label class="relative inline-flex items-center cursor-pointer">
+
+          <!-- Token -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fonnte Token</label>
             <input
-              type="checkbox"
-              :checked="settingsForm.enabled === 'true'"
-              @change="settingsForm.enabled = $event.target.checked ? 'true' : 'false'"
-              class="sr-only peer"
+              v-model="settingsForm.token"
+              type="password"
+              placeholder="Masukkan token Fonnte"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
+            <p class="mt-1 text-xs text-gray-500">Token API dari dashboard Fonnte</p>
+          </div>
 
-        <!-- Token -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Fonnte Token</label>
-          <input
-            v-model="settingsForm.token"
-            type="password"
-            placeholder="Masukkan token Fonnte"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <p class="mt-1 text-xs text-gray-500">Token API dari dashboard Fonnte</p>
-        </div>
+          <!-- Group ID -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Group ID</label>
+            <input
+              v-model="settingsForm.group_id"
+              type="text"
+              placeholder="Contoh: 120363322658703628@g.us"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p class="mt-1 text-xs text-gray-500">ID grup WhatsApp untuk notifikasi tiket baru</p>
+          </div>
 
-        <!-- Group ID -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Group ID</label>
-          <input
-            v-model="settingsForm.group_id"
-            type="text"
-            placeholder="Contoh: 120363322658703628@g.us"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <p class="mt-1 text-xs text-gray-500">ID grup WhatsApp untuk notifikasi tiket baru</p>
-        </div>
-
-        <!-- Delay -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Delay Pengiriman (detik)</label>
-          <input
-            v-model="settingsForm.delay"
-            type="number"
-            min="1"
-            max="60"
-            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <!-- Delay -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Delay Pengiriman (detik)</label>
+            <input
+              v-model="settingsForm.delay"
+              type="number"
+              min="1"
+              max="60"
+              class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </div>
 
         <!-- Save Button -->
         <div class="pt-4 border-t">
           <button
             v-if="can('whatsapp-setting-edit')"
-            @click="handleSaveSettings"
+            @click="handleSaveAllSettings"
             :disabled="loading"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
