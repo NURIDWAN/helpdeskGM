@@ -5,7 +5,8 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\Ticket;
 use App\Enums\TicketStatus;
-use App\Interfaces\TicketRepositoryInterface;
+use App\Services\NotificationService;
+use Illuminate\Support\Facades\Log;
 
 class AutoCloseTickets extends Command
 {
@@ -23,14 +24,6 @@ class AutoCloseTickets extends Command
      */
     protected $description = 'Auto close resolved tickets after 24 hours of inactivity';
 
-    private TicketRepositoryInterface $ticketRepository;
-
-    public function __construct(TicketRepositoryInterface $ticketRepository)
-    {
-        parent::__construct();
-        $this->ticketRepository = $ticketRepository;
-    }
-
     /**
      * Execute the console command.
      */
@@ -47,11 +40,27 @@ class AutoCloseTickets extends Command
 
         foreach ($tickets as $ticket) {
             try {
-                $this->ticketRepository->update($ticket->id, [
-                    'status' => TicketStatus::CLOSED->value,
-                    'system_auto_close' => true
-                ]);
+                $oldStatus = $ticket->status;
+                
+                // Update ticket directly
+                $ticket->status = TicketStatus::CLOSED;
+                if (!$ticket->completed_at) {
+                    $ticket->completed_at = now();
+                }
+                $ticket->save();
+
                 $this->info("Closed ticket {$ticket->code}");
+
+                // Send notification
+                try {
+                    $notificationService = app(NotificationService::class);
+                    $notificationService->sendTicketStatusUpdateNotification($ticket, $oldStatus->value);
+                } catch (\Exception $e) {
+                    Log::error('Auto-close notification failed', [
+                        'ticket_id' => $ticket->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
             } catch (\Exception $e) {
                 $this->error("Failed to close ticket {$ticket->code}: {$e->getMessage()}");
             }
@@ -60,3 +69,4 @@ class AutoCloseTickets extends Command
         $this->info('Auto-close tickets completed.');
     }
 }
+
