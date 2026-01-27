@@ -61,8 +61,8 @@ const waterForm = reactive({
 const waterPhotoPreview = ref(null);
 const waterExists = ref(false);
 
-// Computed Opening Values
-const gasOpening = computed(() => {
+// Computed Closing Values (from previous record)
+const gasClosing = computed(() => {
   if (!props.previousReadings?.utility) return 0;
   // Find previous gas reading
   const prev = props.previousReadings.utility.find(
@@ -71,7 +71,7 @@ const gasOpening = computed(() => {
   return prev ? parseFloat(prev.meter_value) : 0;
 });
 
-const waterOpening = computed(() => {
+const waterClosing = computed(() => {
   if (!props.previousReadings?.utility) return 0;
   // Find previous water reading
   // Logic: try to match location if possible, otherwise take first.
@@ -202,10 +202,10 @@ const saveGas = async (recordId) => {
     throw new Error("Nilai meter gas wajib diisi");
   }
 
-  // Double check validation before save
+  // Double check validation before save: Opening >= Closing
   const gVal = parseFloat(gasForm.meter_value);
-  if (gVal < gasOpening.value) {
-     throw new Error(`Nilai Meter Gas (${gVal}) tidak boleh lebih kecil dari Opening (${gasOpening.value})`);
+  if (gVal < gasClosing.value) {
+     throw new Error(`Opening Gas (${gVal}) tidak boleh lebih kecil dari Closing (${gasClosing.value})`);
   }
   
   saving.value = true;
@@ -254,10 +254,10 @@ const saveWater = async (recordId) => {
     throw new Error("Nilai meter air wajib diisi");
   }
 
-  // Double check validation before save
+  // Double check validation before save: Opening >= Closing
   const wVal = parseFloat(waterForm.meter_value);
-  if (wVal < waterOpening.value) {
-     throw new Error(`Nilai Meter Air (${wVal}) tidak boleh lebih kecil dari Opening (${waterOpening.value})`);
+  if (wVal < waterClosing.value) {
+     throw new Error(`Opening Air (${wVal}) tidak boleh lebih kecil dari Closing (${waterClosing.value})`);
   }
   
   saving.value = true;
@@ -298,11 +298,11 @@ const validate = () => {
   
   // Gas
   if (!gasForm.meter_value) {
-      missing.push("Nilai Meter Gas");
+      missing.push("Opening Gas");
   } else {
-      // Logic validation
-      if (parseFloat(gasForm.meter_value) < gasOpening.value) {
-          missing.push(`Meter Gas < Opening (${gasOpening.value})`);
+      // Logic validation: Opening >= Closing
+      if (parseFloat(gasForm.meter_value) < gasClosing.value) {
+          missing.push(`Opening Gas < Closing (${gasClosing.value})`);
       }
   }
 
@@ -311,11 +311,11 @@ const validate = () => {
   
   // Water
   if (!waterForm.meter_value) {
-      missing.push("Nilai Meter Air");
+      missing.push("Opening Air");
   } else {
-      // Logic validation
-      if (parseFloat(waterForm.meter_value) < waterOpening.value) {
-          missing.push(`Meter Air < Opening (${waterOpening.value})`);
+      // Logic validation: Opening >= Closing
+      if (parseFloat(waterForm.meter_value) < waterClosing.value) {
+          missing.push(`Opening Air < Closing (${waterClosing.value})`);
       }
   }
 
@@ -367,14 +367,14 @@ onMounted(() => {
         </div>
 
         <div class="space-y-4">
-          <!-- Meter Value -->
+          <!-- Opening Value -->
           <div>
             <div class="flex justify-between mb-1">
                 <label class="block text-sm font-medium text-gray-700">
-                Nilai Meter <span class="text-red-500">*</span>
+                Opening <span class="text-red-500">*</span>
                 </label>
                 <div class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                    Opening: <span class="font-medium text-gray-900">{{ gasOpening }}</span>
+                    Closing: <span class="font-medium text-gray-900">{{ gasClosing }}</span>
                 </div>
             </div>
             <div class="relative">
@@ -386,11 +386,11 @@ onMounted(() => {
                 placeholder="0.00"
                 :disabled="disabled"
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 bg-white"
-                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': gasForm.meter_value && parseFloat(gasForm.meter_value) < gasOpening}"
+                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': gasForm.meter_value && parseFloat(gasForm.meter_value) < gasClosing}"
               />
             </div>
-            <p v-if="gasForm.meter_value && parseFloat(gasForm.meter_value) < gasOpening" class="text-xs text-red-600 mt-1">
-                Nilai meter tidak boleh lebih kecil dari Opening ({{ gasOpening }})
+            <p v-if="gasForm.meter_value && parseFloat(gasForm.meter_value) < gasClosing" class="text-xs text-red-600 mt-1">
+                Opening tidak boleh lebih kecil dari Closing ({{ gasClosing }})
             </p>
           </div>
 
@@ -475,14 +475,14 @@ onMounted(() => {
         </div>
 
         <div class="space-y-4">
-          <!-- Meter Value -->
+          <!-- Opening Value -->
           <div>
             <div class="flex justify-between mb-1">
                 <label class="block text-sm font-medium text-gray-700">
-                Nilai Meter <span class="text-red-500">*</span>
+                Opening <span class="text-red-500">*</span>
                 </label>
                 <div class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                    Opening: <span class="font-medium text-gray-900">{{ waterOpening }}</span>
+                    Closing: <span class="font-medium text-gray-900">{{ waterClosing }}</span>
                 </div>
             </div>
             <div class="relative">
@@ -494,11 +494,11 @@ onMounted(() => {
                 placeholder="0.00"
                 :disabled="disabled"
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 bg-white"
-                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': waterForm.meter_value && parseFloat(waterForm.meter_value) < waterOpening}"
+                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': waterForm.meter_value && parseFloat(waterForm.meter_value) < waterClosing}"
               />
             </div>
-            <p v-if="waterForm.meter_value && parseFloat(waterForm.meter_value) < waterOpening" class="text-xs text-red-600 mt-1">
-                Nilai meter tidak boleh lebih kecil dari Opening ({{ waterOpening }})
+            <p v-if="waterForm.meter_value && parseFloat(waterForm.meter_value) < waterClosing" class="text-xs text-red-600 mt-1">
+                Opening tidak boleh lebih kecil dari Closing ({{ waterClosing }})
             </p>
           </div>
 

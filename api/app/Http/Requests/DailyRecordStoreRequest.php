@@ -73,9 +73,10 @@ class DailyRecordStoreRequest extends FormRequest
             ]);
         }
         
-        // Set user_id default jika belum ada (untuk user biasa, default ke user yang login)
-        // Admin bisa override dengan mengirim user_id
-        if (!$this->has('user_id')) {
+        // Set user_id default jika belum ada atau null (untuk user biasa, default ke user yang login)
+        // Admin bisa override dengan mengirim user_id yang valid
+        // Gunakan filled() karena has() mengembalikan true meskipun nilai null
+        if (!$this->filled('user_id')) {
             $this->merge([
                 'user_id' => $this->user()->id
             ]);

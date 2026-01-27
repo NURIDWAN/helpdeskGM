@@ -163,7 +163,8 @@ class AuthController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'password' => 'nullable|string|min:8|confirmed',
-            'phone_number' => 'required|string'
+            'phone_number' => 'nullable|string',
+            'telegram_chat_id' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -171,6 +172,7 @@ class AuthController extends Controller
                 'name' => $request->input('name'),
                 'password' => $request->input('password'),
                 'phone_number' => $request->input('phone_number'),
+                'telegram_chat_id' => $request->input('telegram_chat_id'),
             ]);
 
             return ResponseHelper::jsonResponse(true, 'Profil berhasil diperbarui', new UserResource($user), 200);

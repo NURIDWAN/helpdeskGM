@@ -575,25 +575,25 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $gasUsage = null;
 
                 if ($gasReading) {
-                    $gasClosing = round($gasReading->meter_value, 2);
+                    // Opening = meter_value yang diinput user (nilai hari ini)
+                    $gasOpening = round($gasReading->meter_value, 2);
                     
-                    // Opening = closing dari record sebelumnya (tanpa strict location check)
-                    // Gas biasanya hanya 1 per cabang, jadi tidak perlu strict location matching
+                    // Closing = USAGE (pemakaian) dari record sebelumnya
                     $prevGas = $previousClosings['gas'] ?? null;
                     
-                    if (is_array($prevGas) && isset($prevGas['value'])) {
-                        $gasOpening = $prevGas['value'];
+                    if (is_array($prevGas) && isset($prevGas['usage'])) {
+                        $gasClosing = $prevGas['usage'];
                     } else {
-                        $gasOpening = 0;
+                        $gasClosing = 0;
                     }
 
-                    // Usage = Closing - Opening
-                    $gasUsage = round($gasClosing - $gasOpening, 2);
+                    // Usage = Opening - Closing
+                    $gasUsage = round($gasOpening - $gasClosing, 2);
 
-                    // Update previous closing untuk record berikutnya
+                    // Update previous value untuk record berikutnya: simpan USAGE untuk jadi Closing berikutnya
                     $currentLocation = $gasReading->location ?? '';
                     $previousClosings['gas'] = [
-                        'value' => $gasClosing,
+                        'usage' => $gasUsage,
                         'location' => $currentLocation
                     ];
                 }
@@ -603,29 +603,39 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $waterReadingsSorted = $waterReadings->sortBy('location')->values();
                 $waterData = [];
                 foreach ($waterReadingsSorted as $waterReading) {
-                    $waterClosing = round($waterReading->meter_value, 2);
+                    // Opening = meter_value yang diinput user (nilai hari ini)
+                    $waterOpening = round($waterReading->meter_value, 2);
                     $location = $waterReading->location ?? 'default';
 
-                    // Opening = closing dari record sebelumnya dengan lokasi yang sama
-                    // Normalisasi lokasi (lowercase + trim) agar tidak sensitif case/spasi
+                    // Closing = USAGE (pemakaian) dari record sebelumnya dengan lokasi yang sama
                     $normalizedLocation = trim(strtolower($location));
-                    $waterOpening = $previousClosings['water'][$normalizedLocation] ?? null;
+                    $prevWater = $previousClosings['water'][$normalizedLocation] ?? null;
+                    
+                    // Extract usage from previous record
+                    $waterClosing = null;
+                    if (is_array($prevWater) && isset($prevWater['usage'])) {
+                        $waterClosing = $prevWater['usage'];
+                    } elseif (is_numeric($prevWater)) {
+                        // Backward compatibility
+                        $waterClosing = $prevWater;
+                    }
 
                     // If exact match failed, try fallback (if previous record had only 1 water meter)
-                    if ($waterOpening === null && isset($previousClosings['water']['_single_fallback'])) {
+                    if ($waterClosing === null && isset($previousClosings['water']['_single_fallback'])) {
                          // Only use fallback if CURRENT record also has only 1 water meter (implied by loop if count=1)
                         if ($waterReadingsSorted->count() === 1) {
-                             $waterOpening = $previousClosings['water']['_single_fallback'];
+                             $waterClosing = $previousClosings['water']['_single_fallback'];
                         }
                     }
                     
-                    $waterOpening = $waterOpening ?? 0;
-                    // Usage = Closing - Opening
-                    $waterUsage = round($waterClosing - $waterOpening, 2);
+                    $waterClosing = $waterClosing ?? 0;
+                    // Usage = Opening - Closing
+                    $waterUsage = round($waterOpening - $waterClosing, 2);
 
-                    // Update previous closing untuk record berikutnya
-                    // Update previous closing untuk record berikutnya
-                    $previousClosings['water'][$normalizedLocation] = $waterClosing;
+                    // Update previous value untuk record berikutnya: simpan USAGE untuk jadi Closing berikutnya
+                    $previousClosings['water'][$normalizedLocation] = [
+                        'usage' => $waterUsage
+                    ];
 
                     $waterData[] = [
                         'location' => $waterReading->location,
@@ -638,7 +648,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                 
                 // Update fallback for next iteration if this record has exactly 1 water meter
                 if ($waterReadingsSorted->count() === 1) {
-                     $previousClosings['water']['_single_fallback'] = $waterData[0]['closing'] ?? null;
+                     $previousClosings['water']['_single_fallback'] = $waterData[0]['usage'] ?? null;
                 }
 
                 // Get electricity readings (can be multiple) - Merge legacy and multi-meter
@@ -656,20 +666,19 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $electricityReading->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        // Simplified: meter_value tunggal
-                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
+                        // Opening = meter_value yang diinput user (nilai hari ini)
+                        $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Opening = closing dari record sebelumnya dengan electricity_meter_id yang sama
-                        $opening = $previousClosings['electricity'][$meterId]['value'] ?? null;
+                        // Closing = USAGE (pemakaian) dari record sebelumnya dengan electricity_meter_id yang sama
+                        $closing = $previousClosings['electricity'][$meterId]['usage'] ?? null;
 
                         // Jika masih null, gunakan 0
-                        $opening = $opening ?? 0;
+                        $closing = $closing ?? 0;
 
-                        // Calculate usage
+                        // Calculate usage: Opening - Closing
                         $usage = null;
-                        if ($closing !== null && $opening !== null) {
-                            // Usage = Closing - Opening
-                            $usage = round($closing - $opening, 2);
+                        if ($opening !== null) {
+                            $usage = round($opening - $closing, 2);
                         }
 
                         $electricityData[] = [
@@ -683,9 +692,9 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
-                        // Update previous closing
+                        // Update previous value: simpan USAGE untuk jadi Closing berikutnya
                         $previousClosings['electricity'][$meterId] = [
-                            'value' => $closing,
+                            'usage' => $usage,
                         ];
                     }
                 } else {
@@ -695,17 +704,17 @@ class DailyRecordController extends Controller implements HasMiddleware
                     foreach ($electricityReadingsSorted as $electricityReading) {
                         $location = $electricityReading->location ?? 'default';
 
-                        // Try to get simplified meter_value first, otherwise null (legacy support simplified)
-                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
+                        // Opening = meter_value yang diinput user (nilai hari ini)
+                        $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Opening = closing dari record sebelumnya dengan lokasi yang sama
-                        $opening = $previousClosings['electricity'][$location]['value'] ?? null;
-                        $opening = $opening ?? 0;
+                        // Closing = USAGE (pemakaian) dari record sebelumnya dengan lokasi yang sama
+                        $closing = $previousClosings['electricity'][$location]['usage'] ?? null;
+                        $closing = $closing ?? 0;
 
+                        // Calculate usage: Opening - Closing
                         $usage = null;
-                        if ($closing !== null) {
-                            // Usage = Closing - Opening
-                            $usage = round($closing - $opening, 2);
+                        if ($opening !== null) {
+                            $usage = round($opening - $closing, 2);
                         }
 
                         $electricityData[] = [
@@ -719,8 +728,9 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
+                        // Update previous value: simpan USAGE untuk jadi Closing berikutnya
                         $previousClosings['electricity'][$location] = [
-                            'value' => $closing,
+                            'usage' => $usage,
                         ];
                     }
                 }

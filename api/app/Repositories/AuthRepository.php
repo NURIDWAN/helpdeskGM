@@ -95,11 +95,20 @@ class AuthRepository implements AuthRepositoryInterface
                 $user->name = $data['name'];
             }
 
-
             if (isset($data['phone_number'])) {
                 $user->phone_number = $data['phone_number'];
             }
 
+            // Allow user to manually set/update their telegram_chat_id
+            if (array_key_exists('telegram_chat_id', $data)) {
+                $user->telegram_chat_id = $data['telegram_chat_id'];
+                // Update linked_at timestamp when manually setting telegram ID
+                if (!empty($data['telegram_chat_id']) && empty($user->telegram_linked_at)) {
+                    $user->telegram_linked_at = now();
+                } elseif (empty($data['telegram_chat_id'])) {
+                    $user->telegram_linked_at = null;
+                }
+            }
 
             if (!empty($data['password'])) {
                 $user->password = Hash::make($data['password']);
@@ -113,7 +122,8 @@ class AuthRepository implements AuthRepositoryInterface
             return $user->fresh()->load(['roles', 'permissions', 'branch']);
         } catch (\Exception $e) {
             DB::rollBack();
-            throw new \Exception($e->getMessage(), $e->getCode() ?: 500);
+            $code = is_int($e->getCode()) ? $e->getCode() : 500;
+            throw new \Exception($e->getMessage(), $code ?: 500);
         }
     }
 }

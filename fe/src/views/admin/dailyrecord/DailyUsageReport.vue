@@ -571,10 +571,10 @@ onMounted(() => {
                   Jenis Gas
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Opening
+                  Closing
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Closing
+                  Opening
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
                   Total Pemakaian
@@ -591,10 +591,10 @@ onMounted(() => {
                 v-if="!filters.category || filters.category === 'water'"
               >
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Opening
+                  Closing
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Closing
+                  Opening
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
                   Total Pemakaian
@@ -617,10 +617,10 @@ onMounted(() => {
                   Lokasi
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Opening
+                  Closing
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
-                  Closing
+                  Opening
                 </th>
                 <th class="px-2 py-2 text-xs font-medium text-gray-500 border">
                   Pemakaian
@@ -704,13 +704,13 @@ onMounted(() => {
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
                         :rowspan="hasMultipleMeters(row.electricity) && !filters.category ? getElectricityRowspan(row.electricity) : 1"
                       >
-                        {{ formatNumber(row.gas?.opening) }}
+                        {{ formatNumber(row.gas?.closing) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
                         :rowspan="hasMultipleMeters(row.electricity) && !filters.category ? getElectricityRowspan(row.electricity) : 1"
                       >
-                        {{ formatNumber(row.gas?.closing) }}
+                        {{ formatNumber(row.gas?.opening) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
@@ -746,13 +746,13 @@ onMounted(() => {
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
                         :rowspan="hasMultipleMeters(row.electricity) && !filters.category ? getElectricityRowspan(row.electricity) : 1"
                       >
-                        {{ formatNumber(row.water?.[0]?.opening) }}
+                        {{ formatNumber(row.water?.[0]?.closing) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
                         :rowspan="hasMultipleMeters(row.electricity) && !filters.category ? getElectricityRowspan(row.electricity) : 1"
                       >
-                        {{ formatNumber(row.water?.[0]?.closing) }}
+                        {{ formatNumber(row.water?.[0]?.opening) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right align-top"
@@ -804,12 +804,12 @@ onMounted(() => {
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(row.electricity[0].opening) }}
+                        {{ formatNumber(row.electricity[0].closing) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right"
                       >
-                        {{ formatNumber(row.electricity[0].closing) }}
+                        {{ formatNumber(row.electricity[0].opening) }}
                       </td>
                       <td
                         class="px-4 py-3 text-sm text-gray-900 border text-right font-semibold text-blue-600"
@@ -873,12 +873,12 @@ onMounted(() => {
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right"
                         >
-                          {{ formatNumber(elec.opening) }}
+                          {{ formatNumber(elec.closing) }}
                         </td>
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right"
                         >
-                          {{ formatNumber(elec.closing) }}
+                          {{ formatNumber(elec.opening) }}
                         </td>
                         <td
                           class="px-4 py-3 text-sm text-gray-900 border text-right font-semibold text-blue-600"

@@ -58,7 +58,7 @@ const getPreviousReading = (meterId) => {
   );
 };
 
-const getOpening = (meterId) => {
+const getClosing = (meterId) => {
   const prev = getPreviousReading(meterId);
   return prev && prev.meter_value !== null ? parseFloat(prev.meter_value) : 0;
 };
@@ -240,14 +240,14 @@ const validate = () => {
      // If any field is filled, ALL must be filled for this meter
      if (meterVal !== "" || photo) {
         hasAtLeastOneFilled = true;
-        if (meterVal === "") missing.push(`Nilai Meter (${meter.meter_name})`);
+        if (meterVal === "") missing.push(`Opening (${meter.meter_name})`);
         if (!photo) missing.push(`Foto Meter (${meter.meter_name})`);
         
-        // Strict Validation: Closing >= Opening
+        // Strict Validation: Opening >= Closing
         if (meterVal !== "") {
-            const opening = getOpening(meter.id);
-            if (parseFloat(meterVal) < opening) {
-                missing.push(`Nilai Meter (${meter.meter_name}) < Opening (${opening})`);
+            const closing = getClosing(meter.id);
+            if (parseFloat(meterVal) < closing) {
+                missing.push(`Opening (${meter.meter_name}) < Closing (${closing})`);
             }
         }
      }
@@ -364,14 +364,14 @@ onMounted(async () => {
 
         <!-- Reading inputs -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Nilai Meter -->
+          <!-- Opening -->
           <div>
             <div class="flex justify-between mb-1">
                 <label class="block text-sm font-medium text-gray-700">
-                Nilai Meter <span class="text-red-500">*</span>
+                Opening <span class="text-red-500">*</span>
                 </label>
                 <div class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                    Opening: <span class="font-medium text-gray-900">{{ getOpening(meter.id) }}</span>
+                    Closing: <span class="font-medium text-gray-900">{{ getClosing(meter.id) }}</span>
                 </div>
             </div>
             <div class="relative">
@@ -383,11 +383,11 @@ onMounted(async () => {
                 placeholder="0.00"
                 :disabled="disabled"
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 bg-white"
-                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getOpening(meter.id)}"
+                :class="{'border-red-500 focus:ring-red-500 focus:border-red-500': meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getClosing(meter.id)}"
               />
             </div>
-            <p v-if="meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getOpening(meter.id)" class="text-xs text-red-600 mt-1">
-                Nilai Meter tidak boleh kurang dari Opening
+            <p v-if="meterReadings[meter.id].meter_value && parseFloat(meterReadings[meter.id].meter_value) < getClosing(meter.id)" class="text-xs text-red-600 mt-1">
+                Opening tidak boleh kurang dari Closing
             </p>
           </div>
 

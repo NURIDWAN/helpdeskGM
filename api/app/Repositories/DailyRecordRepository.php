@@ -127,6 +127,12 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
     {
         return DB::transaction(function () use ($id, $data) {
             $dailyRecord = DailyRecord::findOrFail($id);
+            
+            // Jangan update user_id jika nilai baru null/empty (agar tidak menimpa yang ada)
+            if (array_key_exists('user_id', $data) && empty($data['user_id'])) {
+                unset($data['user_id']);
+            }
+            
             $dailyRecord->fill($data);
             $dailyRecord->save();
             return $dailyRecord;

@@ -1,9 +1,7 @@
 <script setup>
-import { reactive, ref, watch, onMounted, computed } from "vue";
+import { reactive, ref, watch, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { storeToRefs } from "pinia";
-import { axiosInstance } from "@/plugins/axios";
-import { Send, Link2, Unlink, ExternalLink } from "lucide-vue-next";
 
 const authStore = useAuthStore();
 const { user, loading, error, success } = storeToRefs(authStore);
@@ -13,27 +11,16 @@ const form = reactive({
   name: "",
   email: "",
   phone_number: "",
+  telegram_chat_id: "",
   password: "",
   password_confirmation: "",
 });
-
-// Telegram connection state
-const telegramStatus = ref({
-  connected: false,
-  chat_id: null,
-  linked_at: null,
-});
-const telegramLink = ref("");
-const telegramLoading = ref(false);
-const telegramError = ref(null);
-const telegramSuccess = ref(null);
-const botUsername = ref("");
-const widgetLoaded = ref(false);
 
 const syncForm = () => {
   form.name = user.value?.name || "";
   form.email = user.value?.email || "";
   form.phone_number = user.value?.phone_number || "";
+  form.telegram_chat_id = user.value?.telegram_chat_id || "";
 };
 
 watch(user, syncForm, { immediate: true });
@@ -43,13 +30,14 @@ onMounted(async () => {
     await checkAuth();
   }
   syncForm();
-  await fetchTelegramStatus();
-  await fetchBotInfo();
-  loadTelegramWidget();
 });
 
 const handleSubmit = async () => {
-  const payload = { name: form.name, phone_number: form.phone_number };
+  const payload = { 
+    name: form.name, 
+    phone_number: form.phone_number,
+    telegram_chat_id: form.telegram_chat_id || null,
+  };
   if (form.password) {
     payload.password = form.password;
     payload.password_confirmation = form.password_confirmation;
@@ -57,146 +45,6 @@ const handleSubmit = async () => {
   await updateProfile(payload);
   form.password = "";
   form.password_confirmation = "";
-};
-
-// Telegram methods
-const fetchTelegramStatus = async () => {
-  try {
-    const response = await axiosInstance.get("/telegram/status");
-    telegramStatus.value = response.data.data || { connected: false };
-  } catch (e) {
-    console.error("Error fetching Telegram status:", e);
-  }
-};
-
-const fetchBotInfo = async () => {
-  try {
-    const response = await axiosInstance.get("/telegram/bot-info");
-    if (response.data.success) {
-      botUsername.value = response.data.data.bot_username;
-    }
-  } catch (e) {
-    console.error("Error fetching bot info:", e);
-  }
-};
-
-const loadTelegramWidget = () => {
-  // Create callback function for Telegram widget
-  window.onTelegramAuth = async (telegramUser) => {
-    await handleTelegramWidgetAuth(telegramUser);
-  };
-  widgetLoaded.value = true;
-
-  // Dynamically load the widget script after container is ready
-  setTimeout(() => {
-    if (!botUsername.value) return;
-    
-    const container = document.getElementById('telegram-widget-container');
-    if (!container) return;
-    
-    // Clear any existing content
-    container.innerHTML = '';
-    
-    // Create script element
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername.value);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-radius', '8');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-    script.setAttribute('data-request-access', 'write');
-    
-    container.appendChild(script);
-  }, 100);
-};
-
-const handleTelegramWidgetAuth = async (telegramUser) => {
-  telegramLoading.value = true;
-  telegramError.value = null;
-  telegramSuccess.value = null;
-
-  try {
-    const response = await axiosInstance.post("/telegram/widget-login", telegramUser);
-    if (response.data.success) {
-      telegramStatus.value = {
-        connected: true,
-        chat_id: response.data.data.chat_id,
-        linked_at: response.data.data.linked_at,
-      };
-      telegramSuccess.value = "Telegram berhasil dihubungkan via Login Widget!";
-      telegramLink.value = "";
-      await checkAuth();
-    } else {
-      telegramError.value = response.data.message || "Gagal menghubungkan Telegram";
-    }
-  } catch (e) {
-    telegramError.value = e.response?.data?.message || "Gagal menghubungkan Telegram";
-  } finally {
-    telegramLoading.value = false;
-  }
-};
-
-const generateTelegramLink = async () => {
-  telegramLoading.value = true;
-  telegramError.value = null;
-  telegramSuccess.value = null;
-
-  try {
-    const response = await axiosInstance.post("/telegram/generate-token");
-    telegramLink.value = response.data.data.link;
-    telegramSuccess.value = "Link berhasil dibuat. Klik untuk menghubungkan Telegram.";
-  } catch (e) {
-    telegramError.value = e.response?.data?.message || "Gagal membuat link";
-  } finally {
-    telegramLoading.value = false;
-  }
-};
-
-const disconnectTelegram = async () => {
-  if (!confirm("Yakin ingin memutuskan koneksi Telegram?")) return;
-
-  telegramLoading.value = true;
-  telegramError.value = null;
-
-  try {
-    await axiosInstance.post("/telegram/disconnect");
-    telegramStatus.value = { connected: false, chat_id: null, linked_at: null };
-    telegramLink.value = "";
-    telegramSuccess.value = "Telegram berhasil diputuskan";
-    // Refresh user data
-    await checkAuth();
-  } catch (e) {
-    telegramError.value = e.response?.data?.message || "Gagal memutuskan Telegram";
-  } finally {
-    telegramLoading.value = false;
-  }
-};
-
-const openTelegramLink = () => {
-  if (telegramLink.value) {
-    window.open(telegramLink.value, "_blank");
-    // Poll for status update after 5 seconds
-    setTimeout(async () => {
-      await fetchTelegramStatus();
-      if (telegramStatus.value.connected) {
-        telegramSuccess.value = "Telegram berhasil terhubung!";
-        telegramLink.value = "";
-        await checkAuth();
-      }
-    }, 5000);
-  }
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "-";
-  return new Date(dateString).toLocaleDateString("id-ID", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 };
 </script>
 
@@ -267,6 +115,22 @@ const formatDate = (dateString) => {
             />
           </div>
 
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Telegram Chat ID</label
+            >
+            <input
+              v-model="form.telegram_chat_id"
+              type="text"
+              placeholder="Contoh: 123456789"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              :disabled="loading"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              ID Telegram untuk menerima notifikasi.
+            </p>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -304,133 +168,6 @@ const formatDate = (dateString) => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- Telegram Connection Card -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div class="px-6 py-5 border-b border-gray-100">
-        <h2 class="text-lg font-semibold text-gray-900">Koneksi Telegram</h2>
-        <p class="text-gray-600 text-sm mt-1">Hubungkan akun Telegram untuk menerima notifikasi.</p>
-      </div>
-      <div class="p-6 space-y-4">
-        <!-- Success/Error Messages -->
-        <div
-          v-if="telegramSuccess"
-          class="rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm px-3 py-2"
-        >
-          {{ telegramSuccess }}
-        </div>
-        <div
-          v-if="telegramError"
-          class="rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-3 py-2"
-        >
-          {{ telegramError }}
-        </div>
-
-        <!-- Connected State -->
-        <div v-if="telegramStatus.connected" class="space-y-4">
-          <div class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="w-3 h-3 bg-green-500 rounded-full"></span>
-                <span class="font-medium text-green-800">Terhubung</span>
-              </div>
-              <p class="text-sm text-green-700 mt-1">
-                Chat ID: {{ telegramStatus.chat_id }}
-              </p>
-              <p class="text-xs text-green-600 mt-1">
-                Terhubung pada: {{ formatDate(telegramStatus.linked_at) }}
-              </p>
-            </div>
-            <button
-              @click="disconnectTelegram"
-              :disabled="telegramLoading"
-              class="inline-flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50"
-            >
-              <Unlink :size="16" class="mr-2" />
-              Putuskan
-            </button>
-          </div>
-        </div>
-
-        <!-- Not Connected State -->
-        <div v-else class="space-y-4">
-          <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="w-3 h-3 bg-gray-400 rounded-full"></span>
-              <span class="font-medium text-gray-700">Belum Terhubung</span>
-            </div>
-            <p class="text-sm text-gray-600">
-              Hubungkan akun Telegram Anda untuk menerima notifikasi langsung di Telegram.
-            </p>
-          </div>
-
-          <!-- Option 1: Telegram Login Widget -->
-          <div v-if="botUsername && widgetLoaded" class="space-y-2">
-            <p class="text-sm font-medium text-gray-700 text-center">Opsi 1: Login dengan Telegram</p>
-            <div class="flex justify-center">
-              <div id="telegram-widget-container"></div>
-            </div>
-            <p class="text-xs text-gray-500 text-center">
-              Klik tombol di atas, lalu konfirmasi di Telegram.
-            </p>
-          </div>
-
-          <!-- Divider -->
-          <div v-if="botUsername && widgetLoaded" class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-200"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-gray-500">atau</span>
-            </div>
-          </div>
-
-          <!-- Option 2: Generate Link (Deep Link) -->
-          <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-700 text-center">
-              {{ botUsername && widgetLoaded ? 'Opsi 2:' : '' }} Hubungkan via Bot
-            </p>
-            <div v-if="!telegramLink" class="flex justify-center">
-              <button
-                @click="generateTelegramLink"
-                :disabled="telegramLoading"
-                class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Link2 :size="16" class="mr-2" />
-                {{ telegramLoading ? "Membuat Link..." : "Hubungkan Telegram" }}
-              </button>
-            </div>
-
-            <!-- Link Ready Section -->
-            <div v-else class="space-y-3">
-              <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p class="text-sm text-blue-800 mb-2">
-                  Klik tombol di bawah untuk membuka Telegram dan menghubungkan akun Anda:
-                </p>
-                <div class="flex items-center gap-2">
-                  <input
-                    type="text"
-                    :value="telegramLink"
-                    readonly
-                    class="flex-1 px-3 py-2 text-sm border border-blue-200 rounded bg-white"
-                  />
-                  <button
-                    @click="openTelegramLink"
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <ExternalLink :size="16" class="mr-2" />
-                    Buka Telegram
-                  </button>
-                </div>
-              </div>
-              <p class="text-xs text-gray-500 text-center">
-                Setelah membuka link, klik "Start" di Telegram. Halaman ini akan otomatis update.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>

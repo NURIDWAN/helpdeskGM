@@ -24,6 +24,7 @@ class UserResource extends JsonResource
             'position' => $this->position,
             'identity_number' => $this->identity_number,
             'phone_number' => $this->phone_number,
+            'telegram_chat_id' => $this->telegram_chat_id,
             'type' => $this->type,
             'roles' => $this->whenLoaded('roles', function () {
                 return $this->roles->pluck('name');
