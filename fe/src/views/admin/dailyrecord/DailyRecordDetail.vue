@@ -162,15 +162,15 @@ const processedUtilityReadings = computed(() => {
         prev = sameCategoryPrevs[0];
     }
     
-    // Opening + Closing = Total Pemakaian
-    const opening = prev ? parseFloat(prev.meter_value) : 0; 
-    const closing = parseFloat(reading.meter_value);
-    const usage = opening + closing;
+    // Opening = nilai saat ini, Closing = nilai sebelumnya, Usage = Opening - Closing
+    const closing = prev ? parseFloat(prev.meter_value) : 0; 
+    const opening = parseFloat(reading.meter_value);
+    const usage = opening - closing;
     
     return {
       ...reading,
-      opening: prev ? opening : (dailyRecord.value?.previous_readings ? 0 : null), 
-      closing: closing,
+      opening: opening,
+      closing: prev ? closing : (dailyRecord.value?.previous_readings ? 0 : null), 
       usage: usage,
       hasPrev: !!prev
     };
@@ -188,15 +188,15 @@ const processedElectricityReadings = computed(() => {
       p.electricity_meter_id === reading.electricity_meter_id
     );
     
-    // Opening + Closing = Total Pemakaian
-    const opening = prev ? parseFloat(prev.meter_value || 0) : 0;
-    const closing = parseFloat(reading.meter_value || 0);
-    const usage = opening + closing;
+    // Opening = nilai saat ini, Closing = nilai sebelumnya, Usage = Opening - Closing
+    const closing = prev ? parseFloat(prev.meter_value || 0) : 0;
+    const opening = parseFloat(reading.meter_value || 0);
+    const usage = opening - closing;
     
     return {
       ...reading,
-      opening: prev ? opening : (dailyRecord.value?.previous_readings ? 0 : null),
-      closing: closing,
+      opening: opening,
+      closing: prev ? closing : (dailyRecord.value?.previous_readings ? 0 : null),
       usage: usage
     };
   });
@@ -430,8 +430,8 @@ onMounted(() => {
                 <th class="text-left py-2 px-3 font-medium text-gray-600">Kategori</th>
                 <th class="text-left py-2 px-3 font-medium text-gray-600">Lokasi</th>
                 <th class="text-left py-2 px-3 font-medium text-gray-600">Detail</th>
-                <th class="text-right py-2 px-3 font-medium text-gray-600">Opening</th>
                 <th class="text-right py-2 px-3 font-medium text-gray-600">Closing</th>
+                <th class="text-right py-2 px-3 font-medium text-gray-600">Opening</th>
                 <th class="text-right py-2 px-3 font-medium text-gray-600">Pemakaian</th>
                 <th class="text-center py-2 px-3 font-medium text-gray-600">Foto</th>
               </tr>
@@ -464,10 +464,10 @@ onMounted(() => {
                   <span v-else>-</span>
                 </td>
                 <td class="py-2 px-3 text-right text-gray-600">
-                  {{ reading.opening !== null ? reading.opening : '-' }}
+                  {{ reading.closing !== null ? reading.closing : '-' }}
                 </td>
                 <td class="py-2 px-3 text-right font-medium text-gray-900">
-                  {{ reading.closing ?? "-" }}
+                  {{ reading.opening ?? "-" }}
                 </td>
                 <td class="py-2 px-3 text-right font-bold text-blue-600">
                   {{ reading.usage !== null ? reading.usage.toFixed(2) : '-' }}
@@ -498,8 +498,8 @@ onMounted(() => {
             <thead>
               <tr class="border-b border-gray-200 bg-gray-50">
                 <th class="text-left py-2 px-3 font-medium text-gray-600">Meter Info</th>
-                <th class="text-right py-2 px-3 font-medium text-gray-600">Opening</th>
                 <th class="text-right py-2 px-3 font-medium text-gray-600">Closing</th>
+                <th class="text-right py-2 px-3 font-medium text-gray-600">Opening</th>
                 <th class="text-right py-2 px-3 font-medium text-gray-600 font-bold">Pemakaian</th>
                 <th class="text-center py-2 px-3 font-medium text-gray-600">Foto</th>
               </tr>
@@ -519,10 +519,10 @@ onMounted(() => {
                   </div>
                 </td>
                 <td class="py-2 px-3 text-right text-gray-600">
-                  {{ reading.opening !== null ? reading.opening : '-' }}
+                  {{ reading.closing !== null ? reading.closing : '-' }}
                 </td>
                 <td class="py-2 px-3 text-right font-medium text-gray-900">
-                  {{ reading.closing ?? "-" }}
+                  {{ reading.opening ?? "-" }}
                 </td>
                 <td class="py-2 px-3 text-right font-bold text-blue-600">
                   {{ reading.usage !== null ? reading.usage.toFixed(2) : '-' }}
