@@ -575,25 +575,25 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $gasUsage = null;
 
                 if ($gasReading) {
-                    // Opening = meter_value yang diinput user (nilai hari ini)
+                    // Opening = meter_value yang diinput user (nilai hari ini, lebih besar)
                     $gasOpening = round($gasReading->meter_value, 2);
                     
-                    // Closing = USAGE (pemakaian) dari record sebelumnya
+                    // Closing = opening dari record sebelumnya (nilai kemarin, lebih kecil)
                     $prevGas = $previousClosings['gas'] ?? null;
                     
-                    if (is_array($prevGas) && isset($prevGas['usage'])) {
-                        $gasClosing = $prevGas['usage'];
+                    if (is_array($prevGas) && isset($prevGas['value'])) {
+                        $gasClosing = $prevGas['value'];
                     } else {
                         $gasClosing = 0;
                     }
 
-                    // Usage = Opening - Closing
+                    // Usage = Opening - Closing (positif karena Opening > Closing)
                     $gasUsage = round($gasOpening - $gasClosing, 2);
 
-                    // Update previous value untuk record berikutnya: simpan USAGE untuk jadi Closing berikutnya
+                    // Update previous value untuk record berikutnya
                     $currentLocation = $gasReading->location ?? '';
                     $previousClosings['gas'] = [
-                        'usage' => $gasUsage,
+                        'value' => $gasOpening,
                         'location' => $currentLocation
                     ];
                 }
@@ -607,18 +607,9 @@ class DailyRecordController extends Controller implements HasMiddleware
                     $waterOpening = round($waterReading->meter_value, 2);
                     $location = $waterReading->location ?? 'default';
 
-                    // Closing = USAGE (pemakaian) dari record sebelumnya dengan lokasi yang sama
+                    // Closing = opening dari record sebelumnya dengan lokasi yang sama
                     $normalizedLocation = trim(strtolower($location));
-                    $prevWater = $previousClosings['water'][$normalizedLocation] ?? null;
-                    
-                    // Extract usage from previous record
-                    $waterClosing = null;
-                    if (is_array($prevWater) && isset($prevWater['usage'])) {
-                        $waterClosing = $prevWater['usage'];
-                    } elseif (is_numeric($prevWater)) {
-                        // Backward compatibility
-                        $waterClosing = $prevWater;
-                    }
+                    $waterClosing = $previousClosings['water'][$normalizedLocation] ?? null;
 
                     // If exact match failed, try fallback (if previous record had only 1 water meter)
                     if ($waterClosing === null && isset($previousClosings['water']['_single_fallback'])) {
@@ -629,13 +620,11 @@ class DailyRecordController extends Controller implements HasMiddleware
                     }
                     
                     $waterClosing = $waterClosing ?? 0;
-                    // Usage = Opening - Closing
+                    // Usage = Opening - Closing (positif karena Opening > Closing)
                     $waterUsage = round($waterOpening - $waterClosing, 2);
 
-                    // Update previous value untuk record berikutnya: simpan USAGE untuk jadi Closing berikutnya
-                    $previousClosings['water'][$normalizedLocation] = [
-                        'usage' => $waterUsage
-                    ];
+                    // Update previous value untuk record berikutnya
+                    $previousClosings['water'][$normalizedLocation] = $waterOpening;
 
                     $waterData[] = [
                         'location' => $waterReading->location,
@@ -648,7 +637,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                 
                 // Update fallback for next iteration if this record has exactly 1 water meter
                 if ($waterReadingsSorted->count() === 1) {
-                     $previousClosings['water']['_single_fallback'] = $waterData[0]['usage'] ?? null;
+                     $previousClosings['water']['_single_fallback'] = $waterData[0]['opening'] ?? null;
                 }
 
                 // Get electricity readings (can be multiple) - Merge legacy and multi-meter
@@ -669,13 +658,13 @@ class DailyRecordController extends Controller implements HasMiddleware
                         // Opening = meter_value yang diinput user (nilai hari ini)
                         $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Closing = USAGE (pemakaian) dari record sebelumnya dengan electricity_meter_id yang sama
-                        $closing = $previousClosings['electricity'][$meterId]['usage'] ?? null;
+                        // Closing = opening dari record sebelumnya dengan electricity_meter_id yang sama
+                        $closing = $previousClosings['electricity'][$meterId]['value'] ?? null;
 
                         // Jika masih null, gunakan 0
                         $closing = $closing ?? 0;
 
-                        // Calculate usage: Opening - Closing
+                        // Calculate usage: Opening - Closing (positif karena Opening > Closing)
                         $usage = null;
                         if ($opening !== null) {
                             $usage = round($opening - $closing, 2);
@@ -692,9 +681,9 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
-                        // Update previous value: simpan USAGE untuk jadi Closing berikutnya
+                        // Update previous value untuk record berikutnya
                         $previousClosings['electricity'][$meterId] = [
-                            'usage' => $usage,
+                            'value' => $opening,
                         ];
                     }
                 } else {
@@ -707,8 +696,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                         // Opening = meter_value yang diinput user (nilai hari ini)
                         $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Closing = USAGE (pemakaian) dari record sebelumnya dengan lokasi yang sama
-                        $closing = $previousClosings['electricity'][$location]['usage'] ?? null;
+                        // Closing = opening dari record sebelumnya dengan lokasi yang sama
+                        $closing = $previousClosings['electricity'][$location]['value'] ?? null;
                         $closing = $closing ?? 0;
 
                         // Calculate usage: Opening - Closing
@@ -728,9 +717,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
-                        // Update previous value: simpan USAGE untuk jadi Closing berikutnya
                         $previousClosings['electricity'][$location] = [
-                            'usage' => $usage,
+                            'value' => $opening,
                         ];
                     }
                 }
