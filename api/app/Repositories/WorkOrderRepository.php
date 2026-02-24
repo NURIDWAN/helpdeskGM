@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Interfaces\WorkOrderRepositoryInterface;
 use App\Models\WorkOrder;
 use App\Enums\WorkOrderStatus;
+use App\Models\Branch;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = WorkOrder::with(['ticket', 'assignedUser'])
+        $query = WorkOrder::with(['ticket', 'assignedUser', 'branch'])
             ->where(function ($query) use ($search) {
                 if ($search) {
                     $query->search($search);
@@ -73,7 +74,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = WorkOrder::with(['ticket', 'assignedUser'])
+        $query = WorkOrder::with(['ticket', 'assignedUser', 'branch'])
             ->where('id', $id);
 
         if ($user && $user->can('work-order-view-all')) {
@@ -97,11 +98,12 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
     {
         return DB::transaction(function () use ($data) {
             $workOrder = new WorkOrder();
-            $workOrder->ticket_id = $data['ticket_id'];
+            $workOrder->ticket_id = $data['ticket_id'] ?? null;
+            $workOrder->branch_id = $data['branch_id'] ?? null;
             // Keep assigned_to for backward compatibility (first staff if array provided)
             $assignedStaff = $data['assigned_staff'] ?? [];
             $workOrder->assigned_to = !empty($assignedStaff) ? $assignedStaff[0] : ($data['assigned_to'] ?? null);
-            $workOrder->number = $data['number'] ?? $this->generateWorkOrderNumber($workOrder->ticket_id);
+            $workOrder->number = $data['number'] ?? $this->generateWorkOrderNumber($workOrder->ticket_id, $workOrder->branch_id);
             $workOrder->description = $data['description'] ?? null;
             $workOrder->status = $data['status'] ?? WorkOrderStatus::PENDING;
 
@@ -122,7 +124,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                 $workOrder->assignedStaff()->sync($assignedStaff);
             }
 
-            $workOrder = $workOrder->load(['ticket.branch', 'assignedUser', 'assignedStaff']);
+            $workOrder = $workOrder->load(['ticket.branch', 'branch', 'assignedUser', 'assignedStaff']);
 
             // Send notification to assigned technicians
             try {
@@ -203,7 +205,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
                 }
             }
 
-            return $workOrder->load(['ticket', 'assignedUser', 'assignedStaff']);
+            return $workOrder->load(['ticket', 'branch', 'assignedUser', 'assignedStaff']);
         });
     }
 
@@ -220,7 +222,7 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         $user = Auth::user();
         /** @var \App\Models\User|null $user */
 
-        $query = WorkOrder::with(['ticket', 'assignedUser'])
+        $query = WorkOrder::with(['ticket', 'assignedUser', 'branch'])
             ->where('ticket_id', $ticketId);
 
         if ($user && $user->can('work-order-view-all')) {
@@ -240,55 +242,60 @@ class WorkOrderRepository implements WorkOrderRepositoryInterface
         return $query->first();
     }
 
-    private function generateWorkOrderNumber(?int $ticketId): string
+    /**
+     * Generate work order number
+     * - If linked to a ticket: uses the same code as ticket
+     * - If standalone (no ticket): generates {BRANCH_CODE}{MM}{YYYY}{NNNN}
+     *   where NNNN is continued from the last 4 digits of any existing work order number
+     * 
+     * Format: {BRANCH_CODE}{MM}{YYYY}{NNNN}
+     * Example: HGAM0120260001
+     * 
+     * @param int|null $ticketId
+     * @param int|null $branchId
+     * @return string
+     */
+    private function generateWorkOrderNumber(?int $ticketId, ?int $branchId = null): string
     {
-        // Roman month mapping
-        $romanMonths = [
-            1 => 'I',
-            2 => 'II',
-            3 => 'III',
-            4 => 'IV',
-            5 => 'V',
-            6 => 'VI',
-            7 => 'VII',
-            8 => 'VIII',
-            9 => 'IX',
-            10 => 'X',
-            11 => 'XI',
-            12 => 'XII'
-        ];
-        $month = $romanMonths[(int) date('n')];
+        // If linked to a ticket, use the same code as ticket
+        if ($ticketId) {
+            $ticket = Ticket::find($ticketId);
+            if ($ticket && $ticket->code) {
+                return $ticket->code;
+            }
+        }
+
+        // Standalone SPK - generate number with sequence from last work order
+        $month = date('m');
         $year = date('Y');
 
-        // Get branch code and unique code
+        // Get branch code from the selected branch
         $branchCode = 'XXXX';
-        $uniqueCode = null;
-
-        if ($ticketId) {
-            $ticket = Ticket::with('branch')->find($ticketId);
-
-            // Get branch code from ticket's branch
-            if ($ticket?->branch?->code) {
-                $branchCode = $ticket->branch->code;
-            }
-
-            // Extract unique code from ticket code (e.g., "T-NO.ABC/SPK/JKT1/I/2026" -> "ABC")
-            if ($ticket?->code) {
-                // Pattern: T-NO.XXX/...
-                if (preg_match('/T-NO\.([A-Z0-9]{3})\//', $ticket->code, $matches)) {
-                    $uniqueCode = $matches[1];
-                }
+        if ($branchId) {
+            $branch = Branch::find($branchId);
+            if ($branch && $branch->code) {
+                $branchCode = $branch->code;
             }
         }
 
-        // If no ticket or couldn't extract code, generate unique code
-        if (!$uniqueCode) {
-            do {
-                $uniqueCode = strtoupper(Str::random(3));
-                $testNumber = "SPK-NO.{$uniqueCode}/{$branchCode}/{$month}/{$year}";
-            } while (WorkOrder::where('number', $testNumber)->exists());
+        // Get the last sequence number from any existing work order number
+        // Extract the last 4 digits from the most recent work order's number
+        $lastWorkOrder = WorkOrder::whereNotNull('number')
+            ->where('number', '!=', '')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastWorkOrder && $lastWorkOrder->number && strlen($lastWorkOrder->number) >= 4) {
+            // Extract last 4 characters and convert to integer
+            $lastFourDigits = substr($lastWorkOrder->number, -4);
+            if (is_numeric($lastFourDigits)) {
+                $nextSequence = (int) $lastFourDigits + 1;
+            }
         }
 
-        return "SPK-NO.{$uniqueCode}/{$branchCode}/{$month}/{$year}";
+        $sequence = str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
+
+        return "{$branchCode}{$month}{$year}{$sequence}";
     }
 }

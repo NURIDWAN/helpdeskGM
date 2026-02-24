@@ -14,6 +14,7 @@ class WorkOrder extends Model
     use HasFactory;
     protected $fillable = [
         'ticket_id',
+        'branch_id',
         'assigned_to', // Keep for backward compatibility, will be deprecated
         'number',
         'description',
@@ -57,6 +58,14 @@ class WorkOrder extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class)->withDefault();
+    }
+
+    /**
+     * Get the branch for standalone work orders (without ticket).
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class)->withDefault();
     }
 
     /**

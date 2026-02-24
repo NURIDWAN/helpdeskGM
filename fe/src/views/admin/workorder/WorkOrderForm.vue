@@ -3,6 +3,7 @@ import { reactive, onMounted, computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useWorkOrderStore } from "@/stores/workOrder";
 import { useTicketStore } from "@/stores/ticket";
+import { useBranchStore } from "@/stores/branch";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
 import {
@@ -13,6 +14,7 @@ import {
   MessageSquare,
   CheckCircle2,
   User,
+  Building,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "@/stores/user";
@@ -28,6 +30,10 @@ const ticketStore = useTicketStore();
 const { tickets } = storeToRefs(ticketStore);
 const { fetchTickets } = ticketStore;
 
+const branchStore = useBranchStore();
+const { branches } = storeToRefs(branchStore);
+const { fetchBranches } = branchStore;
+
 const userStore = useUserStore();
 const { fetchUsers } = userStore;
 
@@ -39,6 +45,7 @@ const workOrderId = computed(() => route.params.id);
 
 const form = reactive({
   ticket_id: null,
+  branch_id: null,
   assigned_staff: [], // Changed to array for multi-select
   description: null,
   status: "pending",
@@ -52,6 +59,9 @@ const form = reactive({
   purchase_date: null,
 });
 
+// Computed to check if standalone mode (no ticket selected)
+const isStandalone = computed(() => !form.ticket_id);
+
 const statuses = [
   { value: "pending", label: "Pending" },
   { value: "in_progress", label: "In Progress" },
@@ -62,6 +72,7 @@ const handleSubmit = async () => {
   try {
     const payload = {
       ticket_id: form.ticket_id || null,
+      branch_id: form.ticket_id ? null : (form.branch_id || null), // Only send branch_id if standalone
       assigned_staff: form.assigned_staff.map(id => Number(id)), // Send as array
       description: form.description || null,
       status: form.status,
@@ -95,6 +106,7 @@ const loadWorkOrderData = async () => {
       const workOrder = await fetchWorkOrder(workOrderId.value);
       if (workOrder) {
         form.ticket_id = workOrder.ticket_id;
+        form.branch_id = workOrder.branch_id;
         // Load assigned_staff from response (array of user objects or IDs)
         if (workOrder.assigned_staff && Array.isArray(workOrder.assigned_staff)) {
           form.assigned_staff = workOrder.assigned_staff.map(s => String(s.id || s));
@@ -125,6 +137,14 @@ const loadTicketsData = async () => {
     await fetchTickets();
   } catch (error) {
     console.error("Error loading tickets:", error);
+  }
+};
+
+const loadBranchesData = async () => {
+  try {
+    await fetchBranches();
+  } catch (error) {
+    console.error("Error loading branches:", error);
   }
 };
 
@@ -171,40 +191,52 @@ const selectedTicket = computed(() => {
   return tickets.value.find((t) => String(t.id) === String(form.ticket_id));
 });
 
-// Computed property to sort staff - prioritize ticket's branch staff at top
+// Computed property to sort staff - prioritize ticket's or selected branch staff at top
 const sortedStaffUsers = computed(() => {
-  if (!selectedTicket.value || !selectedTicket.value.branch_id) {
-    // If no ticket selected or ticket has no branch, show all staff as-is
+  let branchId = null;
+  
+  if (selectedTicket.value && selectedTicket.value.branch_id) {
+    branchId = selectedTicket.value.branch_id;
+  } else if (form.branch_id) {
+    branchId = form.branch_id;
+  }
+  
+  if (!branchId) {
+    // If no branch context, show all staff as-is
     return staffUsers.value;
   }
   
   // Sort staff: same branch first, then others
-  const branchId = selectedTicket.value.branch_id;
   const sorted = [...staffUsers.value].sort((a, b) => {
-    const aMatch = a.branch_id === branchId ? 0 : 1;
-    const bMatch = b.branch_id === branchId ? 0 : 1;
+    const aMatch = String(a.branch_id) === String(branchId) ? 0 : 1;
+    const bMatch = String(b.branch_id) === String(branchId) ? 0 : 1;
     return aMatch - bMatch;
   });
   
   return sorted;
 });
 
-// Function to auto-select all staff from ticket's branch
+// Function to auto-select all staff from ticket's or selected branch
 const autoSelectBranchStaff = () => {
   if (isEdit.value) return; // Don't auto-select when editing
-  if (!form.ticket_id) return;
   if (staffUsers.value.length === 0) return;
   
-  const ticket = tickets.value.find((t) => String(t.id) === String(form.ticket_id));
-  if (!ticket) return;
+  let branchId = null;
   
-  // Get branch ID - could be ticket.branch_id or ticket.branch.id
-  const ticketBranchId = ticket.branch_id || ticket.branch?.id;
-  if (!ticketBranchId) return;
+  if (form.ticket_id) {
+    const ticket = tickets.value.find((t) => String(t.id) === String(form.ticket_id));
+    if (ticket) {
+      branchId = ticket.branch_id || ticket.branch?.id;
+    }
+  } else if (form.branch_id) {
+    branchId = form.branch_id;
+  }
+  
+  if (!branchId) return;
   
   // Find ALL staff from same branch (compare as strings to avoid type mismatch)
   const branchStaff = staffUsers.value.filter(
-    (u) => String(u.branch_id) === String(ticketBranchId)
+    (u) => String(u.branch_id) === String(branchId)
   );
   
   if (branchStaff.length > 0) {
@@ -218,6 +250,16 @@ watch(
   () => form.ticket_id,
   (newTicketId) => {
     if (newTicketId && !isEdit.value) {
+      autoSelectBranchStaff();
+    }
+  }
+);
+
+// Watch branch selection for standalone SPK to auto-assign staff
+watch(
+  () => form.branch_id,
+  (newBranchId) => {
+    if (newBranchId && !form.ticket_id && !isEdit.value) {
       autoSelectBranchStaff();
     }
   }
@@ -240,6 +282,7 @@ const getTicketLabel = (t) => {
 
 onMounted(() => {
   loadTicketsData();
+  loadBranchesData();
   loadWorkOrderData();
   loadUsersData();
 });
@@ -321,6 +364,30 @@ onMounted(() => {
             ]"
             :disabled="isEdit"
           />
+        </div>
+
+        <!-- Branch for Standalone SPK -->
+        <div v-if="isStandalone && !isEdit" class="lg:col-span-2">
+          <FormField
+            v-model="form.branch_id"
+            id="branch_id"
+            name="branch_id"
+            label="Cabang"
+            :label-icon="Building"
+            :error="error?.branch_id?.join(', ')"
+            :required="true"
+            type="select"
+            placeholder="Pilih cabang untuk SPK standalone"
+            :options="
+              branches.map((b) => ({
+                value: String(b.id),
+                label: b.name,
+              }))
+            "
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Wajib dipilih untuk SPK tanpa ticket. Kode cabang akan digunakan dalam nomor SPK.
+          </p>
         </div>
 
         <!-- Ticket Detail Preview -->

@@ -382,6 +382,13 @@ class TicketRepository implements TicketRepositoryInterface
         });
     }
 
+    /**
+     * Generate ticket code with format: {BRANCH_CODE}{MM}{YYYY}{NNNN}
+     * Example: HGAM0120260001
+     * 
+     * @param int|null $branchId
+     * @return string
+     */
     private function generateTicketCode(?int $branchId): string
     {
         $branchCode = 'XXXX';
@@ -392,33 +399,14 @@ class TicketRepository implements TicketRepositoryInterface
             }
         }
 
-        $month = $this->getRomanMonth(date('n'));
-        $year = date('Y');
+        $month = date('m');  // 01-12
+        $year = date('Y');   // 2026
 
-        do {
-            $random = strtoupper(Str::random(3));
-            $code = "T-NO.{$random}/SPK/{$branchCode}/{$month}/{$year}";
-        } while (Ticket::where('code', $code)->exists());
+        // Get next sequential number (global, never resets)
+        $lastTicket = Ticket::orderBy('id', 'desc')->first();
+        $nextNumber = $lastTicket ? ($lastTicket->id + 1) : 1;
+        $sequence = str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
-        return $code;
-    }
-
-    private function getRomanMonth($month)
-    {
-        $map = [
-            1 => 'I',
-            2 => 'II',
-            3 => 'III',
-            4 => 'IV',
-            5 => 'V',
-            6 => 'VI',
-            7 => 'VII',
-            8 => 'VIII',
-            9 => 'IX',
-            10 => 'X',
-            11 => 'XI',
-            12 => 'XII'
-        ];
-        return $map[$month] ?? $month;
+        return "{$branchCode}{$month}{$year}{$sequence}";
     }
 }

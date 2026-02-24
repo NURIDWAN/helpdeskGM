@@ -394,10 +394,10 @@ onMounted(() => {
             name="code"
             label="Kode Cabang"
             :label-icon="Hash"
-            placeholder="Contoh: BDG1"
+            placeholder="Contoh: BDG001"
             :error="error?.code?.join(', ')"
-            :maxlength="4"
-            helper-text="Kode unik 4 karakter"
+            :maxlength="6"
+            helper-text="Kode unik maksimal 6 karakter"
             :required="true"
             @input="form.code = form.code.toUpperCase()"
           />

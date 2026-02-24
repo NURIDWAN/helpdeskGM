@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\BranchResource;
 use App\Http\Resources\TicketResource;
 use App\Http\Resources\UserResource;
 
@@ -19,6 +20,7 @@ class WorkOrderResource extends JsonResource
         return [
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
+            'branch_id' => $this->branch_id,
             'assigned_to' => $this->assigned_to, // Deprecated, use assigned_staff
             'number' => $this->number,
             'description' => $this->description,
@@ -34,6 +36,7 @@ class WorkOrderResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'ticket' => new TicketResource($this->whenLoaded('ticket')),
+            'branch' => new BranchResource($this->whenLoaded('branch')),
             'assigned_user' => new UserResource($this->whenLoaded('assignedUser')), // Deprecated
             'assigned_staff' => UserResource::collection($this->whenLoaded('assignedStaff')),
         ];

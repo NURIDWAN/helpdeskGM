@@ -14,7 +14,7 @@ class BranchStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'size:4', 'unique:branches,code'],
+            'code' => ['required', 'string', 'max:6', 'unique:branches,code'],
             'name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],

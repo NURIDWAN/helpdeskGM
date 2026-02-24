@@ -14,7 +14,7 @@ class BranchUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['sometimes', 'string', 'size:4', 'unique:branches,code,' . $this->route('branch')],
+            'code' => ['sometimes', 'string', 'max:6', 'unique:branches,code,' . $this->route('branch')],
             'name' => ['sometimes', 'string', 'max:255'],
             'address' => ['sometimes', 'string', 'max:255'],
             'logo' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],

@@ -24,6 +24,7 @@ class WorkOrderStoreRequest extends FormRequest
     {
         return [
             'ticket_id' => ['nullable', 'exists:tickets,id'],
+            'branch_id' => ['required_without:ticket_id', 'nullable', 'exists:branches,id'],
             'assigned_to' => ['nullable', 'exists:users,id'], // Deprecated, kept for backward compatibility
             'assigned_staff' => ['required', 'array', 'min:1'],
             'assigned_staff.*' => ['exists:users,id'],
@@ -45,6 +46,7 @@ class WorkOrderStoreRequest extends FormRequest
     {
         return [
             'ticket_id' => 'Ticket',
+            'branch_id' => 'Cabang',
             'assigned_to' => 'Staff',
             'assigned_staff' => 'Teknisi',
             'assigned_staff.*' => 'Teknisi',

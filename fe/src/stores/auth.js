@@ -31,9 +31,9 @@ export const useAuthStore = defineStore("auth", {
 
                 // Redirect based on admin panel access permission
                 if (response.data.data.permissions.includes('system-admin-panel-access')) {
-                    router.push({ name: 'admin.dashboard' })
+                    await router.push({ name: 'admin.dashboard' })
                 } else {
-                    router.push({ name: 'app.dashboard' })
+                    await router.push({ name: 'app.dashboard' })
                 }
             } catch (error) {
                 this.error = handleError(error)
@@ -70,7 +70,7 @@ export const useAuthStore = defineStore("auth", {
                 this.user = null
                 this.error = null
 
-                router.push({ name: 'login' })
+                await router.push({ name: 'login' })
             } catch (error) {
                 this.error = handleError(error)
             } finally {

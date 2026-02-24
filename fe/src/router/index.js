@@ -403,11 +403,13 @@ const router = createRouter({
           path: 'login',
           name: 'login',
           component: Login,
+          meta: { requiresUnauth: true },
         },
         {
           path: 'register',
           name: 'register',
           component: Register,
+          meta: { requiresUnauth: true },
         },
       ],
     },
