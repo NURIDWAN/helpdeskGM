@@ -1,0 +1,13 @@
+No duplicate ticket codes,0,0
+No tickets with NULL user_id,0,0
+No tickets with invalid status,0,0
+No tickets with invalid priority,0,0
+Orphan tickets (user not found),0,0
+Orphan tickets (category not found),0,0
+No work-reports with invalid status,0,0
+Orphan work-reports (user not found),0,0
+Orphan work-reports (branch not found),0,0
+Orphan work-orders (ticket not found),0,0
+No tokens for non-existent users,0,0
+No model_has_roles for non-existent users,0,0
+No orphan role_has_permissions,0,0

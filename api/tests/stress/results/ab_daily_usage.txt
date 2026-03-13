@@ -1,0 +1,47 @@
+This is ApacheBench, Version 2.3 <$Revision: 1879490 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking api.ddev.site (be patient).....done
+
+
+Server Software:        nginx
+Server Hostname:        api.ddev.site
+Server Port:            443
+SSL/TLS Protocol:       TLSv1.2,ECDHE-RSA-AES128-GCM-SHA256,2048,128
+Server Temp Key:        X25519 253 bits
+TLS Server Name:        api.ddev.site
+
+Document Path:          /api/v1/daily-records/report/daily-usage
+Document Length:        106 bytes
+
+Concurrency Level:      20
+Time taken for tests:   2.581 seconds
+Complete requests:      100
+Failed requests:        0
+Non-2xx responses:      100
+Keep-Alive requests:    0
+Total transferred:      29000 bytes
+HTML transferred:       10600 bytes
+Requests per second:    38.75 [#/sec] (mean)
+Time per request:       516.185 [ms] (mean)
+Time per request:       25.809 [ms] (mean, across all concurrent requests)
+Transfer rate:          10.97 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        6   33  34.0     18     130
+Processing:    57  438 113.5    472     620
+Waiting:       44  437 114.1    471     620
+Total:         63  472 102.3    491     651
+
+Percentage of the requests served within a certain time (ms)
+  50%    491
+  66%    521
+  75%    535
+  80%    547
+  90%    576
+  95%    587
+  98%    644
+  99%    651
+ 100%    651 (longest request)

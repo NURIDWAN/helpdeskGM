@@ -181,6 +181,9 @@ class TicketRepository implements TicketRepositoryInterface
 
     public function create(array $data)
     {
+        // The second argument (5) tells Laravel to retry the transaction
+        // up to 5 times on deadlock (SQLSTATE 40001), which can occur when
+        // multiple requests race for the SELECT MAX ... FOR UPDATE lock.
         return DB::transaction(function () use ($data) {
             $ticket = new Ticket();
             $ticket->user_id = $data['user_id'];
@@ -242,7 +245,7 @@ class TicketRepository implements TicketRepositoryInterface
             }
 
             return $ticket;
-        });
+        }, 5);
     }
 
     public function update(string $id, array $data)
@@ -386,6 +389,8 @@ class TicketRepository implements TicketRepositoryInterface
      * Generate ticket code with format: {BRANCH_CODE}{MM}{YYYY}{NNNN}
      * Example: HGAM0120260001
      * 
+     * Uses SELECT MAX(id) FOR UPDATE to prevent race conditions under concurrent inserts.
+     *
      * @param int|null $branchId
      * @return string
      */
@@ -402,9 +407,11 @@ class TicketRepository implements TicketRepositoryInterface
         $month = date('m');  // 01-12
         $year = date('Y');   // 2026
 
-        // Get next sequential number (global, never resets)
-        $lastTicket = Ticket::orderBy('id', 'desc')->first();
-        $nextNumber = $lastTicket ? ($lastTicket->id + 1) : 1;
+        // Lock the latest ticket row to serialise concurrent code generation.
+        // lockForUpdate() acquires a row-level X lock, so only one transaction
+        // can read this value at a time. If the table is empty, MAX returns NULL.
+        $maxId = Ticket::lockForUpdate()->max('id') ?? 0;
+        $nextNumber = $maxId + 1;
         $sequence = str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
         return "{$branchCode}{$month}{$year}{$sequence}";
