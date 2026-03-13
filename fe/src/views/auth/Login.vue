@@ -20,7 +20,7 @@ const showPassword = ref(false);
 const handleSubmit = async () => {
   await login(form.value);
 
-  if (error.value === "Unauthorized") {
+  if (error.value) {
     form.value.password = null;
     toast.error("Email atau password salah");
   }

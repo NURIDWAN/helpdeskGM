@@ -76,12 +76,18 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Ticket Detail',
+            permission: 'ticket-list',
           },
         },
         {
           path: 'ticket/create',
           name: 'app.ticket.create',
           component: AppTicketCreate,
+          meta: {
+            requiresAuth: true,
+            title: 'Buat Tiket',
+            permission: 'ticket-create',
+          },
         },
         {
           path: 'profile',
@@ -93,31 +99,31 @@ const router = createRouter({
           path: 'daily-records',
           name: 'app.daily-records',
           component: DailyRecordList,
-          meta: { requiresAuth: true, title: 'Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Laporan Harian Cabang', permission: 'daily-record-list' }
         },
         {
           path: 'daily-record/create',
           name: 'app.daily-record.create',
           component: DailyRecordForm,
-          meta: { requiresAuth: true, title: 'Tambah Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Tambah Laporan Harian Cabang', permission: 'daily-record-create' }
         },
         {
           path: 'daily-record/:id/edit',
           name: 'app.daily-record.edit',
           component: DailyRecordForm,
-          meta: { requiresAuth: true, title: 'Edit Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Edit Laporan Harian Cabang', permission: 'daily-record-edit' }
         },
         {
           path: 'daily-record/:id',
           name: 'app.daily-record.detail',
           component: DailyRecordDetail,
-          meta: { requiresAuth: true, title: 'Detail Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Detail Laporan Harian Cabang', permission: 'daily-record-list' }
         },
         {
           path: 'daily-usage-report',
           name: 'app.daily-usage-report',
           component: DailyUsageReport,
-          meta: { requiresAuth: true, title: 'Laporan Daily Usage' }
+          meta: { requiresAuth: true, title: 'Laporan Daily Usage', permission: 'daily-record-list' }
         },
       ],
     },
@@ -132,6 +138,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Dashboard',
+            permissions: ['dashboard-view', 'dashboard-view-metrics', 'dashboard-view-charts', 'dashboard-view-staff-rankings', 'dashboard-view-trends'],
           },
         },
         {
@@ -181,6 +188,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Kategori Tiket',
+            permissions: ['ticket-category-list', 'ticket-category-create', 'ticket-category-edit', 'ticket-category-delete'],
           },
         },
         {
@@ -190,6 +198,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Tambah Kategori Tiket',
+            permission: 'ticket-category-create',
           },
         },
         {
@@ -199,6 +208,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Edit Kategori Tiket',
+            permission: 'ticket-category-edit',
           },
         },
         {
@@ -238,6 +248,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Data Ticket',
+            permissions: ['ticket-list', 'ticket-create', 'ticket-edit', 'ticket-delete', 'ticket-update-status'],
           },
         },
         {
@@ -247,6 +258,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Tambah Ticket',
+            permission: 'ticket-create',
           },
         },
         {
@@ -256,6 +268,7 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Edit Ticket',
+            permission: 'ticket-edit',
           },
         },
         {
@@ -265,103 +278,104 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             title: 'Detail Ticket',
+            permission: 'ticket-list',
           },
         },
         {
           path: 'work-orders',
           name: 'admin.workorders',
           component: WorkOrderList,
-          meta: { requiresAuth: true, title: 'Data Work Order' }
+          meta: { requiresAuth: true, title: 'Data Work Order', permissions: ['work-order-list', 'work-order-create', 'work-order-edit', 'work-order-delete', 'work-order-update-status'] }
         },
         {
           path: 'work-order/create',
           name: 'admin.workorder.create',
           component: WorkOrderForm,
-          meta: { requiresAuth: true, title: 'Tambah Work Order' }
+          meta: { requiresAuth: true, title: 'Tambah Work Order', permission: 'work-order-create' }
         },
         {
           path: 'work-order/:id/edit',
           name: 'admin.workorder.edit',
           component: WorkOrderForm,
-          meta: { requiresAuth: true, title: 'Edit Work Order' }
+          meta: { requiresAuth: true, title: 'Edit Work Order', permission: 'work-order-edit' }
         },
         {
           path: 'work-order/:id',
           name: 'admin.workorder.detail',
           component: WorkOrderDetail,
-          meta: { requiresAuth: true, title: 'Detail Work Order' }
+          meta: { requiresAuth: true, title: 'Detail Work Order', permission: 'work-order-list' }
         },
         {
           path: 'work-reports',
           name: 'admin.workreports',
           component: WorkReportList,
-          meta: { requiresAuth: true, title: 'Data Laporan Kerja' }
+          meta: { requiresAuth: true, title: 'Data Laporan Kerja', permissions: ['work-report-list', 'work-report-create', 'work-report-edit', 'work-report-delete'] }
         },
         {
           path: 'work-report/create',
           name: 'admin.workreport.create',
           component: WorkReportForm,
-          meta: { requiresAuth: true, title: 'Tambah Laporan Kerja' }
+          meta: { requiresAuth: true, title: 'Tambah Laporan Kerja', permission: 'work-report-create' }
         },
         {
           path: 'work-report/:id/edit',
           name: 'admin.workreport.edit',
           component: WorkReportForm,
-          meta: { requiresAuth: true, title: 'Edit Laporan Kerja' }
+          meta: { requiresAuth: true, title: 'Edit Laporan Kerja', permission: 'work-report-edit' }
         },
         {
           path: 'work-report/:id',
           name: 'admin.workreport.detail',
           component: WorkReportDetail,
-          meta: { requiresAuth: true, title: 'Detail Laporan Kerja' }
+          meta: { requiresAuth: true, title: 'Detail Laporan Kerja', permission: 'work-report-list' }
         },
         {
           path: 'daily-records',
           name: 'admin.daily-records',
           component: DailyRecordList,
-          meta: { requiresAuth: true, title: 'Data Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Data Laporan Harian Cabang', permissions: ['daily-record-list', 'daily-record-create', 'daily-record-edit', 'daily-record-delete'] }
         },
         {
           path: 'daily-record/create',
           name: 'admin.daily-record.create',
           component: DailyRecordForm,
-          meta: { requiresAuth: true, title: 'Tambah Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Tambah Laporan Harian Cabang', permission: 'daily-record-create' }
         },
         {
           path: 'daily-record/:id/edit',
           name: 'admin.daily-record.edit',
           component: DailyRecordForm,
-          meta: { requiresAuth: true, title: 'Edit Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Edit Laporan Harian Cabang', permission: 'daily-record-edit' }
         },
         {
           path: 'daily-record/:id',
           name: 'admin.daily-record.detail',
           component: DailyRecordDetail,
-          meta: { requiresAuth: true, title: 'Detail Laporan Harian Cabang' }
+          meta: { requiresAuth: true, title: 'Detail Laporan Harian Cabang', permission: 'daily-record-list' }
         },
         {
           path: 'daily-usage-report',
           name: 'admin.daily-usage-report',
           component: DailyUsageReport,
-          meta: { requiresAuth: true, title: 'Laporan Daily Usage' }
+          meta: { requiresAuth: true, title: 'Laporan Daily Usage', permission: 'daily-record-list' }
         },
         {
           path: 'job-templates',
           name: 'admin.job-templates',
           component: JobTemplateList,
-          meta: { requiresAuth: true, title: 'Template Job' }
+          meta: { requiresAuth: true, title: 'Template Job', permissions: ['job-template-list', 'job-template-create', 'job-template-edit', 'job-template-delete'] }
         },
         {
           path: 'job-template/create',
           name: 'admin.job-template.create',
           component: JobTemplateForm,
-          meta: { requiresAuth: true, title: 'Tambah Template Job' }
+          meta: { requiresAuth: true, title: 'Tambah Template Job', permission: 'job-template-create' }
         },
         {
           path: 'job-template/:id/edit',
           name: 'admin.job-template.edit',
           component: JobTemplateForm,
-          meta: { requiresAuth: true, title: 'Edit Template Job' }
+          meta: { requiresAuth: true, title: 'Edit Template Job', permission: 'job-template-edit' }
         },
         {
           path: 'roles',
@@ -521,6 +535,15 @@ router.beforeEach(async (to, from, next) => {
     }
   } else if (to.meta.requiresUnauth && authStore.token) {
     // Redirect based on permission when already authenticated
+    // Ensure user data is loaded before reading permissions
+    if (!authStore.user) {
+      try {
+        await authStore.checkAuth()
+      } catch {
+        next()
+        return
+      }
+    }
     const userPermissions = authStore.user?.permissions || []
     const hasAdminPanelAccess = userPermissions.includes('system-admin-panel-access')
     next({ name: hasAdminPanelAccess ? 'admin.dashboard' : 'app.dashboard' })

@@ -54,7 +54,7 @@ class AuthRepository implements AuthRepositoryInterface
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json(['message' => $e->getMessage()], 500);
+            throw new \Exception($e->getMessage(), $e->getCode() ?: 500);
         }
     }
 

@@ -13,7 +13,7 @@ export const useAuthStore = defineStore("auth", {
     }),
     getters: {
         token: () => Cookies.get('token'),
-        isAuthenticated: (state) => !!state.user,
+        isAuthenticated: () => !!Cookies.get('token'),
     },
     actions: {
         async login(credentials) {
@@ -25,7 +25,7 @@ export const useAuthStore = defineStore("auth", {
 
                 const token = response.data.data.token
 
-                Cookies.set('token', token)
+                Cookies.set('token', token, { expires: 7, sameSite: 'Lax' })
 
                 this.success = response.data.message
 
