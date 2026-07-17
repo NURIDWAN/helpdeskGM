@@ -15,7 +15,15 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         $admin = Role::where('name', 'admin')->first();
-        $admin->syncPermissions(Permission::all());
+        // Admin gets all permissions EXCEPT role-create/edit/delete, whatsapp-setting-*, user-activity-*
+        $adminPermissions = Permission::all()->filter(function ($permission) {
+            if (in_array($permission->name, ['role-create', 'role-edit', 'role-delete'])) {
+                return false;
+            }
+            return !str_starts_with($permission->name, 'whatsapp-setting-') &&
+                !str_starts_with($permission->name, 'user-activity-');
+        });
+        $admin->syncPermissions($adminPermissions);
 
         $staff = Role::where('name', 'staff')->first();
         $staff->syncPermissions(
@@ -23,6 +31,7 @@ class RolePermissionSeeder extends Seeder
                 $q->where('name', 'like', 'ticket-%')
                     ->orWhere('name', 'like', 'work-order-%')
                     ->orWhere('name', 'like', 'work-report-%')
+                    ->orWhere('name', 'like', 'form-permintaan-%')
                     ->orWhere('name', 'branch-list')
                     ->orWhere('name', 'job-template-list')
                     ->orWhere('name', 'dashboard-menu')
@@ -43,6 +52,7 @@ class RolePermissionSeeder extends Seeder
                     'work-order-view-all',
                     'work-report-view-all',
                     'dashboard-view-staff-rankings',
+                    'form-permintaan-create',
                 ])
                 ->get()
         );
@@ -53,6 +63,7 @@ class RolePermissionSeeder extends Seeder
                 $q->where('name', 'like', 'ticket-%')
                     ->orWhere('name', 'like', 'branch-list')
                     ->orWhere('name', 'like', 'daily-record-%')
+                    ->orWhere('name', 'like', 'form-permintaan-%')
                     ->orWhere('name', 'like', 'utility-reading-%')
                     ->orWhere('name', 'like', 'electricity-meter-list')
                     ->orWhere('name', 'like', 'electricity-reading-%');
@@ -63,10 +74,16 @@ class RolePermissionSeeder extends Seeder
                     'ticket-delete',
                     'ticket-edit',
                     'daily-record-view-all',
+                    'form-permintaan-create',
+                    'form-permintaan-confirm',
+                    'form-permintaan-view-all',
+                    'form-permintaan-review',
+                    'form-permintaan-reject',
+                    'form-permintaan-edit',
+                    'form-permintaan-delete',
                     'utility-reading-view-all',
                 ])
                 ->get()
         );
     }
 }
-

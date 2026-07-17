@@ -1,0 +1,27 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "GA Maintenance" [level=2] [ref=e8]
+    - paragraph
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: Email
+      - generic [ref=e13]:
+        - textbox "Email" [ref=e14]:
+          - /placeholder: nama@perusahaan.com
+        - generic:
+          - img
+    - generic [ref=e15]:
+      - generic [ref=e16]: Password
+      - generic [ref=e17]:
+        - textbox "Password" [ref=e18]:
+          - /placeholder: ••••••••
+        - button "Toggle password visibility" [ref=e20]:
+          - img [ref=e21]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - checkbox "Ingat saya" [ref=e26]
+        - generic [ref=e27]: Ingat saya
+      - link "Lupa password?" [ref=e28] [cursor=pointer]:
+        - /url: "#"
+    - button "Masuk" [ref=e30]:
+      - generic [ref=e31]: Masuk

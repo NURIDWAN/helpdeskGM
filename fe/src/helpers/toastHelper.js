@@ -1,22 +1,22 @@
-import { useToast } from 'vue-toastification'
-
 // Toast helper for use in stores and components
-const toast = useToast()
+import { useToastStore } from '@/stores/toast'
+
+const getToast = () => useToastStore()
 
 export const showSuccessToast = (message) => {
-    toast.success(message)
+    getToast().success(message)
 }
 
 export const showErrorToast = (message) => {
-    toast.error(message)
+    getToast().error(message)
 }
 
 export const showWarningToast = (message) => {
-    toast.warning(message)
+    getToast().warning(message)
 }
 
 export const showInfoToast = (message) => {
-    toast.info(message)
+    getToast().info(message)
 }
 
 export default {

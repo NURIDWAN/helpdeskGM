@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { axiosInstance } from '@/plugins/axios';
 import { handleError } from "@/helpers/errorHelper";
-import { useToast } from 'vue-toastification';
+import { useToastStore } from '@/stores/toast';
 
 export const useTicketStore = defineStore("ticket", {
     state: () => ({
@@ -70,7 +70,7 @@ export const useTicketStore = defineStore("ticket", {
         async createTicket(payload) {
             this.loading = true;
             this.error = null;
-            const toast = useToast();
+            const toast = useToastStore();
             try {
                 const response = await axiosInstance.post('/tickets', payload);
                 this.success = response.data.message;
@@ -92,7 +92,7 @@ export const useTicketStore = defineStore("ticket", {
         async updateTicket(id, payload) {
             this.loading = true;
             this.error = null;
-            const toast = useToast();
+            const toast = useToastStore();
             try {
                 const response = await axiosInstance.post(`/tickets/${id}`, { _method: 'PUT', ...payload });
                 this.success = response.data.message;
@@ -137,7 +137,7 @@ export const useTicketStore = defineStore("ticket", {
         async closeTicket(id) {
             this.loading = true;
             this.error = null;
-            const toast = useToast();
+            const toast = useToastStore();
             try {
                 const response = await axiosInstance.put(`/tickets/${id}/close`);
                 this.success = response.data.message;

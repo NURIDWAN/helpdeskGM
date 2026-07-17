@@ -1,13 +1,13 @@
 label,http_code,time_ms
-GET /auth/me,200,73
-GET /dashboard/all,200,134
-GET /branches,200,52
-GET /tickets,200,204
-GET /tickets?page=1,200,126
-GET /work-orders,200,87
-GET /work-reports,200,58
-GET /daily-records,200,68
-GET /daily-usage-report,404,48
-GET /job-templates,200,55
-GET /users,200,83
-GET /roles,200,71
+GET /auth/me,200,188
+GET /dashboard/all,200,102
+GET /branches,200,66
+GET /tickets,200,356
+GET /tickets?page=1,200,217
+GET /work-orders,200,81
+GET /work-reports,200,168
+GET /daily-records,200,237
+GET /daily-usage-report,422,86
+GET /job-templates,200,73
+GET /users,200,114
+GET /roles,200,93

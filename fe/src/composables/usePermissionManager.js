@@ -27,18 +27,24 @@ export function usePermissionManager(initialPermissions = []) {
 
   /**
    * Menghitung dependency untuk sebuah permission
-   * Recursively mendapatkan semua dependency termasuk nested
+   * Recursively mendapatkan semua dependency termasuk nested.
+   * Dibatasi maksimal 3 level kedalaman.
+   * 
+   * @param {string} permissionName - Permission yang dicari dependency-nya
+   * @param {Set} visited - Set untuk mencegah circular reference
+   * @param {number} depth - Kedalaman saat ini (dimulai dari 0)
+   * @param {number} maxDepth - Kedalaman maksimal (default: 3)
    */
-  const getAllDependencies = (permissionName, visited = new Set()) => {
-    if (visited.has(permissionName)) return [];
+  const getAllDependencies = (permissionName, visited = new Set(), depth = 0, maxDepth = 3) => {
+    if (visited.has(permissionName) || depth >= maxDepth) return [];
     visited.add(permissionName);
     
     const directDeps = permissionDependencies[permissionName] || [];
     const allDeps = [...directDeps];
     
-    // Recursively get dependencies of dependencies
+    // Recursively get dependencies of dependencies (up to maxDepth)
     directDeps.forEach(dep => {
-      const nestedDeps = getAllDependencies(dep, visited);
+      const nestedDeps = getAllDependencies(dep, visited, depth + 1, maxDepth);
       nestedDeps.forEach(nd => {
         if (!allDeps.includes(nd)) {
           allDeps.push(nd);
@@ -50,7 +56,8 @@ export function usePermissionManager(initialPermissions = []) {
   };
 
   /**
-   * Mendapatkan permission mana yang bergantung pada permission tertentu
+   * Mendapatkan permission mana yang langsung bergantung pada permission tertentu
+   * (hanya direct dependents yang saat ini aktif/selected)
    */
   const getDependents = (permissionName) => {
     const dependents = [];
@@ -60,6 +67,56 @@ export function usePermissionManager(initialPermissions = []) {
       }
     }
     return dependents;
+  };
+
+  /**
+   * Mendapatkan semua permission yang bergantung secara transitif pada permission tertentu.
+   * Traversal dibatasi maksimal 3 level kedalaman.
+   * 
+   * @param {string} permissionName - Permission prasyarat yang dicari dependents-nya
+   * @param {number} maxDepth - Kedalaman maksimal resolusi (default: 3)
+   * @returns {string[]} - Array permission names yang bergantung secara transitif
+   */
+  const getTransitiveDependents = (permissionName, maxDepth = 3) => {
+    const result = new Set();
+    
+    const traverse = (currentPerm, depth) => {
+      if (depth > maxDepth) return;
+      
+      for (const [perm, deps] of Object.entries(permissionDependencies)) {
+        if (deps.includes(currentPerm) && selectedPermissions.value.includes(perm) && !result.has(perm)) {
+          result.add(perm);
+          traverse(perm, depth + 1);
+        }
+      }
+    };
+    
+    traverse(permissionName, 1);
+    return [...result];
+  };
+
+  /**
+   * Force deselect permission beserta semua dependents secara rekursif (cascading).
+   * Dipanggil setelah user mengkonfirmasi dialog.
+   * 
+   * @param {string} permissionName - Permission prasyarat yang akan di-deselect
+   * @returns {{ success: boolean, removed: string[] }}
+   */
+  const forceDeselect = (permissionName) => {
+    const transitiveDependents = getTransitiveDependents(permissionName);
+    const toRemove = [permissionName, ...transitiveDependents];
+    const removed = [];
+    
+    toRemove.forEach(perm => {
+      const idx = selectedPermissions.value.indexOf(perm);
+      if (idx !== -1) {
+        selectedPermissions.value.splice(idx, 1);
+        removed.push(perm);
+      }
+    });
+    
+    rebuildDependencyLocks();
+    return { success: true, removed };
   };
 
   /**
@@ -86,6 +143,10 @@ export function usePermissionManager(initialPermissions = []) {
   /**
    * Toggle permission tunggal
    * Menambah/menghapus permission dengan mempertimbangkan dependency
+   * 
+   * Saat deselection gagal karena ada dependents aktif, mengembalikan:
+   * { success: false, dependents: [...], message: "..." }
+   * Agar UI bisa menampilkan dialog konfirmasi cascading deselection.
    */
   const togglePermission = (permissionName) => {
     const index = selectedPermissions.value.indexOf(permissionName);
@@ -105,10 +166,11 @@ export function usePermissionManager(initialPermissions = []) {
       return { success: true };
     } else {
       // DESELECTING - cek apakah permission ini dibutuhkan yang lain
-      const dependents = getDependents(permissionName);
+      // Gunakan getTransitiveDependents untuk mendapatkan semua dependent secara rekursif
+      const dependents = getTransitiveDependents(permissionName);
       
       if (dependents.length > 0) {
-        // Tidak bisa deselect, kembalikan info
+        // Tidak bisa deselect, kembalikan info lengkap agar UI bisa tampilkan dialog
         const info = dependents.map(d => {
           const permInfo = getPermissionInfo(d);
           return permInfo ? permInfo.label : d;
@@ -128,13 +190,12 @@ export function usePermissionManager(initialPermissions = []) {
   };
 
   /**
-   * Toggle semua permission dalam satu fitur
+   * Mendapatkan semua permission names yang termasuk dalam sebuah Feature_Group
    */
-  const toggleFeature = (featureKey) => {
+  const getFeaturePermissions = (featureKey) => {
     const feature = featureGroups[featureKey];
-    if (!feature) return;
+    if (!feature) return [];
 
-    // Kumpulkan semua permission dalam fitur ini
     const featurePermissions = [];
     
     if (feature.permissions) {
@@ -149,21 +210,40 @@ export function usePermissionManager(initialPermissions = []) {
       });
     }
 
+    return featurePermissions;
+  };
+
+  /**
+   * Cek apakah sebuah permission di-lock oleh permission di luar scope tertentu
+   * @param {string} perm - permission yang dicek
+   * @param {string[]} scopePermissions - kumpulan permission dalam scope saat ini (feature/sub-feature)
+   * @returns {boolean} - true jika permission di-lock oleh permission di luar scope
+   */
+  const isLockedByExternalPermission = (perm, scopePermissions) => {
+    const lockers = dependencyLocks.value[perm] || [];
+    // Cek apakah ada locker yang berada di LUAR scope
+    return lockers.some(locker => 
+      !scopePermissions.includes(locker) && selectedPermissions.value.includes(locker)
+    );
+  };
+
+  /**
+   * Toggle semua permission dalam satu fitur
+   */
+  const toggleFeature = (featureKey) => {
+    const feature = featureGroups[featureKey];
+    if (!feature) return;
+
+    // Kumpulkan semua permission dalam fitur ini
+    const featurePermissions = getFeaturePermissions(featureKey);
+
     // Cek apakah semua sudah dipilih
     const allSelected = featurePermissions.every(p => selectedPermissions.value.includes(p));
 
     if (allSelected) {
-      // Deselect semua (dari akhir agar dependency terpenuhi)
-      // Urutkan berdasarkan jumlah dependents (yang paling sedikit dihapus dulu)
-      const sortedPerms = [...featurePermissions].sort((a, b) => {
-        return getDependents(b).length - getDependents(a).length;
-      });
-      
-      sortedPerms.forEach(perm => {
-        const dependents = getDependents(perm);
-        // Hanya hapus jika tidak ada dependent dari luar fitur ini
-        const externalDependents = dependents.filter(d => !featurePermissions.includes(d));
-        if (externalDependents.length === 0) {
+      // Deselect semua yang TIDAK di-lock oleh permission di luar Feature_Group ini
+      featurePermissions.forEach(perm => {
+        if (!isLockedByExternalPermission(perm, featurePermissions)) {
           const idx = selectedPermissions.value.indexOf(perm);
           if (idx !== -1) {
             selectedPermissions.value.splice(idx, 1);
@@ -171,12 +251,42 @@ export function usePermissionManager(initialPermissions = []) {
         }
       });
     } else {
-      // Select semua
+      // Select semua permission dalam group
       featurePermissions.forEach(perm => {
         if (!selectedPermissions.value.includes(perm)) {
           selectedPermissions.value.push(perm);
         }
       });
+
+      // Resolve cross-group dependencies untuk setiap permission yang ditambahkan
+      featurePermissions.forEach(perm => {
+        const deps = getAllDependencies(perm);
+        deps.forEach(dep => {
+          if (!selectedPermissions.value.includes(dep)) {
+            selectedPermissions.value.push(dep);
+          }
+        });
+      });
+
+      // Resolve dependsOn config dari sub-features dalam group ini
+      if (feature.subFeatures) {
+        Object.values(feature.subFeatures).forEach(sub => {
+          if (sub.dependsOn && Array.isArray(sub.dependsOn)) {
+            sub.dependsOn.forEach(dep => {
+              if (!selectedPermissions.value.includes(dep)) {
+                selectedPermissions.value.push(dep);
+              }
+              // Also resolve transitive dependencies of dependsOn items
+              const transitiveDeps = getAllDependencies(dep);
+              transitiveDeps.forEach(td => {
+                if (!selectedPermissions.value.includes(td)) {
+                  selectedPermissions.value.push(td);
+                }
+              });
+            });
+          }
+        });
+      }
     }
 
     rebuildDependencyLocks();
@@ -195,15 +305,9 @@ export function usePermissionManager(initialPermissions = []) {
     const allSelected = subPermissions.every(p => selectedPermissions.value.includes(p));
 
     if (allSelected) {
-      // Deselect semua dari sub-feature ini
-      const sortedPerms = [...subPermissions].sort((a, b) => {
-        return getDependents(b).length - getDependents(a).length;
-      });
-      
-      sortedPerms.forEach(perm => {
-        const dependents = getDependents(perm);
-        const externalDependents = dependents.filter(d => !subPermissions.includes(d));
-        if (externalDependents.length === 0) {
+      // Deselect semua dari sub-feature ini yang TIDAK di-lock oleh permission di luar sub-feature
+      subPermissions.forEach(perm => {
+        if (!isLockedByExternalPermission(perm, subPermissions)) {
           const idx = selectedPermissions.value.indexOf(perm);
           if (idx !== -1) {
             selectedPermissions.value.splice(idx, 1);
@@ -211,19 +315,38 @@ export function usePermissionManager(initialPermissions = []) {
         }
       });
     } else {
-      // Select semua (dengan dependency)
+      // Select semua permission dalam sub-feature
       subPermissions.forEach(perm => {
         if (!selectedPermissions.value.includes(perm)) {
-          // Tambah permission dan dependency-nya
           selectedPermissions.value.push(perm);
-          const deps = getAllDependencies(perm);
-          deps.forEach(dep => {
-            if (!selectedPermissions.value.includes(dep)) {
-              selectedPermissions.value.push(dep);
-            }
-          });
         }
       });
+
+      // Resolve dependencies untuk setiap permission yang ditambahkan (termasuk cross-group)
+      subPermissions.forEach(perm => {
+        const deps = getAllDependencies(perm);
+        deps.forEach(dep => {
+          if (!selectedPermissions.value.includes(dep)) {
+            selectedPermissions.value.push(dep);
+          }
+        });
+      });
+
+      // Resolve dependsOn config dari sub-feature (cross-group dependency)
+      if (subFeature.dependsOn && Array.isArray(subFeature.dependsOn)) {
+        subFeature.dependsOn.forEach(dep => {
+          if (!selectedPermissions.value.includes(dep)) {
+            selectedPermissions.value.push(dep);
+          }
+          // Also resolve transitive dependencies of dependsOn items
+          const transitiveDeps = getAllDependencies(dep);
+          transitiveDeps.forEach(td => {
+            if (!selectedPermissions.value.includes(td)) {
+              selectedPermissions.value.push(td);
+            }
+          });
+        });
+      }
     }
 
     rebuildDependencyLocks();
@@ -347,6 +470,10 @@ export function usePermissionManager(initialPermissions = []) {
     setPermissions,
     getAllDependencies,
     getDependents,
+    getTransitiveDependents,
+    forceDeselect,
+    getFeaturePermissions,
+    isLockedByExternalPermission,
     
     // Checkers
     isSelected,

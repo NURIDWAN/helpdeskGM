@@ -21,6 +21,10 @@ const channelForm = ref({
   telegram_bot_username: "",
 });
 
+// Track if user modified token fields (to avoid sending masked values back)
+const telegramTokenChanged = ref(false);
+const whatsappTokenChanged = ref(false);
+
 // Settings form (WhatsApp)
 const settingsForm = ref({
   enabled: "true",
@@ -69,13 +73,22 @@ const channelOptions = [
 const loadData = async () => {
   try {
     await Promise.all([fetchSettings(), fetchNotificationSettings(), fetchTemplates()]);
-    settingsForm.value = { ...settings.value };
+    // Settings form — token is masked, so leave token input empty for new entry
+    settingsForm.value = {
+      enabled: settings.value.enabled || "true",
+      token: "",
+      group_id: settings.value.group_id || "",
+      delay: settings.value.delay || "2",
+    };
+    whatsappTokenChanged.value = false;
+    // Channel form — telegram_bot_token is masked, leave empty for new entry
     channelForm.value = {
       notification_channel: notificationSettings.value.notification_channel || "whatsapp",
-      telegram_bot_token: notificationSettings.value.telegram_bot_token || "",
+      telegram_bot_token: "",
       telegram_chat_id: notificationSettings.value.telegram_chat_id || "",
       telegram_bot_username: notificationSettings.value.telegram_bot_username || "",
     };
+    telegramTokenChanged.value = false;
   } catch (e) {
     console.error("Error loading data:", e);
   }
@@ -83,7 +96,14 @@ const loadData = async () => {
 
 const handleSaveChannelSettings = async () => {
   try {
-    await updateNotificationSettings(channelForm.value);
+    const payload = { ...channelForm.value };
+    // Only include telegram_bot_token if user actually typed a new one
+    if (!telegramTokenChanged.value) {
+      delete payload.telegram_bot_token;
+    }
+    await updateNotificationSettings(payload);
+    telegramTokenChanged.value = false;
+    channelForm.value.telegram_bot_token = "";
   } catch (e) {
     console.error("Error saving channel settings:", e);
   }
@@ -91,7 +111,14 @@ const handleSaveChannelSettings = async () => {
 
 const handleSaveSettings = async () => {
   try {
-    await updateSettings(settingsForm.value);
+    const payload = { ...settingsForm.value };
+    // Only include token if user actually typed a new one
+    if (!whatsappTokenChanged.value) {
+      delete payload.token;
+    }
+    await updateSettings(payload);
+    whatsappTokenChanged.value = false;
+    settingsForm.value.token = "";
   } catch (e) {
     console.error("Error saving settings:", e);
   }
@@ -99,10 +126,24 @@ const handleSaveSettings = async () => {
 
 const handleSaveAllSettings = async () => {
   try {
-    // Save both channel settings and WhatsApp settings
-    await updateNotificationSettings(channelForm.value);
+    // Save channel settings (with conditional token)
+    const channelPayload = { ...channelForm.value };
+    if (!telegramTokenChanged.value) {
+      delete channelPayload.telegram_bot_token;
+    }
+    await updateNotificationSettings(channelPayload);
+    telegramTokenChanged.value = false;
+    channelForm.value.telegram_bot_token = "";
+
+    // Save WhatsApp settings if that channel is selected
     if (channelForm.value.notification_channel === 'whatsapp') {
-      await updateSettings(settingsForm.value);
+      const settingsPayload = { ...settingsForm.value };
+      if (!whatsappTokenChanged.value) {
+        delete settingsPayload.token;
+      }
+      await updateSettings(settingsPayload);
+      whatsappTokenChanged.value = false;
+      settingsForm.value.token = "";
     }
   } catch (e) {
     console.error("Error saving settings:", e);
@@ -341,11 +382,12 @@ onMounted(() => {
             <label class="block text-sm font-medium text-gray-700 mb-1">Bot Token</label>
             <input
               v-model="channelForm.telegram_bot_token"
+              @input="telegramTokenChanged = true"
               type="password"
-              placeholder="Masukkan bot token dari @BotFather"
+              :placeholder="notificationSettings.telegram_bot_token_configured ? notificationSettings.telegram_bot_token_masked : 'Masukkan bot token dari @BotFather'"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <p class="mt-1 text-xs text-gray-500">Token dari @BotFather (format: 123456789:ABC-DEF...)</p>
+            <p class="mt-1 text-xs text-gray-500">Token dari @BotFather (format: 123456789:ABC-DEF...). Kosongkan jika tidak ingin mengubah.</p>
           </div>
 
           <!-- Chat ID / Group ID -->
@@ -399,11 +441,12 @@ onMounted(() => {
             <label class="block text-sm font-medium text-gray-700 mb-1">Fonnte Token</label>
             <input
               v-model="settingsForm.token"
+              @input="whatsappTokenChanged = true"
               type="password"
-              placeholder="Masukkan token Fonnte"
+              :placeholder="settings.token_configured ? settings.token_masked : 'Masukkan token Fonnte'"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <p class="mt-1 text-xs text-gray-500">Token API dari dashboard Fonnte</p>
+            <p class="mt-1 text-xs text-gray-500">Token API dari dashboard Fonnte. Kosongkan jika tidak ingin mengubah.</p>
           </div>
 
           <!-- Group ID -->

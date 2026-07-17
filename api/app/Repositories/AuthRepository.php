@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Interfaces\AuthRepositoryInterface;
+use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,14 @@ class AuthRepository implements AuthRepositoryInterface
 
         try {
             if (!Auth::guard('web')->attempt($data)) {
+                // Log login gagal
+                ActivityLogService::logAuth(
+                    'login_failed',
+                    "Login gagal untuk email: {$data['email']}",
+                    null,
+                    ['email' => $data['email']],
+                );
+
                 throw new \Exception('Unauthorized', 401);
             }
 
@@ -26,6 +35,13 @@ class AuthRepository implements AuthRepositoryInterface
             $user->save();
 
             $user->token = $user->createToken('auth_token')->plainTextToken;
+
+            // Log login berhasil
+            ActivityLogService::logAuth(
+                'login',
+                "{$user->name} berhasil login",
+                $user->id,
+            );
 
             DB::commit();
 
@@ -68,6 +84,14 @@ class AuthRepository implements AuthRepositoryInterface
             }
 
             $user = Auth::user();
+
+            // Log logout sebelum token dihapus
+            ActivityLogService::logAuth(
+                'logout',
+                "{$user->name} berhasil logout",
+                $user->id,
+            );
+
             $user->tokens()->delete();
 
             DB::commit();

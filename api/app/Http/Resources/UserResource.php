@@ -15,6 +15,10 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Only expose PII when viewing own profile or from auth/me endpoint
+        $isOwnProfile = $request->user() && $request->user()->id === $this->id;
+        $isAuthMe = $request->is('*/auth/me');
+
         return [
             'id' => $this->id,
             'branch_id' => $this->branch_id,
@@ -22,9 +26,10 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'position' => $this->position,
-            'identity_number' => $this->identity_number,
-            'phone_number' => $this->phone_number,
-            'telegram_chat_id' => $this->telegram_chat_id,
+            'identity_number' => ($isOwnProfile || $isAuthMe) ? $this->identity_number : null,
+            'phone_number' => ($isOwnProfile || $isAuthMe) ? $this->phone_number : null,
+            'profile_photo' => $this->profile_photo ? asset('storage/' . $this->profile_photo) : null,
+            'telegram_chat_id' => ($isOwnProfile || $isAuthMe) ? $this->telegram_chat_id : null,
             'type' => $this->type,
             'roles' => $this->whenLoaded('roles', function () {
                 return $this->roles->pluck('name');

@@ -1,9 +1,9 @@
 <template>
   <div :class="containerClass">
-    <label :for="id" class="block text-sm font-medium text-gray-700 mb-2">
+    <label :for="id" class="mb-2 block text-sm font-medium text-slate-700">
       <component v-if="labelIcon" :is="labelIcon" :size="16" class="inline mr-2" />
       {{ label }}
-      <span v-if="required" class="text-red-500 ml-1">*</span>
+      <span v-if="required" class="ml-1 text-red-500">*</span>
     </label>
 
     <div class="relative">
@@ -64,13 +64,11 @@
       {{ error }}
     </p>
 
-    <!-- Success Message -->
-    <p v-else-if="isValid && modelValue" class="mt-2 text-sm text-green-600">
+    <p v-else-if="isValid && modelValue && successMessage" class="mt-2 text-sm text-green-600">
       {{ successMessage }}
     </p>
 
-    <!-- Helper Text -->
-    <p v-if="helperText && !hasError" class="mt-1 text-xs text-gray-500">
+    <p v-if="helperText && !hasError" class="mt-1 text-xs text-slate-500">
       {{ helperText }}
     </p>
   </div>
@@ -155,12 +153,12 @@ const isValid = computed(() => !!props.modelValue && !hasError.value);
 
 const inputClasses = computed(() => {
   const baseClasses =
-    "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200";
+    "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
 
   if (hasError.value) {
-    return `${baseClasses} border-red-500 focus:ring-red-500 focus:border-red-500`;
+    return `${baseClasses} border-red-500 focus:border-red-500 focus:ring-red-500/20`;
   } else if (isValid.value) {
-    return `${baseClasses} border-green-500 focus:ring-green-500 focus:border-green-500`;
+    return `${baseClasses} border-slate-200`;
   }
 
   return baseClasses;

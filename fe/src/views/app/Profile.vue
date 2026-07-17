@@ -5,7 +5,7 @@ import { storeToRefs } from "pinia";
 
 const authStore = useAuthStore();
 const { user, loading, error, success } = storeToRefs(authStore);
-const { checkAuth, updateProfile } = authStore;
+const { checkAuth, updateProfile, uploadProfilePhoto, deleteProfilePhoto } = authStore;
 
 const form = reactive({
   name: "",
@@ -16,11 +16,16 @@ const form = reactive({
   password_confirmation: "",
 });
 
+const photoInput = ref(null);
+const photoPreview = ref(null);
+const uploadingPhoto = ref(false);
+
 const syncForm = () => {
   form.name = user.value?.name || "";
   form.email = user.value?.email || "";
   form.phone_number = user.value?.phone_number || "";
   form.telegram_chat_id = user.value?.telegram_chat_id || "";
+  photoPreview.value = user.value?.profile_photo || null;
 };
 
 watch(user, syncForm, { immediate: true });
@@ -33,8 +38,8 @@ onMounted(async () => {
 });
 
 const handleSubmit = async () => {
-  const payload = { 
-    name: form.name, 
+  const payload = {
+    name: form.name,
     phone_number: form.phone_number,
     telegram_chat_id: form.telegram_chat_id || null,
   };
@@ -45,6 +50,44 @@ const handleSubmit = async () => {
   await updateProfile(payload);
   form.password = "";
   form.password_confirmation = "";
+};
+
+const triggerPhotoInput = () => {
+  photoInput.value?.click();
+};
+
+const handlePhotoChange = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Validate file type
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  if (!allowedTypes.includes(file.type)) {
+    authStore.error = { photo: ["Format file harus JPEG, PNG, atau WebP."] };
+    return;
+  }
+
+  // Validate file size (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    authStore.error = { photo: ["Ukuran file maksimal 2MB."] };
+    return;
+  }
+
+  uploadingPhoto.value = true;
+  await uploadProfilePhoto(file);
+  uploadingPhoto.value = false;
+
+  // Reset input
+  if (photoInput.value) {
+    photoInput.value.value = "";
+  }
+};
+
+const handleDeletePhoto = async () => {
+  if (!confirm("Hapus foto profil?")) return;
+  uploadingPhoto.value = true;
+  await deleteProfilePhoto();
+  uploadingPhoto.value = false;
 };
 </script>
 
@@ -75,6 +118,87 @@ const handleSubmit = async () => {
               <span v-else>{{ messages }}</span>
             </li>
           </ul>
+        </div>
+
+        <!-- Profile Photo Section -->
+        <div class="flex items-center gap-5">
+          <div class="relative group">
+            <div
+              class="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center"
+            >
+              <img
+                v-if="photoPreview"
+                :src="photoPreview"
+                alt="Foto profil"
+                class="w-full h-full object-cover"
+              />
+              <svg
+                v-else
+                class="w-10 h-10 text-gray-400"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                />
+              </svg>
+            </div>
+            <div
+              v-if="uploadingPhoto"
+              class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full"
+            >
+              <svg
+                class="w-6 h-6 text-white animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="triggerPhotoInput"
+                :disabled="uploadingPhoto"
+                class="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors"
+              >
+                {{ photoPreview ? "Ganti Foto" : "Upload Foto" }}
+              </button>
+              <button
+                v-if="photoPreview"
+                type="button"
+                @click="handleDeletePhoto"
+                :disabled="uploadingPhoto"
+                class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+            <p class="text-xs text-gray-500">
+              JPG, PNG, atau WebP. Maksimal 2MB.
+            </p>
+          </div>
+          <input
+            ref="photoInput"
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            class="hidden"
+            @change="handlePhotoChange"
+          />
         </div>
 
         <form @submit.prevent="handleSubmit" class="space-y-4">

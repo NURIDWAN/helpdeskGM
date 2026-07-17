@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkReport;
 use App\Models\JobTemplate;
+use App\Models\FormPermintaan;
 
 interface NotificationChannelInterface
 {
@@ -56,6 +57,11 @@ interface NotificationChannelInterface
      * @return bool|null true if sent, false if failed, null if not attempted
      */
     public function sendWorkOrderNotification(WorkOrder $workOrder): ?bool;
+
+    /**
+     * Send notification for new form permintaan creation
+     */
+    public function sendFormPermintaanNotification(FormPermintaan $formPermintaan): ?bool;
 
     /**
      * Send notification for Work Report Created (to Admin/Group)

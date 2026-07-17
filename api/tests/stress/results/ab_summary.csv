@@ -1,8 +1,8 @@
 label,requests,concurrency,rps,p50_ms,p99_ms,failed
-dashboard_all,100,20,28.64,651,879,0
-tickets_list,100,20,11.05,1754,2254,0
-workorders_list,100,20,28.81,636,1120,0
-workreports_list,100,20,32.52,574,726,0
-daily_records,100,20,30.39,621,992,0
-daily_usage,100,20,38.75,491,651,0
-auth_me,100,20,24.73,763,1124,0
+dashboard_all,100,20,22.97,721,1469,51
+tickets_list,100,20,38.31,506,706,0
+workorders_list,100,20,35.93,536,765,0
+workreports_list,100,20,36.77,518,670,0
+daily_records,100,20,37.03,522,703,0
+daily_usage,100,20,28.32,645,1057,0
+auth_me,100,20,25.45,763,996,0

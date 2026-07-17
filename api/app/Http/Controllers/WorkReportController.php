@@ -338,9 +338,16 @@ class WorkReportController extends Controller implements HasMiddleware
             'branch_id' => 'nullable|integer',
             'user_id' => 'nullable|integer',
             'job_template_id' => 'nullable|integer',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date'
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
         ]);
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             $workReports = $this->workReportRepository->getExportData(
@@ -400,9 +407,16 @@ class WorkReportController extends Controller implements HasMiddleware
             'branch_id' => 'nullable|integer',
             'user_id' => 'nullable|integer',
             'job_template_id' => 'nullable|integer',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date'
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
         ]);
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             $workReports = $this->workReportRepository->getExportData(

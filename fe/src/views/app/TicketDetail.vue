@@ -320,7 +320,7 @@ onUnmounted(() => {
   <!-- Back Button -->
   <div class="mb-6">
     <RouterLink
-      :to="{ name: 'app.dashboard' }"
+      :to="{ name: 'app.tickets' }"
       class="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
     >
       <ArrowLeft :size="16" class="mr-2" />
@@ -352,9 +352,10 @@ onUnmounted(() => {
         <div>
           <h1 class="text-2xl font-bold text-gray-800">{{ ticket.category?.name || 'Tiket' }}</h1>
           <!-- Description -->
-          <p class="text-gray-600 text-sm mb-4 line-clamp-2">
-            {{ ticket.description }}
-          </p>
+          <div
+            class="rich-text-display text-gray-600 text-sm mb-4 line-clamp-2"
+            v-html="ticket.description"
+          ></div>
 
           <div class="mt-2 flex items-center space-x-4">
             <span
@@ -601,3 +602,35 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.rich-text-display :deep(p) {
+  margin: 0 0 0.5rem;
+}
+
+.rich-text-display :deep(ul),
+.rich-text-display :deep(ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.rich-text-display :deep(ul) {
+  list-style: disc;
+}
+
+.rich-text-display :deep(ol) {
+  list-style: decimal;
+}
+
+.rich-text-display :deep(blockquote) {
+  border-left: 3px solid rgb(147 197 253);
+  color: rgb(71 85 105);
+  margin: 0.75rem 0;
+  padding-left: 0.75rem;
+}
+
+.rich-text-display :deep(a) {
+  color: rgb(37 99 235);
+  text-decoration: underline;
+}
+</style>

@@ -13,35 +13,35 @@ Server Temp Key:        X25519 253 bits
 TLS Server Name:        api.ddev.site
 
 Document Path:          /api/v1/tickets
-Document Length:        27458 bytes
+Document Length:        39 bytes
 
 Concurrency Level:      5
-Time taken for tests:   6.817 seconds
+Time taken for tests:   3.944 seconds
 Complete requests:      30
-Failed requests:        29
-   (Connect: 0, Receive: 0, Length: 29, Exceptions: 0)
+Failed requests:        0
+Non-2xx responses:      30
 Keep-Alive requests:    0
-Total transferred:      1158647 bytes
-HTML transferred:       1152977 bytes
-Requests per second:    4.40 [#/sec] (mean)
-Time per request:       1136.194 [ms] (mean)
-Time per request:       227.239 [ms] (mean, across all concurrent requests)
-Transfer rate:          165.98 [Kbytes/sec] received
+Total transferred:      11823 bytes
+HTML transferred:       1170 bytes
+Requests per second:    7.61 [#/sec] (mean)
+Time per request:       657.397 [ms] (mean)
+Time per request:       131.479 [ms] (mean, across all concurrent requests)
+Transfer rate:          2.93 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:       13   34  29.0     22     100
-Processing:   378  988 493.1    996    1787
-Waiting:      378  987 491.9    994    1787
-Total:        397 1022 510.9   1019    1887
+Connect:        9   22  10.9     21      51
+Processing:    65  608 438.9    395    1615
+Waiting:       61  606 438.8    394    1615
+Total:         99  630 445.5    414    1666
 
 Percentage of the requests served within a certain time (ms)
-  50%   1019
-  66%   1150
-  75%   1542
-  80%   1604
-  90%   1787
-  95%   1860
-  98%   1887
-  99%   1887
- 100%   1887 (longest request)
+  50%    414
+  66%    514
+  75%    745
+  80%   1150
+  90%   1497
+  95%   1573
+  98%   1666
+  99%   1666
+ 100%   1666 (longest request)

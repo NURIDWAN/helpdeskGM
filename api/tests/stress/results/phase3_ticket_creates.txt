@@ -1,20 +1,20 @@
-OK 12
 OK 11
 OK 5
 OK 2
-OK 9
-OK 18
-OK 15
-OK 16
-OK 1
-OK 10
-OK 19
-OK 3
-OK 20
-OK 13
-OK 4
+FAIL 16: {"success":false,"message":"SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction (Connection: mariadb, SQL: select max(`id`) as aggregate from `tickets` for update)","data":null}
 OK 17
+FAIL 10: {"success":false,"message":"SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction (Connection: mariadb, SQL: select max(`id`) as aggregate from `tickets` for update)","data":null}
+OK 15
+OK 1
+OK 9
 OK 6
-OK 7
 OK 8
+OK 12
+FAIL 7: {"success":false,"message":"SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction (Connection: mariadb, SQL: select max(`id`) as aggregate from `tickets` for update)","data":null}
+OK 3
+FAIL 13: {"success":false,"message":"SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction (Connection: mariadb, SQL: select max(`id`) as aggregate from `tickets` for update)","data":null}
+OK 19
+OK 20
 OK 14
+OK 18
+OK 4

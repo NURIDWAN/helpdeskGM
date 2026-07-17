@@ -16,7 +16,7 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
     {
         return [
             new Middleware(PermissionMiddleware::using(['whatsapp-setting-list']), only: ['index', 'getTemplates', 'getPlaceholders', 'getNotificationSettings']),
-            new Middleware(PermissionMiddleware::using(['whatsapp-setting-edit']), only: ['updateSettings', 'updateTemplate', 'updateNotificationSettings']),
+            new Middleware(PermissionMiddleware::using(['whatsapp-setting-edit']), only: ['updateSettings', 'updateTemplate', 'updateNotificationSettings', 'testSend', 'testSendGroup', 'testTelegramSend', 'testTelegramSendGroup']),
         ];
     }
 
@@ -41,6 +41,12 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
                     $settings[$key] = $value;
                 }
             }
+
+            // Mask the token — only expose last 4 chars
+            $rawToken = $settings['token'] ?? '';
+            $settings['token_configured'] = !empty($rawToken);
+            $settings['token_masked'] = $rawToken ? str_repeat('*', max(0, strlen($rawToken) - 4)) . substr($rawToken, -4) : '';
+            unset($settings['token']);
 
             return ResponseHelper::jsonResponse(true, 'Settings berhasil diambil', $settings, 200);
         } catch (\Throwable $e) {
@@ -252,15 +258,20 @@ class WhatsAppSettingController extends Controller implements HasMiddleware
     public function getNotificationSettings()
     {
         try {
+            $whatsappToken = WhatsAppSetting::getValue('token') ?: '';
+            $telegramBotToken = WhatsAppSetting::getValue('telegram_bot_token') ?: '';
+
             $settings = [
                 'notification_channel' => WhatsAppSetting::getValue('notification_channel') ?: 'whatsapp',
                 // WhatsApp settings
                 'whatsapp_enabled' => WhatsAppSetting::getValue('enabled') ?: 'true',
-                'whatsapp_token' => WhatsAppSetting::getValue('token') ?: '',
+                'whatsapp_token_configured' => !empty($whatsappToken),
+                'whatsapp_token_masked' => $whatsappToken ? str_repeat('*', max(0, strlen($whatsappToken) - 4)) . substr($whatsappToken, -4) : '',
                 'whatsapp_group_id' => WhatsAppSetting::getValue('group_id') ?: '',
                 'whatsapp_delay' => WhatsAppSetting::getValue('delay') ?: '2',
                 // Telegram settings
-                'telegram_bot_token' => WhatsAppSetting::getValue('telegram_bot_token') ?: '',
+                'telegram_bot_token_configured' => !empty($telegramBotToken),
+                'telegram_bot_token_masked' => $telegramBotToken ? str_repeat('*', max(0, strlen($telegramBotToken) - 4)) . substr($telegramBotToken, -4) : '',
                 'telegram_chat_id' => WhatsAppSetting::getValue('telegram_chat_id') ?: '',
                 'telegram_bot_username' => WhatsAppSetting::getValue('telegram_bot_username') ?: '',
             ];

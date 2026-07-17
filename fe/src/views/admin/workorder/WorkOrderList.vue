@@ -9,9 +9,9 @@ import { formatToClientTimezone } from "@/helpers/format";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
 import { can, hasRole } from "@/helpers/permissionHelper";
-import { useToast } from "vue-toastification";
+import { useToastStore } from "@/stores/toast";
 
-const toast = useToast();
+const toast = useToastStore();
 const workOrderStore = useWorkOrderStore();
 const { workOrders, meta, loading, error, success } = storeToRefs(workOrderStore);
 const { fetchWorkOrdersPaginated, deleteWorkOrder, updateWorkOrder } = workOrderStore;

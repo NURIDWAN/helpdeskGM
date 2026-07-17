@@ -17,53 +17,15 @@ import {
   ChevronRight,
   ArrowLeft,
 } from "lucide-vue-next";
-import { formatToClientTimezone } from "@/helpers/format";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
 import { can } from "@/helpers/permissionHelper";
 import { useAuthStore } from "@/stores/auth";
-import { useToastStore } from "@/stores/toast";
-import { axiosInstance } from "@/plugins/axios";
 
 const route = useRoute();
 const router = useRouter();
-const toast = useToastStore();
 
-const checkingDuplicate = ref(false);
-
-const handleCreateClick = async () => {
-    // If user has a branch, check for existing record for today
-    if (currentUser.value?.branch?.id) {
-        checkingDuplicate.value = true;
-        try {
-            const date = new Date();
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const today = `${year}-${month}-${day}`;
-            const response = await axiosInstance.get('/daily-records', {
-                 params: {
-                   branch_id: currentUser.value.branch.id,
-                   start_date: today,
-                   end_date: today,
-                   row_per_page: 1
-                 }
-            });
-
-            if (response.data.data && response.data.data.length > 0) {
-                 toast.error("Tidak dapat membuat laporan baru: Laporan harian untuk cabang Anda dan tanggal hari ini SUDAH ADA. Harap edit laporan yang sudah ada.");
-                 return;
-            }
-        } catch (error) {
-            console.error("Failed to check duplicate", error);
-            // Optionally warn but let them proceed if check fails? 
-            // Better to let them proceed if API check fails to avoid blocking due to network error
-        } finally {
-            checkingDuplicate.value = false;
-        }
-    }
-    
-    // Proceed to create page
+const handleCreateClick = () => {
     router.push({ name: `${routePrefix.value}.daily-record.create` });
 };
 
@@ -140,7 +102,7 @@ const tableColumns = [
   { key: "branch.name", label: "Cabang", nowrap: true },
   { key: "user.name", label: "User (PIC)", nowrap: true },
   { key: "total_customers", label: "Total Pelanggan", nowrap: true },
-  { key: "created_at", label: "Dibuat", nowrap: true },
+  { key: "date", label: "Tanggal", nowrap: true },
 ];
 
 // Methods
@@ -161,13 +123,6 @@ const fetchDailyRecords = () => {
     start_date: filters.value.startDate,
     end_date: filters.value.endDate,
   };
-
-  // Add 1 day to end_date to include the full day
-  if (params.end_date) {
-    const endDate = new Date(params.end_date);
-    endDate.setDate(endDate.getDate() + 1);
-    params.end_date = endDate.toISOString().split("T")[0];
-  }
 
   // Remove null/undefined values
   Object.keys(params).forEach((key) => {
@@ -311,14 +266,9 @@ watch(
       </div>
       <button
         @click="handleCreateClick"
-        :disabled="checkingDuplicate"
-        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <div
-          v-if="checkingDuplicate"
-          class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
-        ></div>
-        <Plus v-else :size="20" class="mr-2" />
+        <Plus :size="20" class="mr-2" />
         Buat Laporan Harian Cabang
       </button>
     </div>
@@ -453,9 +403,9 @@ watch(
       @page-change="handlePageChange"
       @per-page-change="handlePerPageChange"
     >
-      <template #cell-created_at="{ value }">
+      <template #cell-date="{ value, item }">
         <div class="text-sm text-gray-500">
-          {{ formatToClientTimezone(value) }}
+          {{ (value || item.created_at) ? new Date(value || item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-' }}
         </div>
       </template>
 

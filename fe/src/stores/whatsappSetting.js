@@ -6,7 +6,8 @@ export const useWhatsAppSettingStore = defineStore("whatsappSetting", {
     state: () => ({
         settings: {
             enabled: "true",
-            token: "",
+            token_configured: false,
+            token_masked: "",
             group_id: "",
             delay: "2",
         },
@@ -14,10 +15,12 @@ export const useWhatsAppSettingStore = defineStore("whatsappSetting", {
         notificationSettings: {
             notification_channel: "whatsapp",
             whatsapp_enabled: "true",
-            whatsapp_token: "",
+            whatsapp_token_configured: false,
+            whatsapp_token_masked: "",
             whatsapp_group_id: "",
             whatsapp_delay: "2",
-            telegram_bot_token: "",
+            telegram_bot_token_configured: false,
+            telegram_bot_token_masked: "",
             telegram_chat_id: "",
             telegram_bot_username: "",
         },

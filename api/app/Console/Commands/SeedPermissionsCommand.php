@@ -37,7 +37,7 @@ class SeedPermissionsCommand extends Command
         $this->call('db:seed', ['--class' => 'PermissionSeeder']);
 
         $this->info('Seeding role permissions...');
-        $this->call('db:seed', ['--class' => 'RolePermissionSeeder']);
+        $this->call('db:seed', ['--class' => 'RoleSeeder']);
 
         $this->info('✅ Permission seeding completed successfully!');
     }

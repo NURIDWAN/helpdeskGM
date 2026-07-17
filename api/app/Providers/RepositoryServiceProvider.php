@@ -32,6 +32,8 @@ use App\Interfaces\ElectricityMeterRepositoryInterface;
 use App\Repositories\ElectricityMeterRepository;
 use App\Interfaces\ElectricityReadingRepositoryInterface;
 use App\Repositories\ElectricityReadingRepository;
+use App\Interfaces\FormPermintaanRepositoryInterface;
+use App\Repositories\FormPermintaanRepository;
 use Illuminate\Support\ServiceProvider;
 
 class RepositoryServiceProvider extends ServiceProvider
@@ -56,6 +58,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(UtilityReadingRepositoryInterface::class, UtilityReadingRepository::class);
         $this->app->bind(ElectricityMeterRepositoryInterface::class, ElectricityMeterRepository::class);
         $this->app->bind(ElectricityReadingRepositoryInterface::class, ElectricityReadingRepository::class);
+        $this->app->bind(FormPermintaanRepositoryInterface::class, FormPermintaanRepository::class);
     }
 
 

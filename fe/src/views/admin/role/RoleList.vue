@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRoleStore } from "@/stores/role";
-import { featureGroups, colorMap, countSelectedByFeature } from "@/config/permissionConfig";
+import { featureGroups, countSelectedByFeature } from "@/config/permissionConfig";
 import SearchInput from "@/components/common/SearchInput.vue";
 import DataTable from "@/components/common/DataTable.vue";
 import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
@@ -20,7 +20,8 @@ import {
   Calendar,
   Zap,
   Building,
-  Activity
+  Activity,
+  Grid3X3
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
@@ -62,18 +63,18 @@ const processedRoles = computed(() => {
     const permissions = role.permissions || [];
     const counts = countSelectedByFeature(permissions);
     
-    // Get top features with permissions
+    // Get features with active permissions (skip features with 0 selected)
     const featureSummary = Object.entries(counts)
       .filter(([, c]) => c.selected > 0)
       .sort((a, b) => b[1].selected - a[1].selected)
-      .slice(0, 5)
       .map(([key, c]) => ({
         key,
         label: featureGroups[key]?.label || key,
         icon: featureIconMap[key] || Shield,
         color: featureGroups[key]?.color || 'gray',
-        count: c.selected,
-        total: c.total
+        selected: c.selected,
+        total: c.total,
+        isFull: c.selected === c.total
       }));
 
     return {
@@ -119,10 +120,6 @@ const isProtectedRole = (roleName) => {
   return ["admin", "staff", "user", "superadmin"].includes(roleName);
 };
 
-const getColorClasses = (colorName) => {
-  return colorMap[colorName] || colorMap.blue;
-};
-
 // Lifecycle
 onMounted(() => {
   loadRoles();
@@ -137,14 +134,24 @@ onMounted(() => {
         <h1 class="text-2xl font-bold text-gray-900">Data Role</h1>
         <p class="text-gray-600">Kelola role dan permission pengguna</p>
       </div>
-      <RouterLink
-        v-if="can('role-create')"
-        :to="{ name: 'admin.role.create' }"
-        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-      >
-        <Plus :size="20" class="mr-2" />
-        Tambah Role
-      </RouterLink>
+      <div class="flex items-center gap-2">
+        <RouterLink
+          v-if="can('role-list')"
+          :to="{ name: 'admin.roles.matrix' }"
+          class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+        >
+          <Grid3X3 :size="20" class="mr-2" />
+          Permission Matrix
+        </RouterLink>
+        <RouterLink
+          v-if="can('role-create')"
+          :to="{ name: 'admin.role.create' }"
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+        >
+          <Plus :size="20" class="mr-2" />
+          Tambah Role
+        </RouterLink>
+      </div>
     </div>
 
     <!-- Alert -->
@@ -218,11 +225,13 @@ onMounted(() => {
               v-for="feature in item.featureSummary"
               :key="feature.key"
               class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium"
-              :class="[getColorClasses(feature.color).bg, getColorClasses(feature.color).text]"
-              :title="`${feature.label}: ${feature.count}/${feature.total} permission`"
+              :class="feature.isFull
+                ? 'bg-green-100 text-green-800'
+                : 'bg-amber-100 text-amber-800'"
+              :title="`${feature.label}: ${feature.selected}/${feature.total} permission`"
             >
               <component :is="feature.icon" :size="12" />
-              <span>{{ feature.count }}</span>
+              <span>{{ feature.isFull ? 'Penuh' : `${feature.selected}/${feature.total}` }}</span>
             </div>
           </div>
           
@@ -267,9 +276,9 @@ onMounted(() => {
             <Edit :size="16" />
           </RouterLink>
           
-          <!-- Duplicate (only for non-protected roles) -->
+          <!-- Duplicate (allowed for ALL roles including system roles) -->
           <RouterLink
-            v-if="can('role-create') && !isProtectedRole(item.name)"
+            v-if="can('role-create')"
             :to="{ name: 'admin.role.create', query: { duplicate: item.id } }"
             class="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
             title="Duplikat Role"

@@ -16,6 +16,8 @@ use App\Http\Controllers\DailyRecordController;
 use App\Http\Controllers\UtilityReadingController;
 use App\Http\Controllers\ElectricityMeterController;
 use App\Http\Controllers\ElectricityReadingController;
+use App\Http\Controllers\FormPermintaanController;
+use App\Http\Controllers\BrowserNotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -28,22 +30,24 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::put('me', [AuthController::class, 'updateProfile']);
+            Route::post('me/photo', [AuthController::class, 'uploadPhoto']);
+            Route::delete('me/photo', [AuthController::class, 'deletePhoto']);
             Route::post('logout', [AuthController::class, 'logout']);
         });
     });
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::apiResource('branches', BranchController::class);
         Route::get('branches/all/paginated', [BranchController::class, 'getAllPaginated']);
 
         // Ticket Categories
         Route::apiResource('ticket-categories', TicketCategoryController::class);
 
-        Route::apiResource('tickets', TicketController::class);
         Route::get('tickets/all/paginated', [TicketController::class, 'getAllPaginated']);
         Route::get('tickets/code/{code}', [TicketController::class, 'showByCode'])->where('code', '.*');
         Route::get('tickets/export/pdf', [TicketController::class, 'exportPdf']);
         Route::get('tickets/export/excel', [TicketController::class, 'exportExcel']);
+        Route::apiResource('tickets', TicketController::class);
         Route::put('tickets/{id}/close', [TicketController::class, 'closeTicket']);
 
         Route::get('tickets/{ticketId}/attachments', [TicketAttachmentController::class, 'index']);
@@ -80,6 +84,8 @@ Route::prefix('v1')->group(function () {
         Route::get('daily-records/report/daily-usage', [DailyRecordController::class, 'getDailyUsageReport']);
         Route::get('daily-records/report/daily-usage/export', [DailyRecordController::class, 'exportDailyUsageReport']);
         Route::get('daily-records/report/daily-usage/export/pdf', [DailyRecordController::class, 'exportDailyUsageReportPdf']);
+        Route::post('daily-records/report/daily-usage/reset', [DailyRecordController::class, 'resetDailyUsageReport']);
+        Route::get('daily-records/report-dates', [DailyRecordController::class, 'getReportDates']);
 
         Route::apiResource('daily-records', DailyRecordController::class);
 
@@ -118,8 +124,17 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard/tickets-trend', [DashboardController::class, 'getTicketsTrend']);
         Route::get('dashboard/staff-reports-trend', [DashboardController::class, 'getStaffReportsTrend']);
         Route::get('dashboard/all', [DashboardController::class, 'getAllData']);
+        Route::get('dashboard/top-outlet-usage', [DashboardController::class, 'getTopOutletUsage']);
+
+        // Browser notification routes
+        Route::get('browser-notifications', [BrowserNotificationController::class, 'index']);
+        Route::get('browser-notifications/vapid-public-key', [BrowserNotificationController::class, 'vapidPublicKey']);
+        Route::post('browser-notifications/subscribe', [BrowserNotificationController::class, 'subscribe']);
+        Route::delete('browser-notifications/subscribe', [BrowserNotificationController::class, 'unsubscribe']);
 
         // Role Management routes
+        Route::get('roles/matrix', [\App\Http\Controllers\RoleController::class, 'matrix']);
+        Route::get('roles/presets', [\App\Http\Controllers\RoleController::class, 'presets']);
         Route::apiResource('roles', \App\Http\Controllers\RoleController::class);
         Route::get('permissions', [\App\Http\Controllers\RoleController::class, 'permissions']);
 
@@ -156,5 +171,27 @@ Route::prefix('v1')->group(function () {
         // User Activity Monitoring routes
         Route::get('user-activity', [\App\Http\Controllers\UserActivityController::class, 'index']);
         Route::get('user-activity/statistics', [\App\Http\Controllers\UserActivityController::class, 'statistics']);
+
+        // Activity Log routes
+        Route::get('activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index']);
+        Route::get('activity-logs/statistics', [\App\Http\Controllers\ActivityLogController::class, 'statistics']);
+        Route::get('activity-logs/{id}', [\App\Http\Controllers\ActivityLogController::class, 'show']);
+
+        // Form Permintaan routes
+        Route::get('form-permintaan', [FormPermintaanController::class, 'index']);
+        Route::post('form-permintaan', [FormPermintaanController::class, 'store']);
+        Route::get('form-permintaan/export/pdf', [FormPermintaanController::class, 'exportPdf']);
+        Route::get('form-permintaan/export/excel', [FormPermintaanController::class, 'exportExcel']);
+        Route::get('form-permintaan/{id}/pdf', [FormPermintaanController::class, 'downloadPdf']);
+        Route::get('form-permintaan/{id}', [FormPermintaanController::class, 'show']);
+        Route::put('form-permintaan/{id}', [FormPermintaanController::class, 'update']);
+        Route::put('form-permintaan/{id}/confirm', [FormPermintaanController::class, 'confirm']);
+        Route::put('form-permintaan/{id}/status', [FormPermintaanController::class, 'updateStatus']);
+        Route::put('form-permintaan/{id}/review', [FormPermintaanController::class, 'review']);
+        Route::put('form-permintaan/{id}/reject', [FormPermintaanController::class, 'reject']);
+        Route::delete('form-permintaan/{id}', [FormPermintaanController::class, 'destroy']);
+        Route::post('form-permintaan/{id}/attachments', [FormPermintaanController::class, 'uploadAttachment']);
+        Route::get('form-permintaan/{id}/attachments/{attachmentId}/download', [FormPermintaanController::class, 'downloadAttachment']);
+        Route::delete('form-permintaan/{id}/attachments/{attachmentId}', [FormPermintaanController::class, 'deleteAttachment']);
     });
 });

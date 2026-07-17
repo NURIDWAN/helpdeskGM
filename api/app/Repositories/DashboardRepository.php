@@ -414,4 +414,70 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->get()
             ->toArray();
     }
+
+    public function getTopOutletUsage(): array
+    {
+        $startOfMonth = Carbon::now()->startOfMonth()->toDateString();
+        $today = Carbon::today()->toDateString();
+
+        // Top 5 by electricity (from electricity_readings table)
+        $electricity = DB::table('electricity_readings')
+            ->join('daily_records', 'electricity_readings.daily_record_id', '=', 'daily_records.id')
+            ->join('branches', 'daily_records.branch_id', '=', 'branches.id')
+            ->whereBetween('daily_records.date', [$startOfMonth, $today])
+            ->select('branches.name as branch_name', DB::raw('SUM(electricity_readings.meter_value) as value'))
+            ->groupBy('branches.id', 'branches.name')
+            ->orderByDesc('value')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => ['branch_name' => $item->branch_name, 'value' => (float) $item->value])
+            ->toArray();
+
+        // Top 5 by water (from utility_readings with category='water')
+        $water = DB::table('utility_readings')
+            ->join('daily_records', 'utility_readings.daily_record_id', '=', 'daily_records.id')
+            ->join('branches', 'daily_records.branch_id', '=', 'branches.id')
+            ->where('utility_readings.category', 'water')
+            ->whereBetween('daily_records.date', [$startOfMonth, $today])
+            ->select('branches.name as branch_name', DB::raw('SUM(utility_readings.meter_value) as value'))
+            ->groupBy('branches.id', 'branches.name')
+            ->orderByDesc('value')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => ['branch_name' => $item->branch_name, 'value' => (float) $item->value])
+            ->toArray();
+
+        // Top 5 by gas (from utility_readings with category='gas')
+        $gas = DB::table('utility_readings')
+            ->join('daily_records', 'utility_readings.daily_record_id', '=', 'daily_records.id')
+            ->join('branches', 'daily_records.branch_id', '=', 'branches.id')
+            ->where('utility_readings.category', 'gas')
+            ->whereBetween('daily_records.date', [$startOfMonth, $today])
+            ->select('branches.name as branch_name', DB::raw('SUM(utility_readings.meter_value) as value'))
+            ->groupBy('branches.id', 'branches.name')
+            ->orderByDesc('value')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => ['branch_name' => $item->branch_name, 'value' => (float) $item->value])
+            ->toArray();
+
+        // Top 5 by customer count (from daily_records)
+        $customer = DB::table('daily_records')
+            ->join('branches', 'daily_records.branch_id', '=', 'branches.id')
+            ->whereBetween('daily_records.date', [$startOfMonth, $today])
+            ->select('branches.name as branch_name', DB::raw('SUM(daily_records.total_customers) as value'))
+            ->groupBy('branches.id', 'branches.name')
+            ->orderByDesc('value')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => ['branch_name' => $item->branch_name, 'value' => (int) $item->value])
+            ->toArray();
+
+        return [
+            'electricity' => $electricity,
+            'water' => $water,
+            'gas' => $gas,
+            'customer' => $customer,
+        ];
+    }
 }

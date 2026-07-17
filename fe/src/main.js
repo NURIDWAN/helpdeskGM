@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import Toast from 'vue-toastification'
-import 'vue-toastification/dist/index.css'
+import * as Sentry from '@sentry/vue'
+import { createSentryPiniaPlugin } from '@sentry/vue'
 import './index.css'
 
 import App from './App.vue'
@@ -9,27 +9,29 @@ import router from './router'
 
 const app = createApp(App)
 
-// Toast configuration
-const toastOptions = {
-    position: 'top-right',
-    timeout: 4000,
-    closeOnClick: true,
-    pauseOnFocusLoss: true,
-    pauseOnHover: true,
-    draggable: true,
-    draggablePercent: 0.6,
-    showCloseButtonOnHover: false,
-    hideProgressBar: false,
-    closeButton: 'button',
-    icon: true,
-    rtl: false,
-    transition: 'Vue-Toastification__bounce',
-    maxToasts: 5,
-    newestOnTop: true,
-}
+// Sentry error monitoring & performance tracing
+Sentry.init({
+    app,
+    dsn: import.meta.env.VITE_SENTRY_DSN || '',
+    integrations: [
+        Sentry.browserTracingIntegration({ router }),
+        Sentry.replayIntegration(),
+    ],
+    // Performance tracing
+    tracesSampleRate: parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE || '1.0'),
+    tracePropagationTargets: ['localhost', /^https:\/\/api\./],
+    // Session Replay
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+    // Privacy — do not send PII by default
+    sendDefaultPii: false,
+})
 
-app.use(createPinia())
+// Pinia with Sentry state capture
+const pinia = createPinia()
+pinia.use(createSentryPiniaPlugin())
+
+app.use(pinia)
 app.use(router)
-app.use(Toast, toastOptions)
 
 app.mount('#app')

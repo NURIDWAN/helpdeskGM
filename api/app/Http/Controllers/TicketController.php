@@ -29,10 +29,11 @@ class TicketController extends Controller implements HasMiddleware
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['ticket-list|ticket-create|ticket-edit|ticket-delete']), only: ['index', 'getAllPaginated', 'show']),
+            new Middleware(PermissionMiddleware::using(['ticket-list|ticket-create|ticket-edit|ticket-delete']), only: ['index', 'getAllPaginated', 'show', 'showByCode']),
             new Middleware(PermissionMiddleware::using(['ticket-create']), only: ['store']),
-            new Middleware(PermissionMiddleware::using(['ticket-edit|ticket-update-status']), only: ['update']),
+            new Middleware(PermissionMiddleware::using(['ticket-edit|ticket-update-status']), only: ['update', 'closeTicket']),
             new Middleware(PermissionMiddleware::using(['ticket-delete']), only: ['destroy']),
+            new Middleware(PermissionMiddleware::using(['ticket-list']), only: ['exportPdf', 'exportExcel']),
         ];
     }
 
@@ -353,12 +354,37 @@ class TicketController extends Controller implements HasMiddleware
     public function exportExcel(Request $request)
     {
         try {
+            // Validate date range: optional, but max 3 months span if provided
+            $request->validate([
+                'date_from' => 'nullable|date',
+                'start_date' => 'nullable|date',
+                'date_to' => 'nullable|date',
+                'end_date' => 'nullable|date',
+            ]);
+
+            $startDate = $request->date_from ?? $request->start_date;
+            $endDate = $request->date_to ?? $request->end_date;
+
+            // If no dates provided, default to last 3 months
+            if (!$startDate && !$endDate) {
+                $startDate = now()->subMonths(3)->format('Y-m-d');
+                $endDate = now()->format('Y-m-d');
+            }
+
+            if ($startDate && $endDate) {
+                $start = \Carbon\Carbon::parse($startDate);
+                $end = \Carbon\Carbon::parse($endDate);
+                if ($start->diffInMonths($end) > 3) {
+                    return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+                }
+            }
+
             $filters = [
                 'status' => $request->status,
                 'priority' => $request->priority,
                 'branch_id' => $request->branch_id,
-                'date_from' => $request->date_from ?? $request->start_date,
-                'date_to' => $request->date_to ?? $request->end_date,
+                'date_from' => $startDate,
+                'date_to' => $endDate,
                 'search' => $request->search,
                 'duration' => $request->duration,
             ];
@@ -377,6 +403,31 @@ class TicketController extends Controller implements HasMiddleware
     public function exportPdf(Request $request)
     {
         try {
+            // Validate date range: optional, but max 3 months span if provided
+            $request->validate([
+                'date_from' => 'nullable|date',
+                'start_date' => 'nullable|date',
+                'date_to' => 'nullable|date',
+                'end_date' => 'nullable|date',
+            ]);
+
+            $startDate = $request->date_from ?? $request->start_date;
+            $endDate = $request->date_to ?? $request->end_date;
+
+            // If no dates provided, default to last 3 months
+            if (!$startDate && !$endDate) {
+                $startDate = now()->subMonths(3)->format('Y-m-d');
+                $endDate = now()->format('Y-m-d');
+            }
+
+            if ($startDate && $endDate) {
+                $start = \Carbon\Carbon::parse($startDate);
+                $end = \Carbon\Carbon::parse($endDate);
+                if ($start->diffInMonths($end) > 3) {
+                    return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+                }
+            }
+
             $query = \App\Models\Ticket::with(['user', 'branch', 'assignedStaff', 'category']);
 
             // Apply filters
@@ -389,11 +440,11 @@ class TicketController extends Controller implements HasMiddleware
             if ($request->branch_id) {
                 $query->where('branch_id', $request->branch_id);
             }
-            if ($request->date_from ?? $request->start_date) {
-                $query->whereDate('created_at', '>=', $request->date_from ?? $request->start_date);
+            if ($startDate) {
+                $query->whereDate('created_at', '>=', $startDate);
             }
-            if ($request->date_to ?? $request->end_date) {
-                $query->whereDate('created_at', '<=', $request->date_to ?? $request->end_date);
+            if ($endDate) {
+                $query->whereDate('created_at', '<=', $endDate);
             }
             if ($request->search) {
                 $search = $request->search;
@@ -414,7 +465,7 @@ class TicketController extends Controller implements HasMiddleware
                 }
             }
 
-            $tickets = $query->orderBy('created_at', 'desc')->get();
+            $tickets = $query->orderBy('created_at', 'desc')->limit(5000)->get();
 
             // Get branch name for filter display
             $branchName = null;
@@ -427,8 +478,8 @@ class TicketController extends Controller implements HasMiddleware
                 'status' => $request->status,
                 'priority' => $request->priority,
                 'branch' => $branchName,
-                'date_from' => $request->date_from ?? $request->start_date,
-                'date_to' => $request->date_to ?? $request->end_date,
+                'date_from' => $startDate,
+                'date_to' => $endDate,
             ];
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.tickets-pdf', [

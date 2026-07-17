@@ -9,6 +9,7 @@ use App\Http\Resources\DailyRecordResource;
 use App\Helpers\ResponseHelper;
 use App\Http\Resources\PaginateResource;
 use App\Models\DailyRecord;
+use App\Models\ElectricityReading;
 use App\Models\UtilityReading;
 use App\Enums\UtilityCategory;
 use Illuminate\Http\Request;
@@ -42,9 +43,9 @@ class DailyRecordController extends Controller implements HasMiddleware
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['daily-record-list|daily-record-create|daily-record-edit|daily-record-delete']), only: ['index', 'getAllPaginated', 'show', 'exportPdf', 'exportExcel']),
+            new Middleware(PermissionMiddleware::using(['daily-record-list|daily-record-create|daily-record-edit|daily-record-delete']), only: ['index', 'getAllPaginated', 'show', 'exportPdf', 'exportExcel', 'getPreviousReadings', 'getDailyUsageReport', 'exportDailyUsageReport', 'exportDailyUsageReportPdf', 'getReportDates']),
             new Middleware(PermissionMiddleware::using(['daily-record-create']), only: ['store']),
-            new Middleware(PermissionMiddleware::using(['daily-record-edit']), only: ['update']),
+            new Middleware(PermissionMiddleware::using(['daily-record-edit']), only: ['update', 'resetDailyUsageReport']),
             new Middleware(PermissionMiddleware::using(['daily-record-delete']), only: ['destroy']),
         ];
     }
@@ -269,8 +270,8 @@ class DailyRecordController extends Controller implements HasMiddleware
 
             // Fetch previous record for usage calculation
             $previousRecord = DailyRecord::where('branch_id', $dailyRecord->branch_id)
-                ->where('created_at', '<', $dailyRecord->created_at)
-                ->orderBy('created_at', 'desc')
+                ->where('date', '<', $dailyRecord->date)
+                ->orderBy('date', 'desc')
                 ->with(['electricityReadings', 'utilityReadings'])
                 ->first();
 
@@ -278,7 +279,7 @@ class DailyRecordController extends Controller implements HasMiddleware
             $dailyRecord->previous_readings = [
                 'electricity' => $previousRecord ? \App\Http\Resources\ElectricityReadingResource::collection($previousRecord->electricityReadings) : [],
                 'utility' => $previousRecord ? \App\Http\Resources\UtilityReadingResource::collection($previousRecord->utilityReadings) : [],
-                'record_date' => $previousRecord ? $previousRecord->created_at : null
+                'record_date' => $previousRecord ? $previousRecord->date : null
             ];
 
             return ResponseHelper::jsonResponse(true, 'Data Daily Record Berhasil Diambil', new DailyRecordResource($dailyRecord), 200);
@@ -316,18 +317,18 @@ class DailyRecordController extends Controller implements HasMiddleware
         ]);
 
         try {
-            $date = $request->date ? \Carbon\Carbon::parse($request->date) : now();
+            $date = $request->date;
 
             $previousRecord = DailyRecord::where('branch_id', $request->branch_id)
-                ->where('created_at', '<', $date)
-                ->orderBy('created_at', 'desc')
+                ->where('date', '<', $date)
+                ->orderBy('date', 'desc')
                 ->with(['electricityReadings', 'utilityReadings'])
                 ->first();
 
             $previousReadings = [
                 'electricity' => $previousRecord ? $previousRecord->electricityReadings : [],
                 'utility' => $previousRecord ? $previousRecord->utilityReadings : [],
-                'record_date' => $previousRecord ? $previousRecord->created_at : null
+                'record_date' => $previousRecord ? $previousRecord->date : null
             ];
 
             return ResponseHelper::jsonResponse(true, 'Previous readings fetched', $previousReadings, 200);
@@ -432,9 +433,16 @@ class DailyRecordController extends Controller implements HasMiddleware
             'search' => 'nullable|string',
             'user_id' => 'nullable|integer',
             'branch_id' => 'nullable|integer',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date'
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
         ]);
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             $dailyRecords = $this->dailyRecordRepository->getExportData(
@@ -467,9 +475,16 @@ class DailyRecordController extends Controller implements HasMiddleware
             'search' => 'nullable|string',
             'user_id' => 'nullable|integer',
             'branch_id' => 'nullable|integer',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date'
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
         ]);
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             $dailyRecords = $this->dailyRecordRepository->getExportData(
@@ -529,7 +544,7 @@ class DailyRecordController extends Controller implements HasMiddleware
      */
     public function getDailyUsageReport(Request $request)
     {
-        $request = $request->validate([
+        $validated = $request->validate([
             'user_id' => 'nullable|integer',
             'branch_id' => 'required|integer|exists:branches,id',
             'start_date' => 'nullable|date',
@@ -537,25 +552,33 @@ class DailyRecordController extends Controller implements HasMiddleware
             'category' => 'nullable|in:gas,water,electricity' // Filter berdasarkan category
         ]);
 
+        // Enforce branch restriction for user role
+        $user = request()->user();
+        if ($user && $user->hasRole('user') && $user->branch_id) {
+            $validated['branch_id'] = $user->branch_id;
+        }
+
         try {
             $dailyRecords = $this->dailyRecordRepository->getExportData(
                 null,
-                $request['user_id'] ?? null,
-                $request['branch_id'] ?? null,
-                $request['start_date'] ?? null,
-                $request['end_date'] ?? null
+                $validated['user_id'] ?? null,
+                $validated['branch_id'] ?? null,
+                $validated['start_date'] ?? null,
+                $validated['end_date'] ?? null
             );
 
             // Load utility readings AND electricity readings (multi-meter) for all daily records
             $dailyRecords->load(['utilityReadings', 'electricityReadings.electricityMeter', 'user', 'branch']);
 
             // Sort by date ASC untuk perhitungan yang benar (seperti laporan arus kas)
-            $dailyRecords = $dailyRecords->sortBy('created_at')->values();
+            $dailyRecords = $dailyRecords->sortBy(function ($record) {
+                return $record->date ? $record->date->format('Y-m-d') : $record->created_at->format('Y-m-d');
+            })->values();
 
             $reportData = [];
 
             // Track closing values dari record sebelumnya (untuk digunakan sebagai opening)
-            $previousClosings = $this->initializePreviousClosings($request);
+            $previousClosings = $this->initializePreviousClosings($validated);
 
             foreach ($dailyRecords as $dailyRecord) {
                 $utilityReadings = $dailyRecord->utilityReadings;
@@ -575,10 +598,10 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $gasUsage = null;
 
                 if ($gasReading) {
-                    // Opening = meter_value yang diinput user (nilai hari ini, lebih besar)
+                    // Opening = meter_value yang diinput user hari ini
                     $gasOpening = round($gasReading->meter_value, 2);
                     
-                    // Closing = opening dari record sebelumnya (nilai kemarin, lebih kecil)
+                    // Closing = Opening dari hari sebelumnya
                     $prevGas = $previousClosings['gas'] ?? null;
                     
                     if (is_array($prevGas) && isset($prevGas['value'])) {
@@ -587,10 +610,10 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $gasClosing = 0;
                     }
 
-                    // Usage = Opening - Closing (positif karena Opening > Closing)
+                    // Total Pemakaian = Opening - Closing
                     $gasUsage = round($gasOpening - $gasClosing, 2);
 
-                    // Update previous value untuk record berikutnya
+                    // Simpan Opening hari ini → jadi Closing hari berikutnya
                     $currentLocation = $gasReading->location ?? '';
                     $previousClosings['gas'] = [
                         'value' => $gasOpening,
@@ -603,11 +626,11 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $waterReadingsSorted = $waterReadings->sortBy('location')->values();
                 $waterData = [];
                 foreach ($waterReadingsSorted as $waterReading) {
-                    // Opening = meter_value yang diinput user (nilai hari ini)
+                    // Opening = meter_value yang diinput user hari ini
                     $waterOpening = round($waterReading->meter_value, 2);
                     $location = $waterReading->location ?? 'default';
 
-                    // Closing = opening dari record sebelumnya dengan lokasi yang sama
+                    // Closing = Opening dari hari sebelumnya dengan lokasi yang sama
                     $normalizedLocation = trim(strtolower($location));
                     $waterClosing = $previousClosings['water'][$normalizedLocation] ?? null;
 
@@ -620,10 +643,10 @@ class DailyRecordController extends Controller implements HasMiddleware
                     }
                     
                     $waterClosing = $waterClosing ?? 0;
-                    // Usage = Opening - Closing (positif karena Opening > Closing)
+                    // Total Pemakaian = Opening - Closing
                     $waterUsage = round($waterOpening - $waterClosing, 2);
 
-                    // Update previous value untuk record berikutnya
+                    // Simpan Opening hari ini → jadi Closing hari berikutnya
                     $previousClosings['water'][$normalizedLocation] = $waterOpening;
 
                     $waterData[] = [
@@ -655,16 +678,14 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $electricityReading->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        // Opening = meter_value yang diinput user (nilai hari ini)
+                        // Opening = meter_value yang diinput user hari ini
                         $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Closing = opening dari record sebelumnya dengan electricity_meter_id yang sama
+                        // Closing = Opening dari hari sebelumnya
                         $closing = $previousClosings['electricity'][$meterId]['value'] ?? null;
-
-                        // Jika masih null, gunakan 0
                         $closing = $closing ?? 0;
 
-                        // Calculate usage: Opening - Closing (positif karena Opening > Closing)
+                        // Total Pemakaian = Opening - Closing
                         $usage = null;
                         if ($opening !== null) {
                             $usage = round($opening - $closing, 2);
@@ -681,7 +702,7 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
-                        // Update previous value untuk record berikutnya
+                        // Simpan Opening hari ini → jadi Closing hari berikutnya
                         $previousClosings['electricity'][$meterId] = [
                             'value' => $opening,
                         ];
@@ -693,14 +714,14 @@ class DailyRecordController extends Controller implements HasMiddleware
                     foreach ($electricityReadingsSorted as $electricityReading) {
                         $location = $electricityReading->location ?? 'default';
 
-                        // Opening = meter_value yang diinput user (nilai hari ini)
+                        // Opening = meter_value yang diinput user hari ini
                         $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Closing = opening dari record sebelumnya dengan lokasi yang sama
+                        // Closing = Opening dari hari sebelumnya
                         $closing = $previousClosings['electricity'][$location]['value'] ?? null;
                         $closing = $closing ?? 0;
 
-                        // Calculate usage: Opening - Closing
+                        // Total Pemakaian = Opening - Closing
                         $usage = null;
                         if ($opening !== null) {
                             $usage = round($opening - $closing, 2);
@@ -713,10 +734,11 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'opening' => $opening,
                             'closing' => $closing,
                             'usage' => $usage,
-                            'photo' => null, // Legacy photos might use different fields, simplifying for now
+                            'photo' => null,
                             'photo_path' => $electricityReading->photo ?? null,
                         ];
 
+                        // Simpan Opening hari ini → jadi Closing hari berikutnya
                         $previousClosings['electricity'][$location] = [
                             'value' => $opening,
                         ];
@@ -724,14 +746,14 @@ class DailyRecordController extends Controller implements HasMiddleware
                 }
 
                 // Filter berdasarkan category jika dipilih
-                $category = $request['category'] ?? null;
+                $category = $validated['category'] ?? null;
                 if ($category && !in_array($category, ['gas', 'water', 'electricity'])) {
                     continue; // Skip jika category tidak valid
                 }
 
                 $rowData = [
-                    'timestamp' => $dailyRecord->created_at->format('m/d/Y H:i:s'),
-                    'tanggal' => $dailyRecord->created_at->format('m/d/Y'),
+                    'timestamp' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y H:i:s'),
+                    'tanggal' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y'),
                     'nama' => $dailyRecord->user->name ?? '-',
                     'outlet' => $dailyRecord->branch->name ?? '-',
                     'total_customer' => $dailyRecord->total_customers ?? 0,
@@ -775,6 +797,84 @@ class DailyRecordController extends Controller implements HasMiddleware
     }
 
     /**
+     * Reset utility readings used by the daily usage report to zero.
+     */
+    public function resetDailyUsageReport(Request $request)
+    {
+        if (!$request->user()?->hasRole('superadmin')) {
+            return ResponseHelper::jsonResponse(false, 'Hanya superadmin yang dapat melakukan reset daily usage.', null, 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => 'nullable|integer',
+            'branch_id' => 'required|integer|exists:branches,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'category' => 'nullable|in:gas,water,electricity',
+            'electricity_meter_ids' => 'nullable|array',
+            'electricity_meter_ids.*' => 'integer|exists:electricity_meters,id',
+        ]);
+
+        try {
+            $dailyRecordIds = DailyRecord::query()
+                ->where('branch_id', $validated['branch_id'])
+                ->when($validated['user_id'] ?? null, fn($query, $userId) => $query->where('user_id', $userId))
+                ->when($validated['start_date'] ?? null, fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                ->when($validated['end_date'] ?? null, fn($query, $date) => $query->whereDate('created_at', '<=', $date))
+                ->pluck('id');
+
+            if ($dailyRecordIds->isEmpty()) {
+                return ResponseHelper::jsonResponse(false, 'Tidak ada daily record yang cocok dengan filter reset.', null, 404);
+            }
+
+            $category = $validated['category'] ?? null;
+
+            $counts = DB::transaction(function () use ($dailyRecordIds, $category, $validated) {
+                $utilityQuery = UtilityReading::whereIn('daily_record_id', $dailyRecordIds);
+
+                if ($category) {
+                    $utilityQuery->where('category', $category);
+                } else {
+                    $utilityQuery->whereIn('category', [
+                        UtilityCategory::GAS->value,
+                        UtilityCategory::WATER->value,
+                        UtilityCategory::ELECTRICITY->value,
+                    ]);
+                }
+
+                $utilityUpdated = $utilityQuery->update([
+                    'meter_value' => 0,
+                    'meter_value_wbp' => 0,
+                    'meter_value_lwbp' => 0,
+                ]);
+
+                $electricityUpdated = 0;
+                if (!$category || $category === UtilityCategory::ELECTRICITY->value) {
+                    $query = ElectricityReading::whereIn('daily_record_id', $dailyRecordIds);
+
+                    // Apply meter filter if provided and non-empty
+                    $meterIds = $validated['electricity_meter_ids'] ?? [];
+                    if (!empty($meterIds)) {
+                        $query->whereIn('electricity_meter_id', $meterIds);
+                    }
+
+                    $electricityUpdated = $query->update(['meter_value' => 0]);
+                }
+
+                return [
+                    'daily_records' => $dailyRecordIds->count(),
+                    'utility_readings' => $utilityUpdated,
+                    'electricity_readings' => $electricityUpdated,
+                ];
+            });
+
+            return ResponseHelper::jsonResponse(true, 'Daily usage berhasil direset ke 0.', $counts, 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan saat reset daily usage: ' . $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
      * Export daily usage report to Excel (.xlsx)
      */
     public function exportDailyUsageReport(Request $request)
@@ -782,10 +882,23 @@ class DailyRecordController extends Controller implements HasMiddleware
         $request = $request->validate([
             'user_id' => 'nullable|integer',
             'branch_id' => 'required|integer|exists:branches,id',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
             'category' => 'nullable|string'
         ]);
+
+        // Enforce branch restriction for user role
+        $authUser = request()->user();
+        if ($authUser && $authUser->hasRole('user') && $authUser->branch_id) {
+            $request['branch_id'] = $authUser->branch_id;
+        }
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             $dailyRecords = $this->dailyRecordRepository->getExportData(
@@ -797,7 +910,9 @@ class DailyRecordController extends Controller implements HasMiddleware
             );
 
             $dailyRecords->load(['utilityReadings', 'electricityReadings.electricityMeter', 'user', 'branch']);
-            $dailyRecords = $dailyRecords->sortBy('created_at')->values();
+            $dailyRecords = $dailyRecords->sortBy(function ($record) {
+                return $record->date ? $record->date->format('Y-m-d') : $record->created_at->format('Y-m-d');
+            })->values();
 
             $branch = \App\Models\Branch::find($request['branch_id']);
             $initialPreviousClosings = $this->initializePreviousClosings($request);
@@ -962,8 +1077,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                     // ... actually we just write on first row
                     if ($i === 0) {
                         $sheet->setCellValue($columns[$col++] . $currentRow, $rowNumber); // NO column
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->created_at->format('m/d/Y H:i:s'));
-                        $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->created_at->format('m/d/Y'));
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y H:i:s'));
+                        $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y'));
                         $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->user->name ?? '-');
                         $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->branch->name ?? '-');
                         $sheet->setCellValue($columns[$col++] . $currentRow, $dailyRecord->total_customers ?? 0);
@@ -1165,10 +1280,23 @@ class DailyRecordController extends Controller implements HasMiddleware
         $request = $request->validate([
             'user_id' => 'nullable|integer',
             'branch_id' => 'required|integer|exists:branches,id',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
-            'category' => 'nullable|string' // Category optional (defaults to all)
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'category' => 'nullable|string'
         ]);
+
+        // Enforce branch restriction for user role
+        $authUser = request()->user();
+        if ($authUser && $authUser->hasRole('user') && $authUser->branch_id) {
+            $request['branch_id'] = $authUser->branch_id;
+        }
+
+        // Validate max 3 months span
+        $start = \Carbon\Carbon::parse($request['start_date']);
+        $end = \Carbon\Carbon::parse($request['end_date']);
+        if ($start->diffInMonths($end) > 3) {
+            return ResponseHelper::jsonResponse(false, 'Rentang tanggal maksimal 3 bulan', null, 422);
+        }
 
         try {
             // Reuse logic from getDailyUsageReport
@@ -1181,7 +1309,9 @@ class DailyRecordController extends Controller implements HasMiddleware
             );
 
             $dailyRecords->load(['utilityReadings', 'electricityReadings.electricityMeter', 'user', 'branch']);
-            $dailyRecords = $dailyRecords->sortBy('created_at')->values();
+            $dailyRecords = $dailyRecords->sortBy(function ($record) {
+                return $record->date ? $record->date->format('Y-m-d') : $record->created_at->format('Y-m-d');
+            })->values();
 
             $reportData = [];
             $previousClosings = $this->initializePreviousClosings($request);
@@ -1195,8 +1325,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                 $electricityReadings = $utilityReadings->where('category', UtilityCategory::ELECTRICITY->value);
 
                 $rowData = [
-                    'timestamp' => $dailyRecord->created_at->format('m/d/Y H:i:s'),
-                    'tanggal' => $dailyRecord->created_at->format('m/d/Y'),
+                    'timestamp' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y H:i:s'),
+                    'tanggal' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y'),
                     'nama' => $dailyRecord->user->name ?? '-',
                     'outlet' => $dailyRecord->branch->name ?? '-',
                     'total_customer' => $dailyRecord->total_customers ?? 0,
@@ -1210,22 +1340,24 @@ class DailyRecordController extends Controller implements HasMiddleware
                     $gasUsage = null;
 
                     if ($gasReading) {
-                        $gasClosing = round($gasReading->meter_value, 2);
+                        // Opening = meter_value yang diinput user hari ini
+                        $gasOpening = round($gasReading->meter_value, 2);
 
                         $prevGas = $previousClosings['gas'] ?? null;
                         $currentLocation = $gasReading->location ?? '';
 
-                        // Opening from previous closing (no strict location check for gas)
+                        // Closing = Opening dari hari sebelumnya
                         if (is_array($prevGas) && isset($prevGas['value'])) {
-                            $gasOpening = $prevGas['value'];
+                            $gasClosing = $prevGas['value'];
                         } else {
-                            $gasOpening = 0;
+                            $gasClosing = 0;
                         }
 
-                        // Usage = Closing - Opening
-                        $gasUsage = round($gasClosing - $gasOpening, 2);
+                        // Total Pemakaian = Opening - Closing
+                        $gasUsage = round($gasOpening - $gasClosing, 2);
+                        // Simpan Opening hari ini → jadi Closing hari berikutnya
                         $previousClosings['gas'] = [
-                            'value' => $gasClosing,
+                            'value' => $gasOpening,
                             'location' => $currentLocation
                         ];
                     }
@@ -1245,21 +1377,23 @@ class DailyRecordController extends Controller implements HasMiddleware
                 if ($category === 'water' || $category === 'all') {
                     $waterData = [];
                     foreach ($waterReadings as $waterReading) {
-                        $waterClosing = round($waterReading->meter_value, 2);
+                        // Opening = meter_value yang diinput user hari ini
+                        $waterOpening = round($waterReading->meter_value, 2);
                         $location = $waterReading->location ?? 'default';
-                        // Opening = closing dari record sebelumnya dengan lokasi yang sama
+                        // Closing = Opening dari hari sebelumnya dengan lokasi yang sama
                         $normalizedLocation = trim(strtolower($location));
-                        $waterOpening = $previousClosings['water'][$normalizedLocation] ?? null;
+                        $waterClosing = $previousClosings['water'][$normalizedLocation] ?? null;
                          
-                        if ($waterOpening === null && isset($previousClosings['water']['_single_fallback'])) {
+                        if ($waterClosing === null && isset($previousClosings['water']['_single_fallback'])) {
                             if ($waterReadings->count() === 1) {
-                                    $waterOpening = $previousClosings['water']['_single_fallback'];
+                                    $waterClosing = $previousClosings['water']['_single_fallback'];
                             }
                         }
-                        $waterOpening = $waterOpening ?? 0;
-                        // Usage = Closing - Opening
-                        $waterUsage = round($waterClosing - $waterOpening, 2);
-                        $previousClosings['water'][$normalizedLocation] = $waterClosing;
+                        $waterClosing = $waterClosing ?? 0;
+                        // Total Pemakaian = Opening - Closing
+                        $waterUsage = round($waterOpening - $waterClosing, 2);
+                        // Simpan Opening hari ini → jadi Closing hari berikutnya
+                        $previousClosings['water'][$normalizedLocation] = $waterOpening;
 
                         $waterData[] = [
                             'location' => $waterReading->location,
@@ -1271,8 +1405,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                     }
                     
                     // Update fallback for next iteration if this record has exactly 1 water meter
-                    if ($waterReadings->count() === 1 && isset($waterData[0]['closing'])) {
-                         $previousClosings['water']['_single_fallback'] = $waterData[0]['closing'];
+                    if ($waterReadings->count() === 1 && isset($waterData[0]['opening'])) {
+                         $previousClosings['water']['_single_fallback'] = $waterData[0]['opening'];
                     }
                     
                     $rowData['water'] = $waterData;
@@ -1290,17 +1424,17 @@ class DailyRecordController extends Controller implements HasMiddleware
                         $meterId = $electricityReading->electricity_meter_id;
                         $displayName = $meter->meter_name . ($meter->location ? ' (' . $meter->location . ')' : '');
 
-                        $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
+                        // Opening = meter_value yang diinput user hari ini
+                        $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
 
-                        // Opening = closing dari record sebelumnya dengan meter_id yang sama
-                        $opening = $previousClosings['electricity'][$meterId] ?? 0;
+                        // Closing = Opening dari hari sebelumnya
+                        $closing = $previousClosings['electricity'][$meterId] ?? 0;
 
                         $usage = null;
 
-                        // Hitung usage jika ada closing
-                        if ($closing !== null) {
-                            // Usage = Closing - Opening
-                            $usage = round($closing - $opening, 2);
+                        // Total Pemakaian = Opening - Closing
+                        if ($opening !== null) {
+                            $usage = round($opening - $closing, 2);
                         }
 
                         $electricityData[] = [
@@ -1312,7 +1446,8 @@ class DailyRecordController extends Controller implements HasMiddleware
                             'photo_path' => $electricityReading->photo ? $electricityReading->photo : null,
                         ];
 
-                        $previousClosings['electricity'][$meterId] = $closing;
+                        // Simpan Opening hari ini → jadi Closing hari berikutnya
+                        $previousClosings['electricity'][$meterId] = $opening;
                     }
                     $rowData['electricity'] = $electricityData;
                 }
@@ -1344,6 +1479,31 @@ class DailyRecordController extends Controller implements HasMiddleware
             return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan saat export PDF: ' . $e->getMessage(), null, 500);
         }
     }
+    /**
+     * Get dates that have daily records for a specific branch and month.
+     */
+    public function getReportDates(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id' => 'required|integer|exists:branches,id',
+            'month' => ['required', 'string', 'regex:/^\d{4}-\d{2}$/'],
+        ]);
+
+        try {
+            $dates = DailyRecord::where('branch_id', $validated['branch_id'])
+                ->whereYear('date', substr($validated['month'], 0, 4))
+                ->whereMonth('date', substr($validated['month'], 5, 2))
+                ->pluck('date')
+                ->map(fn ($date) => $date->format('Y-m-d'))
+                ->values()
+                ->toArray();
+
+            return ResponseHelper::jsonResponse(true, 'Report dates fetched', $dates, 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Error fetching report dates', null, 500);
+        }
+    }
+
     /**
      * Initialize previous closing readings based on the last record before the selected start date.
      * Delegates to DailyUsageReportService for the actual logic.

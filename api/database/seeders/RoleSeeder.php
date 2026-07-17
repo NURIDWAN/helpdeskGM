@@ -100,6 +100,12 @@ class RoleSeeder extends Seeder
             'work-report-attachment-list',
             'work-report-attachment-create',
             'work-report-attachment-delete',
+            // form permintaan
+            'form-permintaan-menu',
+            'form-permintaan-list',
+            'form-permintaan-confirm',
+            'form-permintaan-view-all',
+            'form-permintaan-reject',
             // NOTE: daily-record, utility-reading, electricity-reading removed for staff
         ];
         $staff->syncPermissions(Permission::whereIn('name', $staffPermissions)->get());
@@ -135,7 +141,35 @@ class RoleSeeder extends Seeder
             'electricity-reading-list',
             'electricity-reading-create',
             'electricity-reading-edit',
+            // form permintaan - user hanya bisa lihat, tidak bisa buat
+            'form-permintaan-menu',
+            'form-permintaan-list',
         ];
         $user->syncPermissions(Permission::whereIn('name', $userPermissions)->get());
+
+        // Create approver-permintaan role
+        $approverPermintaan = Role::firstOrCreate([
+            'name' => 'approver-permintaan',
+            'guard_name' => 'sanctum'
+        ]);
+        $approverPermintaan->syncPermissions([
+            'form-permintaan-menu',
+            'form-permintaan-list',
+            'form-permintaan-confirm',
+            'form-permintaan-view-all',
+            'form-permintaan-reject',
+        ]);
+
+        // Create reviewer-permintaan role
+        $reviewerPermintaan = Role::firstOrCreate([
+            'name' => 'reviewer-permintaan',
+            'guard_name' => 'sanctum'
+        ]);
+        $reviewerPermintaan->syncPermissions([
+            'form-permintaan-menu',
+            'form-permintaan-list',
+            'form-permintaan-review',
+            'form-permintaan-view-all',
+        ]);
     }
 }

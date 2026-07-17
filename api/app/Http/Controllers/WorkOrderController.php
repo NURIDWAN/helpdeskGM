@@ -29,7 +29,7 @@ class WorkOrderController extends Controller implements HasMiddleware
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['work-order-list|work-order-create|work-order-edit|work-order-delete|work-order-update-status']), only: ['index', 'getAllPaginated', 'show']),
+            new Middleware(PermissionMiddleware::using(['work-order-list|work-order-create|work-order-edit|work-order-delete|work-order-update-status']), only: ['index', 'getAllPaginated', 'show', 'getByTicketId', 'downloadPdf']),
             new Middleware(PermissionMiddleware::using(['work-order-create']), only: ['store']),
             new Middleware(PermissionMiddleware::using(['work-order-edit|work-order-update-status']), only: ['update']),
             new Middleware(PermissionMiddleware::using(['work-order-delete']), only: ['destroy']),

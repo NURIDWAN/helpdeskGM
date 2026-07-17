@@ -1,70 +1,102 @@
 <template>
-  <div class="bg-white rounded-lg shadow overflow-visible">
-    <!-- Toolbar -->
-    <div v-if="enableColumnFilter" class="px-4 py-2 border-b border-gray-200 flex justify-end">
-       <div class="relative">
-          <button 
-            @click="showColumnMenu = !showColumnMenu"
-            class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
-          >
-            <Settings :size="16" />
-            <span>Tampilan Kolom</span>
-          </button>
-          
-          <!-- Dropdown Menu -->
-          <div v-if="showColumnMenu" class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 p-2">
-            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-2 mb-1 border-b">
-              Pilih Kolom
-            </div>
-            <div class="max-h-64 overflow-y-auto space-y-1">
-              <label 
-                v-for="col in columns" 
-                :key="col.key"
-                class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
-              >
-                <input 
-                  type="checkbox" 
-                  :checked="visibleColumnKeys.includes(col.key)"
-                  @change="toggleColumn(col.key)"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span class="text-sm text-gray-700">{{ col.label }}</span>
-              </label>
-            </div>
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div
+      v-if="enableColumnFilter"
+      class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3"
+    >
+      <div>
+        <p class="text-sm font-medium text-slate-900">Data</p>
+        <p class="text-xs text-slate-500">
+          {{ displayedColumns.length }} dari {{ columns.length }} kolom ditampilkan
+        </p>
+      </div>
+
+      <div class="relative">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="gap-2"
+          @click="showColumnMenu = !showColumnMenu"
+        >
+          <Settings :size="16" />
+          Kolom
+        </Button>
+
+        <div
+          v-if="showColumnMenu"
+          class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+        >
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p class="text-sm font-semibold text-slate-900">Tampilan kolom</p>
+            <p class="text-xs text-slate-500">Pilih kolom yang ingin ditampilkan.</p>
           </div>
-          
-          <!-- Backdrop for closing -->
-          <div v-if="showColumnMenu" @click="showColumnMenu = false" class="fixed inset-0 z-40" style="background: transparent;"></div>
-       </div>
+          <div class="max-h-64 overflow-y-auto py-1">
+            <label
+              v-for="col in columns"
+              :key="col.key"
+              class="flex cursor-pointer items-center gap-2 rounded-sm px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                :checked="visibleColumnKeys.includes(col.key)"
+                class="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                @change="toggleColumn(col.key)"
+              />
+              <span class="min-w-0 flex-1 truncate">{{ col.label }}</span>
+              <Check
+                v-if="visibleColumnKeys.includes(col.key)"
+                :size="14"
+                class="text-blue-600"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div
+          v-if="showColumnMenu"
+          class="fixed inset-0 z-40"
+          @click="showColumnMenu = false"
+        ></div>
+      </div>
     </div>
-    <!-- Loading State -->
-    <div v-if="loading" class="p-8 text-center">
+
+    <div v-if="loading" class="space-y-3 p-4">
+      <div class="h-10 rounded-md bg-slate-100"></div>
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
-      ></div>
-      <p class="mt-2 text-gray-600">Memuat data...</p>
+        v-for="row in 5"
+        :key="row"
+        class="grid gap-3 rounded-md border border-slate-100 p-3 sm:grid-cols-4"
+      >
+        <div class="h-4 rounded bg-slate-100"></div>
+        <div class="h-4 rounded bg-slate-100"></div>
+        <div class="h-4 rounded bg-slate-100"></div>
+        <div class="h-4 rounded bg-slate-100"></div>
+      </div>
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="items.length === 0" class="p-8 text-center">
-      <component
-        :is="emptyIcon"
-        :size="48"
-        class="mx-auto text-gray-400 mb-4"
-      />
-      <p class="text-gray-600">{{ emptyMessage }}</p>
+    <div v-else-if="items.length === 0" class="px-6 py-12 text-center">
+      <div class="mx-auto flex size-14 items-center justify-center rounded-full bg-slate-100">
+        <component :is="emptyIcon" :size="30" class="text-slate-400" />
+      </div>
+      <h3 class="mt-4 text-sm font-semibold text-slate-900">{{ emptyMessage }}</h3>
+      <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+        Data belum tersedia atau filter yang dipilih tidak memiliki hasil.
+      </p>
+      <div v-if="$slots.emptyAction" class="mt-5">
+        <slot name="emptyAction" />
+      </div>
     </div>
 
-    <!-- Table -->
     <div v-else class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
           <tr>
             <th
               v-for="column in displayedColumns"
               :key="column.key"
               :class="[
-                'px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider',
+                'whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500',
                 column.align === 'right' ? 'text-right' : 'text-left',
               ]"
             >
@@ -72,23 +104,23 @@
             </th>
             <th
               v-if="showActions"
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Aksi
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="divide-y divide-slate-100 bg-white">
           <tr
             v-for="(item, index) in items"
             :key="getItemKey(item, index)"
-            class="hover:bg-gray-50"
+            class="transition-colors hover:bg-slate-50/80"
           >
             <td
               v-for="column in displayedColumns"
               :key="column.key"
               :class="[
-                'px-6 py-4',
+                'px-4 py-3 align-middle text-sm',
                 column.align === 'right' ? 'text-right' : 'text-left',
                 column.nowrap ? 'whitespace-nowrap' : '',
               ]"
@@ -101,7 +133,7 @@
               >
                 <div
                   :class="[
-                    column.bold ? 'font-medium text-gray-900' : 'text-gray-900',
+                    column.bold ? 'font-medium text-slate-950' : 'text-slate-700',
                   ]"
                 >
                   {{ getNestedValue(item, column.key) }}
@@ -110,95 +142,75 @@
             </td>
             <td
               v-if="showActions"
-              class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+              class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium"
             >
-              <slot name="actions" :item="item" :index="index">
-                <!-- Default actions slot -->
-              </slot>
+              <slot name="actions" :item="item" :index="index"></slot>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Pagination -->
     <div
       v-if="showPagination && meta && meta.last_page > 1"
-      class="border-t border-gray-200"
+      class="border-t border-slate-200 px-4 py-3"
     >
-      <div class="px-4 py-3 sm:px-6">
-        <div class="flex items-center justify-between">
-          <!-- Per Page Selector -->
-          <div class="flex items-center space-x-2">
-            <label class="text-sm text-gray-700">Tampilkan:</label>
-            <select
-              :value="meta.per_page"
-              @change="handlePerPageChange"
-              class="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-            <span class="text-sm text-gray-700">per halaman</span>
-          </div>
-
-          <!-- Pagination Info -->
-          <div class="text-sm text-gray-700">
-            Menampilkan
-            <span class="font-medium">{{
-              (meta.current_page - 1) * meta.per_page + 1
-            }}</span>
-            sampai
-            <span class="font-medium">{{
-              Math.min(meta.current_page * meta.per_page, meta.total)
-            }}</span>
-            dari
-            <span class="font-medium">{{ meta.total }}</span>
-            hasil
-          </div>
-        </div>
-
-        <!-- Pagination Controls -->
-        <div class="flex items-center justify-center mt-4">
-          <nav
-            class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+          <span>Tampilkan</span>
+          <select
+            :value="meta.per_page"
+            class="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            @change="handlePerPageChange"
           >
-            <!-- Previous Button -->
-            <button
-              @click="goToPage(meta.current_page - 1)"
-              :disabled="meta.current_page === 1"
-              class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft :size="20" />
-            </button>
-
-            <!-- Page Numbers -->
-            <button
-              v-for="page in visiblePages"
-              :key="page"
-              @click="goToPage(page)"
-              :class="[
-                'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
-                page === meta.current_page
-                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50',
-              ]"
-            >
-              {{ page }}
-            </button>
-
-            <!-- Next Button -->
-            <button
-              @click="goToPage(meta.current_page + 1)"
-              :disabled="meta.current_page === meta.last_page"
-              class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight :size="20" />
-            </button>
-          </nav>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span>per halaman</span>
+          <span class="hidden text-slate-300 sm:inline">|</span>
+          <span>
+            {{ paginationStart }}-{{ paginationEnd }} dari
+            <span class="font-medium text-slate-900">{{ meta.total }}</span>
+          </span>
         </div>
+
+        <nav class="flex items-center justify-end gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            class="size-9"
+            :disabled="meta.current_page === 1"
+            @click="goToPage(meta.current_page - 1)"
+          >
+            <ChevronLeft :size="18" />
+          </Button>
+
+          <Button
+            v-for="page in visiblePages"
+            :key="page"
+            type="button"
+            :variant="page === meta.current_page ? 'default' : 'outline'"
+            size="sm"
+            class="size-9 px-0"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            class="size-9"
+            :disabled="meta.current_page === meta.last_page"
+            @click="goToPage(meta.current_page + 1)"
+          >
+            <ChevronRight :size="18" />
+          </Button>
+        </nav>
       </div>
     </div>
   </div>
@@ -206,9 +218,9 @@
 
 <script setup>
 import { computed, ref, onMounted, watch } from "vue";
-import { ChevronLeft, ChevronRight, Settings, Check } from "lucide-vue-next";
+import { Check, ChevronLeft, ChevronRight, Settings } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
-// Props
 const props = defineProps({
   items: {
     type: Array,
@@ -261,74 +273,82 @@ const props = defineProps({
   },
 });
 
-// Emits
 const emit = defineEmits(["page-change", "per-page-change"]);
 
-// State
 const showColumnMenu = ref(false);
-const visibleColumnKeys = ref([]); // Store keys of visible columns
+const visibleColumnKeys = ref([]);
 
-// Initialize visible columns
 onMounted(() => {
-  // Initialize with all columns checking storage first
   if (props.storageKey) {
     const stored = localStorage.getItem(`datatable_prefs_${props.storageKey}`);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Validate stored keys still exist in current columns (handle schema updates)
-        const validKeys = parsed.filter(key => props.columns.some(col => col.key === key));
+        const validKeys = parsed.filter((key) =>
+          props.columns.some((col) => col.key === key)
+        );
         if (validKeys.length > 0) {
           visibleColumnKeys.value = validKeys;
           return;
         }
       } catch (e) {
-        console.error('Error parsing stored column prefs', e);
+        console.error("Error parsing stored column prefs", e);
       }
     }
   }
-  
-  // Default: all columns are visible
-  visibleColumnKeys.value = props.columns.map(col => col.key);
+
+  visibleColumnKeys.value = props.columns.map((col) => col.key);
 });
 
-// Watch for column changes or storage updates
-watch(visibleColumnKeys, (newKeys) => {
-  if (props.storageKey && newKeys.length > 0) {
-    localStorage.setItem(`datatable_prefs_${props.storageKey}`, JSON.stringify(newKeys));
-  }
-}, { deep: true });
+watch(
+  visibleColumnKeys,
+  (newKeys) => {
+    if (props.storageKey && newKeys.length > 0) {
+      localStorage.setItem(
+        `datatable_prefs_${props.storageKey}`,
+        JSON.stringify(newKeys)
+      );
+    }
+  },
+  { deep: true }
+);
 
-// Also watch props.columns in case they change dynamically (ensure new columns appear or handled)
-watch(() => props.columns, (newCols) => {
-  // Logic: Add new columns to visible by default? Or keep strictly what's in keys?
-  // Let's ensure new columns are added if they're not in the list but we haven't stored prefs for them specifically?
-  // Simpler: Just ensure we don't have stale keys.
-  // Ideally if user has customized, we respect it. New columns might need manual enabling unless we track "hidden" instead of "visible".
-  // Let's stick to "visible keys".
-  if (visibleColumnKeys.value.length === 0) {
-     visibleColumnKeys.value = newCols.map(c => c.key);
+watch(
+  () => props.columns,
+  (newCols) => {
+    if (visibleColumnKeys.value.length === 0) {
+      visibleColumnKeys.value = newCols.map((col) => col.key);
+    }
   }
-});
+);
 
 const displayedColumns = computed(() => {
   if (!props.enableColumnFilter) return props.columns;
-  return props.columns.filter(col => visibleColumnKeys.value.includes(col.key));
+  return props.columns.filter((col) => visibleColumnKeys.value.includes(col.key));
+});
+
+const paginationStart = computed(() => {
+  if (!props.meta?.total) return 0;
+  return (props.meta.current_page - 1) * props.meta.per_page + 1;
+});
+
+const paginationEnd = computed(() => {
+  if (!props.meta?.total) return 0;
+  return Math.min(props.meta.current_page * props.meta.per_page, props.meta.total);
 });
 
 const toggleColumn = (key) => {
   const index = visibleColumnKeys.value.indexOf(key);
   if (index === -1) {
     visibleColumnKeys.value.push(key);
-  } else {
-    // Prevent hiding all columns?
-    if (visibleColumnKeys.value.length > 1) {
-      visibleColumnKeys.value.splice(index, 1);
-    }
+    return;
+  }
+
+  if (visibleColumnKeys.value.length > 1) {
+    visibleColumnKeys.value.splice(index, 1);
   }
 };
 
-// Computed
 const visiblePages = computed(() => {
   const current = props.meta.current_page;
   const last = props.meta.last_page;
@@ -345,10 +365,9 @@ const visiblePages = computed(() => {
     }
   }
 
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 });
 
-// Methods
 const getNestedValue = (obj, path) => {
   return path.split(".").reduce((current, key) => {
     return current && current[key] !== undefined ? current[key] : "";
@@ -366,7 +385,6 @@ const goToPage = (page) => {
 };
 
 const handlePerPageChange = (event) => {
-  const newPerPage = parseInt(event.target.value);
-  emit("per-page-change", newPerPage);
+  emit("per-page-change", parseInt(event.target.value));
 };
 </script>

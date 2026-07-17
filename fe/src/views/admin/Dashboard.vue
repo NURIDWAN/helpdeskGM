@@ -23,6 +23,18 @@ import {
 } from "lucide-vue-next";
 import Chart from 'chart.js/auto';
 import JobCalendar from "@/components/common/JobCalendar.vue";
+import TopOutletUsage from "@/components/dashboard/TopOutletUsage.vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
@@ -37,19 +49,37 @@ const {
   unconfirmedTickets,
   unconfirmedWorkOrders,
   userRecentTickets,
+  topOutletUsage,
+  topOutletUsageLoading,
+  topOutletUsageError,
   loading,
 } = storeToRefs(dashboardStore);
 
 // Computed properties for user role
 const isStaff = computed(() => authStore.user?.roles?.includes("staff"));
-const isAdmin = computed(() => authStore.user?.roles?.includes("admin") || authStore.user?.roles?.includes("superadmin"));
-const isRegularUser = computed(() => !isStaff.value && !isAdmin.value);
+const isSuperAdmin = computed(() => authStore.user?.roles?.includes("superadmin"));
+const isAdmin = computed(() => authStore.user?.roles?.includes("admin"));
+const isManagement = computed(() => isAdmin.value || isSuperAdmin.value);
+const isRegularUser = computed(() => !isStaff.value && !isManagement.value);
+const canViewDashboard = computed(() => can("dashboard-view"));
+const canViewMetrics = computed(() => can("dashboard-view-metrics") || canViewDashboard.value);
+const canViewCharts = computed(() => can("dashboard-view-charts") || canViewDashboard.value);
+const canViewTrends = computed(() => can("dashboard-view-trends") || canViewDashboard.value);
+const canViewStaffRankings = computed(() => can("dashboard-view-staff-rankings") && !isStaff.value);
+const hasStatusData = computed(() => {
+  const data = statusDistribution.value || {};
+  return ["open", "in_progress", "resolved", "closed"].some((key) => Number(data[key] || 0) > 0);
+});
+const hasBranchData = computed(() => ticketsPerBranch.value.some((item) => Number(item.count || 0) > 0));
 
 const selectedPeriod = ref("day");
 const statusChart = ref(null);
 const branchChart = ref(null);
 const ticketsTrendChart = ref(null);
 const reportsTrendChart = ref(null);
+const cardPaddingClass = "p-3 sm:p-4 lg:p-5";
+const chartHeaderClass = "mb-4 flex items-center gap-2";
+const chartBodyClass = "h-56 rounded-lg bg-slate-50/50 px-2 py-3";
 
 // Inactive Users Logic
 const userActivityStore = useUserActivityStore();
@@ -57,7 +87,7 @@ const inactiveUsers = ref([]);
 const loadingInactive = ref(false);
 
 const loadInactiveUsers = async () => {
-  if (can('user-activity-list') && !isStaff.value) {
+  if (can('user-activity-list') && isSuperAdmin.value) {
     loadingInactive.value = true;
     try {
       // Fetch inactive users (30+ days or never logged in)
@@ -76,6 +106,50 @@ const periodOptions = [
   { value: "day", label: "Harian" },
   { value: "week", label: "Mingguan" },
 ];
+
+const dashboardMetricCards = computed(() => [
+  {
+    label: isStaff.value ? "Tiket Saya Hari Ini" : "Tiket Hari Ini",
+    value: metrics.value?.total_tickets_today || 0,
+    helper: `Total bulan ini: ${metrics.value?.total_tickets_this_month || 0}`,
+    icon: Tag,
+    iconClass: "bg-blue-50 text-blue-600",
+    show: true,
+  },
+  {
+    label: isStaff.value ? "Tiket Saya yang Open" : "Tiket Open",
+    value: metrics.value?.open_tickets || 0,
+    helper: isStaff.value ? "Perlu saya tangani" : "Perlu ditangani",
+    icon: Clock,
+    iconClass: "bg-amber-50 text-amber-600",
+    show: true,
+  },
+  {
+    label: isStaff.value
+      ? "Rata-rata Penyelesaian Saya"
+      : "Rata-rata Penyelesaian",
+    value: `${metrics.value?.avg_resolution_time || 0}h`,
+    helper: isStaff.value ? "Waktu rata-rata saya" : "Waktu rata-rata",
+    icon: CheckCircle,
+    iconClass: "bg-green-50 text-green-600",
+    show: true,
+  },
+  {
+    label: isStaff.value ? "SPK Saya yang Aktif" : "SPK Aktif",
+    value: metrics.value?.active_work_orders || 0,
+    helper: isStaff.value ? "Work order saya aktif" : "Work order aktif",
+    icon: FileText,
+    iconClass: "bg-violet-50 text-violet-600",
+    show: !isRegularUser.value,
+  },
+]);
+
+const ticketStatusVariant = (status) => {
+  if (status === "open") return "info";
+  if (status === "in_progress") return "warning";
+  if (status === "resolved") return "success";
+  return "muted";
+};
 
 const loadDashboardData = async () => {
   await Promise.all([
@@ -300,17 +374,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Header -->
     <div class="flex justify-between items-center">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p class="text-gray-600 mt-1">
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p class="text-gray-600 text-sm mt-0.5">
           {{
             isStaff
               ? "Dashboard pribadi - Tiket dan laporan kerja Anda"
-              : isRegularUser
-              ? "Selamat datang, pantau status tiket Anda di sini"
+              : isSuperAdmin
+              ? "Overview penuh sistem, operasional, dan aktivitas pengguna"
+              : isAdmin
+              ? "Overview operasional GA Maintenance dan laporan kerja"
               : "Overview sistem GA Maintenance dan laporan kerja"
           }}
         </p>
@@ -319,16 +395,19 @@ onMounted(async () => {
         <RouterLink 
             v-if="isRegularUser" 
             :to="{ name: 'admin.ticket.create' }" 
-            class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            custom
+            v-slot="{ navigate }"
         >
+          <Button type="button" @click="navigate">
             <Plus :size="18" />
             <span>Buat Tiket</span>
+          </Button>
         </RouterLink>
 
-        <select
+        <Select
           v-model="selectedPeriod"
           @change="handlePeriodChange"
-          class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          class="w-36"
         >
           <option
             v-for="option in periodOptions"
@@ -337,142 +416,70 @@ onMounted(async () => {
           >
             {{ option.label }}
           </option>
-        </select>
+        </Select>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center py-12">
-      <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-      ></div>
+    <div v-if="loading" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Skeleton v-for="item in 4" :key="item" class="h-28" />
     </div>
 
     <!-- Dashboard Content -->
-    <div v-else class="space-y-6">
+    <div v-else class="space-y-3 sm:space-y-4">
       <!-- Metrics Cards -->
       <div
-        v-if="can('dashboard-view-metrics')"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        v-if="canViewMetrics"
+        class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
       >
-        <!-- Total Tickets Today -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center justify-between">
+        <Card
+          v-for="card in dashboardMetricCards.filter((item) => item.show)"
+          :key="card.label"
+        >
+          <CardContent :class="cardPaddingClass">
+          <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-medium text-gray-600">
-                {{ isStaff ? "Tiket Saya Hari Ini" : "Tiket Hari Ini" }}
-              </p>
-              <h3 class="text-2xl font-bold text-gray-800 mt-1">
-                {{ metrics?.total_tickets_today || 0 }}
+              <p class="text-xs font-medium text-slate-500">{{ card.label }}</p>
+              <h3 class="text-xl font-bold text-gray-800 mt-0.5">
+                {{ card.value }}
               </h3>
             </div>
-            <div class="p-3 bg-blue-50 rounded-lg">
-              <Tag :size="24" class="text-blue-600" />
+            <div class="rounded-lg p-2" :class="card.iconClass">
+              <component :is="card.icon" :size="20" />
             </div>
           </div>
-          <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500"
-              >{{ isStaff ? "Total bulan ini:" : "Total bulan ini:" }}
-              {{ metrics?.total_tickets_this_month || 0 }}</span
-            >
+          <div class="mt-2 flex items-center text-xs">
+            <span class="text-slate-500">{{ card.helper }}</span>
           </div>
-        </div>
-
-        <!-- Open Tickets -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-gray-600">
-                {{ isStaff ? "Tiket Saya yang Open" : "Tiket Open" }}
-              </p>
-              <h3 class="text-2xl font-bold text-gray-800 mt-1">
-                {{ metrics?.open_tickets || 0 }}
-              </h3>
-            </div>
-            <div class="p-3 bg-yellow-50 rounded-lg">
-              <Clock :size="24" class="text-yellow-600" />
-            </div>
-          </div>
-          <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500">
-              {{ isStaff ? "Perlu saya tangani" : "Perlu ditangani" }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Average Resolution Time -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-gray-600">
-                {{
-                  isStaff
-                    ? "Rata-rata Penyelesaian Saya"
-                    : "Rata-rata Penyelesaian"
-                }}
-              </p>
-              <h3 class="text-2xl font-bold text-gray-800 mt-1">
-                {{ metrics?.avg_resolution_time || 0 }}h
-              </h3>
-            </div>
-            <div class="p-3 bg-green-50 rounded-lg">
-              <CheckCircle :size="24" class="text-green-600" />
-            </div>
-          </div>
-          <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500">
-              {{ isStaff ? "Waktu rata-rata saya" : "Waktu rata-rata" }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Active Work Orders (Hide for Regular User) -->
-        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-gray-600">
-                {{ isStaff ? "SPK Saya yang Aktif" : "SPK Aktif" }}
-              </p>
-              <h3 class="text-2xl font-bold text-gray-800 mt-1">
-                {{ metrics?.active_work_orders || 0 }}
-              </h3>
-            </div>
-            <div class="p-3 bg-purple-50 rounded-lg">
-              <FileText :size="24" class="text-purple-600" />
-            </div>
-          </div>
-          <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500">
-              {{ isStaff ? "Work order saya aktif" : "Work order aktif" }}
-            </span>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <!-- Job Calendar Section -->
-      <div v-if="!isAdmin" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="p-6 border-b border-gray-100">
+      <Card v-if="!isManagement" class="overflow-hidden">
+        <CardHeader class="border-b border-slate-100">
             <div class="flex items-center gap-2">
                 <Calendar :size="20" class="text-blue-600" />
-                <h3 class="text-lg font-semibold text-gray-800">Kalender Pekerjaan Rutin</h3>
+                <CardTitle>Kalender Pekerjaan Rutin</CardTitle>
             </div>
-            <p class="text-gray-500 text-sm mt-1">Jadwal maintenance dan pekerjaan rutin bulanan</p>
-        </div>
-        <div class="p-6">
+            <CardDescription>Jadwal maintenance dan pekerjaan rutin bulanan</CardDescription>
+        </CardHeader>
+          <CardContent :class="cardPaddingClass">
             <JobCalendar />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <!-- Action Items for Staff -->
-      <div v-if="isStaff" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div v-if="isStaff" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Unconfirmed Tickets -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card>
+          <CardContent :class="cardPaddingClass">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <Tag :size="20" class="text-blue-600" />
-                    <h3 class="text-lg font-semibold text-gray-800">Tiket Perlu Konfirmasi</h3>
+                    <CardTitle>Tiket Perlu Konfirmasi</CardTitle>
                 </div>
-                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ unconfirmedTickets.length }}</span>
+                <Badge variant="info">{{ unconfirmedTickets.length }}</Badge>
             </div>
             
             <div v-if="unconfirmedTickets.length > 0" class="space-y-3">
@@ -489,20 +496,22 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-            <div v-else class="text-center py-8 text-gray-500">
+            <div v-else class="text-center py-6 text-gray-500">
                 <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
                 <p class="text-sm">Tidak ada tiket perlu konfirmasi</p>
             </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <!-- Unconfirmed Work Orders -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card>
+          <CardContent :class="cardPaddingClass">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <FileText :size="20" class="text-yellow-600" />
-                    <h3 class="text-lg font-semibold text-gray-800">SPK Perlu Konfirmasi</h3>
+                    <CardTitle>SPK Perlu Konfirmasi</CardTitle>
                 </div>
-                <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ unconfirmedWorkOrders.length }}</span>
+                <Badge variant="warning">{{ unconfirmedWorkOrders.length }}</Badge>
             </div>
             
             <div v-if="unconfirmedWorkOrders.length > 0" class="space-y-3">
@@ -519,60 +528,74 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-            <div v-else class="text-center py-8 text-gray-500">
+            <div v-else class="text-center py-6 text-gray-500">
                 <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
                 <p class="text-sm">Tidak ada SPK perlu konfirmasi</p>
             </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <!-- Charts Row - Different layout for staff vs admin -->
       <div
-        v-if="can('dashboard-view-charts')"
+        v-if="canViewCharts"
         :class="
           isStaff || isRegularUser
-            ? 'grid grid-cols-1 lg:grid-cols-2 gap-6'
-            : 'grid grid-cols-1 lg:grid-cols-3 gap-6'
+            ? 'grid grid-cols-1 lg:grid-cols-2 gap-4'
+            : 'grid grid-cols-1 lg:grid-cols-3 gap-4'
         "
       >
         <!-- Status Distribution Chart -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center gap-2 mb-4">
+        <Card>
+          <CardContent :class="cardPaddingClass">
+          <div :class="chartHeaderClass">
             <BarChart3 :size="20" class="text-blue-600" />
-            <h3 class="text-lg font-semibold text-gray-800">
+            <CardTitle>
               {{
                 isStaff
                   ? "Distribusi Status Tiket Saya"
                   : "Distribusi Status Tiket"
               }}
-            </h3>
+            </CardTitle>
           </div>
-          <div class="h-64">
-            <canvas id="statusChart"></canvas>
+          <div :class="chartBodyClass">
+            <canvas v-if="hasStatusData" id="statusChart"></canvas>
+            <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
+              <BarChart3 :size="48" class="mb-2 opacity-20" />
+              <span class="text-sm">Belum ada data status tiket</span>
+            </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
 
 
         <!-- Tickets Per Branch Chart (Hide for Regular User) -->
-        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center gap-2 mb-4">
+        <Card v-if="!isRegularUser">
+          <CardContent :class="cardPaddingClass">
+          <div :class="chartHeaderClass">
             <Building :size="20" class="text-green-600" />
-            <h3 class="text-lg font-semibold text-gray-800">
+            <CardTitle>
               {{ isStaff ? "Tiket Saya per Cabang" : "Tiket per Cabang" }}
-            </h3>
+            </CardTitle>
           </div>
-          <div class="h-64">
-            <canvas id="branchChart"></canvas>
+          <div :class="chartBodyClass">
+            <canvas v-if="hasBranchData" id="branchChart"></canvas>
+            <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
+              <Building :size="48" class="mb-2 opacity-20" />
+              <span class="text-sm">Belum ada data cabang</span>
+            </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <!-- Recent Tickets for Regular User -->
-        <div v-if="isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card v-if="isRegularUser">
+          <CardContent :class="cardPaddingClass">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <Clock :size="20" class="text-blue-600" />
-                    <h3 class="text-lg font-semibold text-gray-800">Tiket Tercepat Saya</h3>
+                    <CardTitle>Tiket Tercepat Saya</CardTitle>
                 </div>
                 <RouterLink :to="{ name: 'admin.tickets' }" class="text-sm text-blue-600 hover:text-blue-700">Lihat Semua</RouterLink>
             </div>
@@ -580,17 +603,9 @@ onMounted(async () => {
             <div v-if="userRecentTickets.length > 0" class="space-y-3">
                 <div v-for="ticket in userRecentTickets" :key="ticket.id" class="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
                     <div class="flex justify-between items-start mb-2">
-                        <span 
-                            class="text-xs font-medium px-2 py-1 rounded"
-                            :class="{
-                                'bg-blue-100 text-blue-800': ticket.status === 'open',
-                                'bg-yellow-100 text-yellow-800': ticket.status === 'in_progress',
-                                'bg-green-100 text-green-800': ticket.status === 'resolved',
-                                'bg-gray-100 text-gray-800': ticket.status === 'closed'
-                            }"
-                        >
+                        <Badge :variant="ticketStatusVariant(ticket.status)">
                             {{ ticket.status.replace('_', ' ').toUpperCase() }}
-                        </span>
+                        </Badge>
                         <span class="text-xs text-gray-500">{{ new Date(ticket.created_at).toLocaleDateString('id-ID') }}</span>
                     </div>
                     <h4 class="text-sm font-medium text-gray-900 mb-1 truncate">{{ ticket.category?.name || 'Tiket' }}</h4>
@@ -602,36 +617,38 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-            <div v-else class="text-center py-8 text-gray-500">
+            <div v-else class="text-center py-6 text-gray-500">
                 <CheckCircle :size="32" class="mx-auto mb-2 text-gray-300" />
                 <p class="text-sm">Anda belum membuat tiket</p>
             </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <!-- Top Staff Resolved - Only for Admin -->
+        <!-- Top Staff Resolved + Staff Tercepat - Only for Admin -->
         <div
-          v-if="can('dashboard-view-staff-rankings') && !isStaff"
-          class="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+          v-if="canViewStaffRankings"
         >
-          <div class="flex items-center gap-2 mb-4">
+          <Card>
+            <CardContent :class="cardPaddingClass">
+          <div :class="chartHeaderClass">
             <Award :size="20" class="text-yellow-600" />
-            <h3 class="text-lg font-semibold text-gray-800">
+            <CardTitle>
               Top 5 Staff Resolved
-            </h3>
+            </CardTitle>
           </div>
-          <div class="space-y-3">
+          <div class="space-y-2">
             <div
               v-for="(staff, index) in topStaffResolved"
               :key="staff.staff_name"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg"
             >
               <div class="flex items-center gap-3">
                 <div
-                  class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600"
+                  class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600"
                 >
                   {{ index + 1 }}
                 </div>
-                <span class="font-medium text-gray-800">{{
+                <span class="text-sm font-medium text-gray-800">{{
                   staff.staff_name
                 }}</span>
               </div>
@@ -647,113 +664,114 @@ onMounted(async () => {
               <p class="text-sm">Belum ada data</p>
             </div>
           </div>
+
+          <!-- Staff Tercepat (inline) -->
+          <div class="mt-5 pt-4 border-t border-gray-100">
+            <div :class="chartHeaderClass">
+              <Activity :size="20" class="text-green-600" />
+              <CardTitle>Staff Tercepat</CardTitle>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="(staff, index) in fastestStaff"
+                :key="staff.staff_name"
+                class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg"
+              >
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600"
+                  >
+                    {{ index + 1 }}
+                  </div>
+                  <div>
+                    <span class="text-sm font-medium text-gray-800">{{
+                      staff.staff_name
+                    }}</span>
+                    <p class="text-xs text-gray-500">
+                      {{ staff.total_resolved }} tiket resolved
+                    </p>
+                  </div>
+                </div>
+                <span class="text-sm font-semibold text-green-600"
+                  >{{ staff.avg_resolution_hours }}h</span
+                >
+              </div>
+              <div
+                v-if="fastestStaff.length === 0"
+                class="text-center py-4 text-gray-500"
+              >
+                <Clock :size="32" class="mx-auto mb-2 text-gray-300" />
+                <p class="text-sm">Belum ada data</p>
+              </div>
+            </div>
+          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       <!-- Trends Row -->
       <div
-        v-if="can('dashboard-view-trends')"
+        v-if="canViewTrends"
         :class="
           isStaff || isRegularUser
-            ? 'grid grid-cols-1 lg:grid-cols-2 gap-6'
-            : 'grid grid-cols-1 lg:grid-cols-2 gap-6'
+            ? 'grid grid-cols-1 lg:grid-cols-2 gap-4'
+            : 'grid grid-cols-1 lg:grid-cols-2 gap-4'
         "
       >
         <!-- Tickets Trend -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center gap-2 mb-4">
+        <Card>
+          <CardContent :class="cardPaddingClass">
+          <div :class="chartHeaderClass">
             <TrendingUp :size="20" class="text-blue-600" />
-            <h3 class="text-lg font-semibold text-gray-800">
+            <CardTitle>
 
               {{ isStaff || isRegularUser ? "Trend Tiket Saya" : "Trend Tiket" }}
               {{ selectedPeriod === "day" ? "Harian" : "Mingguan" }}
-            </h3>
+            </CardTitle>
           </div>
-          <div class="h-64">
+          <div :class="chartBodyClass">
             <canvas v-if="ticketsTrend.length > 0" id="ticketsTrendChart"></canvas>
             <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
                 <TrendingUp :size="48" class="mb-2 opacity-20" />
                 <span class="text-sm">Belum ada data trend tiket</span>
             </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <!-- Staff Reports Trend (Hide for Regular User) -->
-        <div v-if="!isRegularUser" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center gap-2 mb-4">
+        <Card v-if="!isRegularUser">
+          <CardContent :class="cardPaddingClass">
+          <div :class="chartHeaderClass">
             <Calendar :size="20" class="text-purple-600" />
-            <h3 class="text-lg font-semibold text-gray-800">
+            <CardTitle>
               {{ isStaff ? "Trend Laporan Saya" : "Trend Laporan Staff" }}
               {{ selectedPeriod === "day" ? "Harian" : "Mingguan" }}
-            </h3>
+            </CardTitle>
           </div>
-          <div class="h-64">
+          <div :class="chartBodyClass">
             <canvas v-if="staffReportsTrend.length > 0" id="reportsTrendChart"></canvas>
             <div v-else class="h-full flex flex-col items-center justify-center text-gray-400">
                 <Calendar :size="48" class="mb-2 opacity-20" />
                 <span class="text-sm">Belum ada data laporan</span>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Staff Performance - Only for Admin -->
-      <div
-        v-if="can('dashboard-view-staff-rankings') && !isStaff"
-        class="grid grid-cols-1 lg:grid-cols-2 gap-6"
-      >
-        <!-- Fastest Staff -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div class="flex items-center gap-2 mb-4">
-            <Activity :size="20" class="text-green-600" />
-            <h3 class="text-lg font-semibold text-gray-800">Staff Tercepat</h3>
-          </div>
-          <div class="space-y-3">
-            <div
-              v-for="(staff, index) in fastestStaff"
-              :key="staff.staff_name"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-            >
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600"
-                >
-                  {{ index + 1 }}
-                </div>
-                <div>
-                  <span class="font-medium text-gray-800">{{
-                    staff.staff_name
-                  }}</span>
-                  <p class="text-xs text-gray-500">
-                    {{ staff.total_resolved }} tiket resolved
-                  </p>
-                </div>
-              </div>
-              <span class="text-sm font-semibold text-green-600"
-                >{{ staff.avg_resolution_hours }}h</span
-              >
-            </div>
-            <div
-              v-if="fastestStaff.length === 0"
-              class="text-center py-4 text-gray-500"
-            >
-              <Clock :size="32" class="mx-auto mb-2 text-gray-300" />
-              <p class="text-sm">Belum ada data</p>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <!-- Inactive Users Widget -->
       <div
-        v-if="can('user-activity-list') && !isStaff && inactiveUsers.length > 0"
-        class="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        v-if="can('user-activity-list') && isSuperAdmin && inactiveUsers.length > 0"
+        class="grid grid-cols-1 lg:grid-cols-2 gap-4"
       >
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <Card>
+          <CardContent :class="cardPaddingClass">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
               <Users :size="20" class="text-red-500" />
-              <h3 class="text-lg font-semibold text-gray-800">User Tidak Aktif (30 Hari+)</h3>
+              <CardTitle>User Tidak Aktif (30 Hari+)</CardTitle>
             </div>
             <RouterLink :to="{ name: 'admin.user-activity' }" class="text-sm text-blue-600 hover:text-blue-700">
               Lihat Semua
@@ -782,8 +800,17 @@ onMounted(async () => {
                 </div>
              </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <!-- Top Outlet Usage Section - Only for Admin/SuperAdmin -->
+      <TopOutletUsage
+        v-if="isManagement"
+        :data="topOutletUsage"
+        :loading="topOutletUsageLoading"
+        :error="topOutletUsageError"
+      />
     </div>
   </div>
 </template>

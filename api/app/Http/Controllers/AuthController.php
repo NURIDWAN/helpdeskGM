@@ -6,7 +6,9 @@ use App\Helpers\ResponseHelper;
 use App\Http\Requests\LoginStoreRequest;
 use App\Http\Resources\UserResource;
 use App\Interfaces\AuthRepositoryInterface;
+use App\Services\FileCompressionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Annotations as OA;
 
 class AuthController extends Controller
@@ -176,6 +178,93 @@ class AuthController extends Controller
             ]);
 
             return ResponseHelper::jsonResponse(true, 'Profil berhasil diperbarui', new UserResource($user), 200);
+        } catch (\Exception $e) {
+            $status = $e->getCode() ?: 500;
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, $status);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/auth/me/photo",
+     *     tags={"Authentication"},
+     *     summary="Upload profile photo",
+     *     description="Upload or update authenticated user's profile photo",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="photo", type="string", format="binary")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Profile photo uploaded successfully"
+     *     )
+     * )
+     */
+    public function uploadPhoto(Request $request)
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
+        ]);
+
+        try {
+            $user = $request->user();
+
+            // Delete old photo if exists
+            if ($user->profile_photo) {
+                Storage::disk('public')->delete($user->profile_photo);
+            }
+
+            $file = $request->file('photo');
+            $fileName = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+
+            $compressionService = new FileCompressionService();
+            $path = $compressionService->compressAndStore($file, 'profile-photos', $fileName, 80, 512);
+
+            $user->profile_photo = $path;
+            $user->save();
+
+            $user->load(['roles', 'permissions', 'branch']);
+
+            return ResponseHelper::jsonResponse(true, 'Foto profil berhasil diperbarui', new UserResource($user), 200);
+        } catch (\Exception $e) {
+            $status = $e->getCode() ?: 500;
+            return ResponseHelper::jsonResponse(false, $e->getMessage(), null, $status);
+        }
+    }
+
+    /**
+     * @OA\Delete(
+     *     path="/auth/me/photo",
+     *     tags={"Authentication"},
+     *     summary="Delete profile photo",
+     *     description="Remove authenticated user's profile photo",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Profile photo deleted successfully"
+     *     )
+     * )
+     */
+    public function deletePhoto(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if ($user->profile_photo) {
+                Storage::disk('public')->delete($user->profile_photo);
+                $user->profile_photo = null;
+                $user->save();
+            }
+
+            $user->load(['roles', 'permissions', 'branch']);
+
+            return ResponseHelper::jsonResponse(true, 'Foto profil berhasil dihapus', new UserResource($user), 200);
         } catch (\Exception $e) {
             $status = $e->getCode() ?: 500;
             return ResponseHelper::jsonResponse(false, $e->getMessage(), null, $status);

@@ -383,21 +383,21 @@ onMounted(() => {
           <p class="text-gray-900">{{ dailyRecord.total_customers || "-" }}</p>
         </div>
 
-        <!-- Created Date -->
+        <!-- Tanggal Laporan -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
             <Calendar :size="16" class="inline mr-2" />
-            Tanggal Dibuat
+            Tanggal
           </label>
           <p class="text-gray-900">
             {{
-              new Date(dailyRecord.created_at).toLocaleDateString("id-ID", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+              (dailyRecord.date || dailyRecord.created_at)
+                ? new Date(dailyRecord.date || dailyRecord.created_at).toLocaleDateString("id-ID", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "-"
             }}
           </p>
         </div>

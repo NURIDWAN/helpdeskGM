@@ -20,7 +20,7 @@ class RoleStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:roles,name',
+            'name' => 'required|string|min:3|max:50|unique:roles,name',
             'permissions' => 'nullable|array',
             'permissions.*' => 'string|exists:permissions,name',
         ];
@@ -33,9 +33,12 @@ class RoleStoreRequest extends FormRequest
     {
         return [
             'name.required' => 'Nama role wajib diisi',
+            'name.min' => 'Nama role minimal 3 karakter',
+            'name.max' => 'Nama role maksimal 50 karakter',
             'name.unique' => 'Nama role sudah digunakan',
             'permissions.array' => 'Format permissions tidak valid',
-            'permissions.*.exists' => 'Permission tidak valid',
+            'permissions.*.string' => 'Setiap permission harus berupa string',
+            'permissions.*.exists' => 'Permission :input tidak valid',
         ];
     }
 }

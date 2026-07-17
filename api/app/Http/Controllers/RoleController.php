@@ -15,10 +15,20 @@ use OpenApi\Annotations as OA;
 
 class RoleController extends Controller implements HasMiddleware
 {
+    /**
+     * System roles that cannot be deleted or renamed.
+     */
+    const SYSTEM_ROLES = ['admin', 'staff', 'user', 'superadmin'];
+
+    /**
+     * Immutable roles whose permissions cannot be modified.
+     */
+    const IMMUTABLE_ROLES = ['superadmin'];
+
     public static function middleware()
     {
         return [
-            new Middleware(PermissionMiddleware::using(['role-list']), only: ['index', 'show', 'permissions']),
+            new Middleware(PermissionMiddleware::using(['role-list']), only: ['index', 'show', 'permissions', 'matrix', 'presets']),
             new Middleware(PermissionMiddleware::using(['role-create']), only: ['store']),
             new Middleware(PermissionMiddleware::using(['role-edit']), only: ['update']),
             new Middleware(PermissionMiddleware::using(['role-delete']), only: ['destroy']),
@@ -60,7 +70,7 @@ class RoleController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
-            $query = Role::with('permissions');
+            $query = Role::with('permissions')->withCount('users');
 
             if ($request->has('search') && $request->search) {
                 $query->where('name', 'like', '%' . $request->search . '%');
@@ -73,6 +83,8 @@ class RoleController extends Controller implements HasMiddleware
                     'guard_name' => $role->guard_name,
                     'permissions' => $role->permissions->pluck('name'),
                     'permissions_count' => $role->permissions->count(),
+                    'users_count' => $role->users_count,
+                    'is_system' => in_array($role->name, self::SYSTEM_ROLES),
                     'created_at' => $role->created_at,
                     'updated_at' => $role->updated_at,
                 ];
@@ -120,6 +132,84 @@ class RoleController extends Controller implements HasMiddleware
     }
 
     /**
+     * Get permission matrix data (all roles with permissions grouped by feature).
+     */
+    public function matrix()
+    {
+        try {
+            $roles = Role::with('permissions')->get();
+            $featureGroups = config('permission_features');
+
+            $rolesData = $roles->map(function ($role) {
+                return [
+                    'id' => $role->id,
+                    'name' => $role->name,
+                    'is_system' => in_array($role->name, self::SYSTEM_ROLES),
+                ];
+            })->values();
+
+            $matrix = [];
+            foreach ($roles as $role) {
+                $rolePermissions = $role->permissions->pluck('name')->toArray();
+                $matrix[$role->name] = [];
+
+                foreach ($featureGroups as $featureKey => $feature) {
+                    $featurePermissions = $feature['permissions'];
+                    $total = count($featurePermissions);
+                    $selected = count(array_intersect($rolePermissions, $featurePermissions));
+
+                    if ($selected === $total) {
+                        $status = 'full';
+                    } elseif ($selected > 0) {
+                        $status = 'partial';
+                    } else {
+                        $status = 'empty';
+                    }
+
+                    $matrix[$role->name][$featureKey] = [
+                        'selected' => $selected,
+                        'total' => $total,
+                        'status' => $status,
+                    ];
+                }
+            }
+
+            $features = [];
+            foreach ($featureGroups as $featureKey => $feature) {
+                $features[] = [
+                    'key' => $featureKey,
+                    'label' => $feature['label'],
+                    'total' => count($feature['permissions']),
+                ];
+            }
+
+            return ResponseHelper::jsonResponse(true, 'Data matrix berhasil diambil', [
+                'roles' => $rolesData,
+                'matrix' => $matrix,
+                'features' => $features,
+            ], 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
+        }
+    }
+
+    /**
+     * Get available role preset configurations.
+     */
+    public function presets()
+    {
+        try {
+            $presets = config('role_presets');
+
+            return ResponseHelper::jsonResponse(true, 'Data preset berhasil diambil', [
+                'presets' => $presets,
+            ], 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
+        }
+    }
+
+    /**
      * @OA\Post(
      *     path="/roles",
      *     tags={"Roles"},
@@ -152,7 +242,8 @@ class RoleController extends Controller implements HasMiddleware
             ]);
 
             if (isset($validated['permissions']) && is_array($validated['permissions'])) {
-                $role->syncPermissions($validated['permissions']);
+                $permissions = array_values(array_unique($validated['permissions']));
+                $role->syncPermissions($permissions);
             }
 
             return ResponseHelper::jsonResponse(true, 'Role Berhasil Dibuat', [
@@ -188,13 +279,15 @@ class RoleController extends Controller implements HasMiddleware
     public function show(string $id)
     {
         try {
-            $role = Role::with('permissions')->findOrFail($id);
+            $role = Role::with('permissions')->withCount('users')->findOrFail($id);
 
             return ResponseHelper::jsonResponse(true, 'Data Role Berhasil Diambil', [
                 'id' => $role->id,
                 'name' => $role->name,
                 'guard_name' => $role->guard_name,
                 'permissions' => $role->permissions->pluck('name'),
+                'users_count' => $role->users_count,
+                'is_system' => in_array($role->name, self::SYSTEM_ROLES),
                 'created_at' => $role->created_at,
                 'updated_at' => $role->updated_at,
             ], 200);
@@ -239,9 +332,13 @@ class RoleController extends Controller implements HasMiddleware
             $validated = $request->validated();
 
             // Protect system roles from being renamed
-            $protectedRoles = ['admin', 'staff', 'user'];
-            if (in_array($role->name, $protectedRoles) && isset($validated['name']) && $validated['name'] !== $role->name) {
+            if (in_array($role->name, self::SYSTEM_ROLES) && isset($validated['name']) && $validated['name'] !== $role->name) {
                 return ResponseHelper::jsonResponse(false, 'Nama role sistem tidak dapat diubah', null, 403);
+            }
+
+            // Protect immutable roles (superadmin) from permission changes
+            if (in_array($role->name, self::IMMUTABLE_ROLES) && array_key_exists('permissions', $validated)) {
+                return ResponseHelper::jsonResponse(false, 'Permission role superadmin tidak dapat diubah', null, 403);
             }
 
             if (isset($validated['name'])) {
@@ -249,8 +346,10 @@ class RoleController extends Controller implements HasMiddleware
                 $role->save();
             }
 
-            if (isset($validated['permissions']) && is_array($validated['permissions'])) {
-                $role->syncPermissions($validated['permissions']);
+            // Only sync permissions if the key was explicitly sent and is not null
+            if (array_key_exists('permissions', $validated) && is_array($validated['permissions'])) {
+                $permissions = array_values(array_unique($validated['permissions']));
+                $role->syncPermissions($permissions);
             }
 
             return ResponseHelper::jsonResponse(true, 'Role Berhasil Diperbarui', [
@@ -291,14 +390,14 @@ class RoleController extends Controller implements HasMiddleware
             $role = Role::findOrFail($id);
 
             // Protect system roles from deletion
-            $protectedRoles = ['admin', 'staff', 'user'];
-            if (in_array($role->name, $protectedRoles)) {
+            if (in_array($role->name, self::SYSTEM_ROLES)) {
                 return ResponseHelper::jsonResponse(false, 'Role sistem tidak dapat dihapus', null, 403);
             }
 
             // Check if role has users
-            if ($role->users()->count() > 0) {
-                return ResponseHelper::jsonResponse(false, 'Role tidak dapat dihapus karena masih memiliki user', null, 400);
+            $userCount = $role->users()->count();
+            if ($userCount > 0) {
+                return ResponseHelper::jsonResponse(false, "Role tidak dapat dihapus karena masih digunakan oleh {$userCount} user", null, 422);
             }
 
             $role->delete();

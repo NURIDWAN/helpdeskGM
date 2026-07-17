@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, onMounted, computed, ref } from "vue";
+import { reactive, onMounted, computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDailyRecordStore } from "@/stores/dailyRecord";
 import { useUtilityReadingStore } from "@/stores/utilityReading";
@@ -10,6 +10,11 @@ import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
+import { VueDatePicker } from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
+import { useReportDates } from '@/composables/useReportDates';
+import { DateTime } from 'luxon';
+import { id as idLocale } from 'date-fns/locale/id';
 import {
   ArrowLeft,
   Save,
@@ -17,6 +22,7 @@ import {
   FileText,
   Building,
   Users,
+  Calendar,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import { can } from "@/helpers/permissionHelper";
@@ -83,6 +89,7 @@ const dailyRecordId = computed(() => route.params.id);
 const form = reactive({
   branch_id: "",
   user_id: "",
+  date: new Date().toISOString().split('T')[0],
   total_customers: "",
 });
 
@@ -90,21 +97,46 @@ const createdDailyRecordId = ref(null);
 const gasWaterFormRef = ref(null);
 const electricityFormRef = ref(null);
 
+// --- DatePicker Report Indicator Logic ---
+const branchIdRef = computed(() => form.branch_id);
+const { reportDates, fetchReportDates, hasReport } = useReportDates(branchIdRef);
+
+// Track displayed month for fetching
+const displayedMonth = ref(DateTime.now().toFormat('yyyy-MM'));
+
+// Handle month/year navigation
+const handleMonthYearChange = ({ month, year }) => {
+  const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+  displayedMonth.value = monthStr;
+  fetchReportDates(monthStr);
+};
+
+// Format model value to YYYY-MM-DD
+const handleDateUpdate = (modelData) => {
+  if (modelData) {
+    // With model-type="yyyy-MM-dd", modelData is already a string in yyyy-MM-dd format
+    if (typeof modelData === 'string') {
+      form.date = modelData;
+    } else {
+      const dt = DateTime.fromJSDate(modelData);
+      form.date = dt.toFormat('yyyy-MM-dd');
+    }
+  } else {
+    form.date = '';
+  }
+};
+// --- End DatePicker Report Indicator Logic ---
+
 // Validation for duplicate record
 const checkDuplicateRecord = async (branchId) => {
   if (isEdit.value || !branchId) return false;
 
   try {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`;
     const response = await api.get('/daily-records', {
        params: {
          branch_id: branchId,
-         start_date: today,
-         end_date: today,
+         start_date: form.date,
+         end_date: form.date,
          row_per_page: 1
        }
     });
@@ -119,15 +151,23 @@ const checkDuplicateRecord = async (branchId) => {
 };
 
 // Watch branch_id to warn user immediately
-import { watch } from "vue";
 import { axiosInstance as api } from "@/plugins/axios"; 
+
+// Watch branch changes for report dates indicator
+watch(branchIdRef, (newVal) => {
+  if (newVal) {
+    fetchReportDates(displayedMonth.value);
+  } else {
+    reportDates.value = new Set();
+  }
+});
 
 watch(() => form.branch_id, async (newBranchId) => {
   if (!newBranchId) return;
 
   const isDuplicate = await checkDuplicateRecord(newBranchId);
   if (isDuplicate) {
-       toast.warning("Peringatan: Laporan harian untuk cabang ini hari ini SUDAH ADA. Anda tidak dapat membuat laporan ganda.", {
+       toast.warning("Peringatan: Laporan harian untuk cabang ini pada tanggal tersebut SUDAH ADA. Anda tidak dapat membuat laporan ganda.", {
          timeout: 5000
        });
   }
@@ -136,7 +176,10 @@ watch(() => form.branch_id, async (newBranchId) => {
   if (!isEdit.value) {
       try {
           const response = await api.get('/daily-records/previous-readings', {
-              params: { branch_id: newBranchId }
+              params: {
+                branch_id: newBranchId,
+                date: form.date
+              }
           });
           if (response.data.success) {
               if (!dailyRecordData.value) dailyRecordData.value = {};
@@ -148,6 +191,35 @@ watch(() => form.branch_id, async (newBranchId) => {
   }
 });
 
+// Watch form.date to re-check duplicate and refetch previous readings when date changes
+watch(() => form.date, async (newDate) => {
+  if (!form.branch_id || isEdit.value) return;
+
+  // Re-check duplicate for new date
+  const isDuplicate = await checkDuplicateRecord(form.branch_id);
+  if (isDuplicate) {
+    toast.warning("Peringatan: Laporan harian untuk cabang ini pada tanggal tersebut SUDAH ADA.", {
+      timeout: 5000
+    });
+  }
+
+  // Refetch previous readings for new date
+  try {
+    const response = await api.get('/daily-records/previous-readings', {
+      params: {
+        branch_id: form.branch_id,
+        date: newDate
+      }
+    });
+    if (response.data.success) {
+      if (!dailyRecordData.value) dailyRecordData.value = {};
+      dailyRecordData.value.previous_readings = response.data.data;
+    }
+  } catch (e) {
+    console.error("Failed to fetch previous readings", e);
+  }
+});
+
 const handleSubmit = async () => {
   loading.value = true;
   try {
@@ -156,7 +228,7 @@ const handleSubmit = async () => {
     if (!isEdit.value && form.branch_id) {
        const isDuplicate = await checkDuplicateRecord(form.branch_id);
        if (isDuplicate) {
-          toast.error("Gagal: Laporan harian untuk cabang ini sudah ada untuk hari ini. Silakan edit laporan yang sudah ada.");
+          toast.error("Gagal: Laporan harian untuk cabang ini sudah ada untuk tanggal tersebut. Silakan edit laporan yang sudah ada.");
           loading.value = false;
           return;
        }
@@ -165,6 +237,7 @@ const handleSubmit = async () => {
     const payload = {
       branch_id: form.branch_id,
       user_id: form.user_id || null,
+      date: form.date,
       total_customers: form.total_customers
         ? parseInt(form.total_customers)
         : null,
@@ -252,6 +325,7 @@ const loadDailyRecordData = async () => {
       if (dailyRecord) {
         form.branch_id = dailyRecord.branch?.id || "";
         form.user_id = dailyRecord.user?.id || "";
+        form.date = dailyRecord.date ? dailyRecord.date.split('T')[0] : new Date().toISOString().split('T')[0];
         form.total_customers = dailyRecord.total_customers || "";
         // Load utility readings after loading daily record
         await loadUtilityReadingsData();
@@ -455,6 +529,37 @@ onMounted(() => {
             type="text"
             disabled
           />
+        </div>
+
+        <!-- Tanggal (DatePicker with report indicators) -->
+        <div>
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <Calendar :size="16" class="text-gray-400" />
+            Tanggal
+            <span class="text-red-500">*</span>
+          </label>
+          <VueDatePicker
+            :model-value="form.date"
+            @update:model-value="handleDateUpdate"
+            @update-month-year="handleMonthYearChange"
+            :time-config="{ enableTimePicker: false }"
+            auto-apply
+            model-type="yyyy-MM-dd"
+            :formats="{ input: 'yyyy-MM-dd' }"
+            :locale="idLocale"
+          >
+            <template #day="{ day, date }">
+              <div class="relative flex flex-col items-center">
+                <span>{{ day }}</span>
+                <span
+                  v-if="hasReport(DateTime.fromJSDate(date).toFormat('yyyy-MM-dd'))
+                         && form.date !== DateTime.fromJSDate(date).toFormat('yyyy-MM-dd')"
+                  class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-blue-500"
+                ></span>
+              </div>
+            </template>
+          </VueDatePicker>
+          <p v-if="error?.date" class="mt-1 text-sm text-red-600">{{ error.date.join(', ') }}</p>
         </div>
 
         <!-- Total Customers -->

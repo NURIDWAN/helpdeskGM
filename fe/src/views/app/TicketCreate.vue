@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useTicketStore } from "@/stores/ticket";
 import { useTicketAttachmentStore } from "@/stores/ticketAttachment";
 import { useTicketCategoryStore } from "@/stores/ticketCategory";
+import RichTextEditor from "@/components/common/RichTextEditor.vue";
 import { storeToRefs } from "pinia";
 import {
   ArrowLeft,
@@ -55,6 +56,11 @@ const handleSubmit = async () => {
 const handleFileSelect = (event) => {
   const files = Array.from(event.target.files);
   selectedFiles.value = [...selectedFiles.value, ...files];
+  event.target.value = "";
+};
+
+const handleEditorImageSelected = (file) => {
+  selectedFiles.value = [...selectedFiles.value, file];
 };
 
 const removeFile = (index) => {
@@ -75,14 +81,14 @@ const uploadAttachments = async () => {
     }
 
     // Redirect to dashboard on success
-    router.push({ name: "app.dashboard" });
+    router.push({ name: "app.tickets" });
   } catch (error) {
     console.error("Error uploading attachments:", error);
   }
 };
 
 const skipAttachments = () => {
-  router.push({ name: "app.dashboard" });
+  router.push({ name: "app.tickets" });
 };
 
 const goBackToStep1 = () => {
@@ -164,7 +170,7 @@ onMounted(async () => {
   <div class="mb-6">
     <RouterLink
       v-if="currentStep === 1"
-      :to="{ name: 'app.dashboard' }"
+      :to="{ name: 'app.tickets' }"
       class="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
     >
       <ArrowLeft :size="16" class="mr-2" />
@@ -234,13 +240,17 @@ onMounted(async () => {
           class="block text-sm font-medium text-gray-700 mb-2"
           >Deskripsi Masalah <span class="text-red-500">*</span></label
         >
-        <textarea
+        <RichTextEditor
           id="description"
           v-model="form.description"
-          rows="6"
-          placeholder="Jelaskan masalah Anda secara detail. Sertakan informasi seperti:&#10;- Kapan masalah mulai terjadi&#10;- Apa yang sudah Anda coba&#10;- Dampak masalah terhadap pekerjaan"
-          class="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        ></textarea>
+          placeholder="Jelaskan masalah Anda secara detail. Sertakan kapan masalah mulai terjadi, apa yang sudah dicoba, dan dampaknya terhadap pekerjaan."
+          min-height="150px"
+          :error="Boolean(error?.description)"
+          @image-selected="handleEditorImageSelected"
+        />
+        <p v-if="selectedFiles.length > 0" class="mt-2 text-xs text-gray-500">
+          {{ selectedFiles.length }} file akan diupload sebagai lampiran setelah tiket dibuat.
+        </p>
         <div v-if="error?.description" class="flex items-center mt-2">
           <p class="text-xs text-red-500">{{ error.description[0] }}</p>
         </div>
@@ -348,7 +358,7 @@ onMounted(async () => {
       <!-- Submit Button -->
       <div class="flex justify-end space-x-4">
         <RouterLink
-          :to="{ name: 'app.dashboard' }"
+          :to="{ name: 'app.tickets' }"
           class="px-6 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
         >
           Batal

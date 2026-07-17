@@ -42,14 +42,15 @@ vi.mock('@/router', () => ({
     },
 }))
 
-// Mock vue-toastification
-vi.mock('vue-toastification', () => ({
-    useToast: () => ({
+// Mock vue-sonner
+vi.mock('vue-sonner', () => ({
+    toast: {
         success: vi.fn(),
         error: vi.fn(),
         warning: vi.fn(),
         info: vi.fn(),
-    }),
+        dismiss: vi.fn(),
+    },
 }))
 
 // Setup Pinia before each test

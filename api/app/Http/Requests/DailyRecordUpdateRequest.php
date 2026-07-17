@@ -32,26 +32,14 @@ class DailyRecordUpdateRequest extends FormRequest
                 'sometimes',
                 'exists:branches,id',
                 function ($attribute, $value, $fail) use ($dailyRecordId, $dailyRecord) {
-                    if ($value) {
-                        // Jika update, gunakan tanggal dari record yang sedang di-update
-                        if ($dailyRecord) {
-                            $recordDate = Carbon::parse($dailyRecord->created_at)->setTimezone('Asia/Jakarta');
-                            $startOfDay = $recordDate->copy()->startOfDay();
-                            $endOfDay = $recordDate->copy()->endOfDay();
+                    if ($value && $dailyRecord) {
+                        // Gunakan field 'date' untuk cek uniqueness per cabang per hari
+                        $recordDate = $dailyRecord->date;
 
-                            $exists = DailyRecord::where('branch_id', $value)
-                                ->whereBetween('created_at', [$startOfDay, $endOfDay])
-                                ->where('id', '!=', $dailyRecordId)
-                                ->exists();
-                        } else {
-                            // Jika create baru (tidak seharusnya terjadi di update, tapi untuk safety)
-                            $today = Carbon::now('Asia/Jakarta')->startOfDay();
-                            $tomorrow = Carbon::now('Asia/Jakarta')->endOfDay();
-
-                            $exists = DailyRecord::where('branch_id', $value)
-                                ->whereBetween('created_at', [$today, $tomorrow])
-                                ->exists();
-                        }
+                        $exists = DailyRecord::where('branch_id', $value)
+                            ->whereDate('date', $recordDate)
+                            ->where('id', '!=', $dailyRecordId)
+                            ->exists();
 
                         if ($exists) {
                             $fail('Cabang ini sudah memiliki catatan harian untuk tanggal tersebut. Setiap cabang hanya dapat membuat 1 catatan harian per hari.');
@@ -75,8 +63,9 @@ class DailyRecordUpdateRequest extends FormRequest
 
     protected function prepareForValidation()
     {
-        // Ambil branch_id dari user jika user punya branch (seperti di WorkReportStoreRequest)
-        if ($this->user()->branch) {
+        // Hanya override branch_id jika user TIDAK punya akses view-all (bukan admin)
+        // Admin bisa pilih branch apapun dari form
+        if (!$this->user()->can('daily-record-view-all') && $this->user()->branch) {
             $this->merge([
                 'branch_id' => $this->user()->branch->id
             ]);

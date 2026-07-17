@@ -94,6 +94,45 @@ export const useAuthStore = defineStore("auth", {
             } finally {
                 this.loading = false
             }
+        },
+
+        async uploadProfilePhoto(file) {
+            this.loading = true
+            this.error = null
+            this.success = null
+
+            try {
+                const formData = new FormData()
+                formData.append('photo', file)
+
+                const response = await axiosInstance.post('/auth/me/photo', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                })
+                this.success = response.data.message || 'Foto profil berhasil diperbarui'
+                await this.checkAuth()
+                return response.data.data
+            } catch (error) {
+                this.error = handleError(error)
+            } finally {
+                this.loading = false
+            }
+        },
+
+        async deleteProfilePhoto() {
+            this.loading = true
+            this.error = null
+            this.success = null
+
+            try {
+                const response = await axiosInstance.delete('/auth/me/photo')
+                this.success = response.data.message || 'Foto profil berhasil dihapus'
+                await this.checkAuth()
+                return response.data.data
+            } catch (error) {
+                this.error = handleError(error)
+            } finally {
+                this.loading = false
+            }
         }
     }
 })

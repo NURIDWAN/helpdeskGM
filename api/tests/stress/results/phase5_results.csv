@@ -1,2 +1,2 @@
-api_limiter_not_applied,70,0
-login_throttle,7,3
+api_limiter_active,70,70,0
+login_throttle,7,2

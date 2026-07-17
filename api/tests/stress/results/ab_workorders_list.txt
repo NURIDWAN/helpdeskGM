@@ -13,34 +13,35 @@ Server Temp Key:        X25519 253 bits
 TLS Server Name:        api.ddev.site
 
 Document Path:          /api/v1/work-orders
-Document Length:        1745 bytes
+Document Length:        39 bytes
 
 Concurrency Level:      20
-Time taken for tests:   3.471 seconds
+Time taken for tests:   2.783 seconds
 Complete requests:      100
 Failed requests:        0
+Non-2xx responses:      100
 Keep-Alive requests:    0
-Total transferred:      193400 bytes
-HTML transferred:       174500 bytes
-Requests per second:    28.81 [#/sec] (mean)
-Time per request:       694.141 [ms] (mean)
-Time per request:       34.707 [ms] (mean, across all concurrent requests)
-Transfer rate:          54.42 [Kbytes/sec] received
+Total transferred:      39500 bytes
+HTML transferred:       3900 bytes
+Requests per second:    35.93 [#/sec] (mean)
+Time per request:       556.667 [ms] (mean)
+Time per request:       27.833 [ms] (mean, across all concurrent requests)
+Transfer rate:          13.86 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:        5   33  35.8     17     120
-Processing:    99  604 139.3    622    1012
-Waiting:       51  602 141.2    622    1012
-Total:        109  637 143.2    636    1120
+Connect:        8   29  24.1     18      92
+Processing:    33  488 126.1    512     673
+Waiting:       27  486 126.4    512     673
+Total:         41  517 119.4    536     765
 
 Percentage of the requests served within a certain time (ms)
-  50%    636
-  66%    673
-  75%    699
-  80%    728
-  90%    808
-  95%    840
-  98%   1093
-  99%   1120
- 100%   1120 (longest request)
+  50%    536
+  66%    572
+  75%    596
+  80%    610
+  90%    638
+  95%    660
+  98%    680
+  99%    765
+ 100%    765 (longest request)

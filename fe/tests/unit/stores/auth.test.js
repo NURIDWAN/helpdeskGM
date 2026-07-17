@@ -42,7 +42,7 @@ describe('Auth Store', () => {
 
         it('isAuthenticated should return true when user exists', () => {
             const store = useAuthStore()
-            store.user = { id: 1, name: 'Test User' }
+            Cookies.get.mockReturnValue('test-token')
 
             expect(store.isAuthenticated).toBe(true)
         })
@@ -69,7 +69,7 @@ describe('Auth Store', () => {
                 email: 'admin@example.com',
                 password: 'password',
             })
-            expect(Cookies.set).toHaveBeenCalledWith('token', 'test-token')
+            expect(Cookies.set).toHaveBeenCalledWith('token', 'test-token', { expires: 7, sameSite: 'Lax' })
             expect(store.success).toBe('Login successful')
             expect(router.push).toHaveBeenCalledWith({ name: 'admin.dashboard' })
         })

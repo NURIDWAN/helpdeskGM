@@ -22,7 +22,7 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
         /** @var \App\Models\User|null $user */
 
         $query = DailyRecord::with(['user', 'branch', 'utilityReadings', 'electricityReadings.electricityMeter'])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('date', 'desc')
             ->where(function ($query) use ($search) {
                 if ($search) {
                     $query->search($search);
@@ -39,11 +39,11 @@ class DailyRecordRepository implements DailyRecordRepositoryInterface
         }
 
         if ($startDate) {
-            $query->whereDate('created_at', '>=', $startDate);
+            $query->where('date', '>=', $startDate);
         }
 
         if ($endDate) {
-            $query->whereDate('created_at', '<=', $endDate);
+            $query->where('date', '<=', $endDate);
         }
 
         // Role-based visibility - REMOVED per user request to show ALL records to everyone

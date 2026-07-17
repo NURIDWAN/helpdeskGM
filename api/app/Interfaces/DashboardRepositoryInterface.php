@@ -44,4 +44,17 @@ interface DashboardRepositoryInterface
     public function getUnconfirmedWorkOrders(): array;
 
     public function getUserRecentTickets(): array;
+
+    /**
+     * Get top 5 outlet usage for electricity, water, gas, and customer count
+     * for the current month.
+     *
+     * @return array{
+     *     electricity: array<int, array{branch_name: string, value: float}>,
+     *     water: array<int, array{branch_name: string, value: float}>,
+     *     gas: array<int, array{branch_name: string, value: float}>,
+     *     customer: array<int, array{branch_name: string, value: int}>
+     * }
+     */
+    public function getTopOutletUsage(): array;
 }

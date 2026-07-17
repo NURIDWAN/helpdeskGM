@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Support\RichTextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class TicketUpdateRequest extends FormRequest
@@ -40,5 +41,14 @@ class TicketUpdateRequest extends FormRequest
             'assigned_staff' => 'Staff yang Ditugaskan',
             'completed_at' => 'Tanggal Selesai',
         ];
+    }
+
+    protected function prepareForValidation()
+    {
+        if ($this->has('description')) {
+            $this->merge([
+                'description' => RichTextSanitizer::clean($this->input('description')),
+            ]);
+        }
     }
 }

@@ -3,9 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use App\Models\DailyRecord;
-use Carbon\Carbon;
 
 class DailyRecordStoreRequest extends FormRequest
 {
@@ -29,20 +27,20 @@ class DailyRecordStoreRequest extends FormRequest
                 'required',
                 'exists:branches,id',
                 function ($attribute, $value, $fail) {
-                    // Gunakan timezone Asia/Jakarta untuk konsistensi
-                    $today = Carbon::now('Asia/Jakarta')->startOfDay();
-                    $tomorrow = Carbon::now('Asia/Jakarta')->endOfDay();
-                    
-                    $existingRecord = DailyRecord::where('branch_id', $value)
-                        ->whereBetween('created_at', [$today, $tomorrow])
+                    $date = $this->input('date');
+                    $branchId = $value;
+
+                    $existingRecord = DailyRecord::where('branch_id', $branchId)
+                        ->where('date', $date)
                         ->first();
-                    
+
                     if ($existingRecord) {
                         $branchName = $existingRecord->branch->name ?? 'cabang ini';
-                        $fail("Cabang {$branchName} sudah memiliki catatan harian untuk hari ini (tanggal: {$existingRecord->created_at->format('d/m/Y H:i')}). Setiap cabang hanya dapat membuat 1 catatan harian per hari. Silakan edit catatan yang sudah ada atau pilih cabang lain.");
+                        $fail("Cabang {$branchName} sudah memiliki catatan harian untuk tanggal {$date}.");
                     }
                 },
             ],
+            'date' => ['required', 'date_format:Y-m-d'],
             'user_id' => ['nullable', 'exists:users,id'], // Untuk admin menentukan PIC
             'total_customers' => ['nullable', 'integer', 'min:0'],
         ];
@@ -52,6 +50,7 @@ class DailyRecordStoreRequest extends FormRequest
     {
         return [
             'branch_id' => 'Cabang',
+            'date' => 'Tanggal',
             'user_id' => 'User (PIC)',
             'total_customers' => 'Total Pelanggan',
         ];
@@ -60,7 +59,8 @@ class DailyRecordStoreRequest extends FormRequest
     public function messages()
     {
         return [
-            'branch_id.unique' => 'Cabang ini sudah memiliki catatan harian untuk hari ini. Setiap cabang hanya dapat membuat 1 catatan harian per hari.',
+            'date.required' => 'The date field is required.',
+            'date.date_format' => 'The date field must match the format Y-m-d.',
         ];
     }
 

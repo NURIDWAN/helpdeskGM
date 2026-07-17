@@ -7,6 +7,7 @@ import { useTicketCategoryStore } from "@/stores/ticketCategory";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
 import MultiSelect from "@/components/common/MultiSelect.vue";
+import RichTextEditor from "@/components/common/RichTextEditor.vue";
 import {
   ArrowLeft,
   Save,
@@ -246,18 +247,23 @@ onMounted(() => {
 
         <!-- Description -->
         <div class="lg:col-span-2">
-          <FormField
+          <label
+            for="description"
+            class="mb-2 block text-sm font-medium text-gray-700"
+          >
+            <MessageSquare :size="16" class="mr-2 inline" />
+            Detail Permasalahan <span class="text-red-500">*</span>
+          </label>
+          <RichTextEditor
             v-model="form.description"
             id="description"
-            name="description"
-            label="Detail Permasalahan"
-            :label-icon="MessageSquare"
             placeholder="Jelaskan detail masalah atau kebutuhan"
-            :error="error?.description?.join(', ')"
-            :required="true"
-            type="textarea"
-            :rows="4"
+            min-height="150px"
+            :error="Boolean(error?.description)"
           />
+          <p v-if="error?.description" class="mt-2 text-sm text-red-600">
+            {{ error.description.join(", ") }}
+          </p>
         </div>
 
         <!-- Branch -->

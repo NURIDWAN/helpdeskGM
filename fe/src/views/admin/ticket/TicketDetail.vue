@@ -423,9 +423,10 @@ onUnmounted(() => {
                   {{ ticket.category.name }}
                 </span>
               </div>
-              <p class="text-gray-600 leading-relaxed">
-                {{ ticket.description }}
-              </p>
+              <div
+                class="rich-text-display text-gray-600 leading-relaxed"
+                v-html="ticket.description"
+              ></div>
             </div>
             <div class="flex gap-2">
               <span
@@ -778,3 +779,35 @@ onUnmounted(() => {
     @close="closeAttachmentDialog"
   />
 </template>
+
+<style scoped>
+.rich-text-display :deep(p) {
+  margin: 0 0 0.5rem;
+}
+
+.rich-text-display :deep(ul),
+.rich-text-display :deep(ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.rich-text-display :deep(ul) {
+  list-style: disc;
+}
+
+.rich-text-display :deep(ol) {
+  list-style: decimal;
+}
+
+.rich-text-display :deep(blockquote) {
+  border-left: 3px solid rgb(147 197 253);
+  color: rgb(71 85 105);
+  margin: 0.75rem 0;
+  padding-left: 0.75rem;
+}
+
+.rich-text-display :deep(a) {
+  color: rgb(37 99 235);
+  text-decoration: underline;
+}
+</style>

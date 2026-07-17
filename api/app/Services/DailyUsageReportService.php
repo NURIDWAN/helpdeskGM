@@ -26,11 +26,17 @@ class DailyUsageReportService
         }
 
         $baseQuery = UtilityReading::query()
-            ->select('utility_readings.*', 'daily_records.created_at as daily_record_created_at')
+            ->select('utility_readings.*', 'daily_records.date as daily_record_date', 'daily_records.created_at as daily_record_created_at')
             ->join('daily_records', 'utility_readings.daily_record_id', '=', 'daily_records.id')
             ->where('daily_records.branch_id', $filters['branch_id'])
-            ->whereDate('daily_records.created_at', '<', $filters['start_date'])
-            ->orderBy('daily_records.created_at', 'desc')
+            ->where(function ($q) use ($filters) {
+                $q->whereDate('daily_records.date', '<', $filters['start_date'])
+                  ->orWhere(function ($q2) use ($filters) {
+                      $q2->whereNull('daily_records.date')
+                          ->whereDate('daily_records.created_at', '<', $filters['start_date']);
+                  });
+            })
+            ->orderByRaw('COALESCE(daily_records.date, daily_records.created_at) DESC')
             ->orderBy('utility_readings.id', 'desc');
 
         if (!empty($filters['user_id'])) {
@@ -62,11 +68,14 @@ class DailyUsageReportService
         // Check for single meter fallback
         if ($waterReadings->count() === 1) {
             $sortedReadings = $waterReadings->first()->sortByDesc(function ($reading) {
+                if ($reading->getAttribute('daily_record_date')) {
+                    return strtotime($reading->getAttribute('daily_record_date'));
+                }
                 if ($reading->getAttribute('daily_record_created_at')) {
                     return strtotime($reading->getAttribute('daily_record_created_at'));
                 }
-                if ($reading->dailyRecord && $reading->dailyRecord->created_at) {
-                    return $reading->dailyRecord->created_at->timestamp;
+                if ($reading->dailyRecord && $reading->dailyRecord->date) {
+                    return $reading->dailyRecord->date->timestamp;
                 }
                 return $reading->created_at ? $reading->created_at->timestamp : 0;
             });
@@ -78,11 +87,14 @@ class DailyUsageReportService
 
         foreach ($waterReadings as $location => $readings) {
             $sortedReadings = $readings->sortByDesc(function ($reading) {
+                if ($reading->getAttribute('daily_record_date')) {
+                    return strtotime($reading->getAttribute('daily_record_date'));
+                }
                 if ($reading->getAttribute('daily_record_created_at')) {
                     return strtotime($reading->getAttribute('daily_record_created_at'));
                 }
-                if ($reading->dailyRecord && $reading->dailyRecord->created_at) {
-                    return $reading->dailyRecord->created_at->timestamp;
+                if ($reading->dailyRecord && $reading->dailyRecord->date) {
+                    return $reading->dailyRecord->date->timestamp;
                 }
                 return $reading->created_at ? $reading->created_at->timestamp : 0;
             });
@@ -96,16 +108,24 @@ class DailyUsageReportService
 
         // Electricity: ambil pembacaan terakhir per meter sebelum start_date
         $electricityReadings = ElectricityReading::query()
-            ->select('electricity_readings.*', 'daily_records.created_at as daily_record_created_at')
+            ->select('electricity_readings.*', 'daily_records.date as daily_record_date', 'daily_records.created_at as daily_record_created_at')
             ->join('daily_records', 'electricity_readings.daily_record_id', '=', 'daily_records.id')
             ->where('daily_records.branch_id', $filters['branch_id'])
-            ->whereDate('daily_records.created_at', '<', $filters['start_date'])
-            ->orderBy('daily_records.created_at', 'desc')
+            ->where(function ($q) use ($filters) {
+                $q->whereDate('daily_records.date', '<', $filters['start_date'])
+                  ->orWhere(function ($q2) use ($filters) {
+                      $q2->whereNull('daily_records.date')
+                          ->whereDate('daily_records.created_at', '<', $filters['start_date']);
+                  });
+            })
+            ->orderByRaw('COALESCE(daily_records.date, daily_records.created_at) DESC')
             ->get()
             ->groupBy('electricity_meter_id');
 
         foreach ($electricityReadings as $meterId => $readings) {
-            $latest = $readings->sortByDesc('daily_record_created_at')->first();
+            $latest = $readings->sortByDesc(function ($r) {
+                return $r->daily_record_date ?? $r->daily_record_created_at;
+            })->first();
 
             if ($latest) {
                 // Simplified: use singe meter_value
@@ -134,13 +154,16 @@ class DailyUsageReportService
                 $meter = $electricityReading->electricityMeter;
                 $meterId = $electricityReading->electricity_meter_id;
 
-                $closing = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
-                $opening = $previousClosings['electricity'][$meterId] ?? 0;
+                // Opening = meter_value yang diinput user hari ini
+                $opening = $electricityReading->meter_value !== null ? round($electricityReading->meter_value, 2) : null;
+                // Closing = Opening dari hari sebelumnya
+                $closing = $previousClosings['electricity'][$meterId] ?? 0;
 
                 $usage = null;
 
-                if ($closing !== null) {
-                    $usage = round($closing - $opening, 2);
+                if ($opening !== null) {
+                    // Total Pemakaian = Opening - Closing
+                    $usage = round($opening - $closing, 2);
                 }
 
                 $electricityData[] = [
@@ -154,8 +177,8 @@ class DailyUsageReportService
                     'photo_path' => $electricityReading->photo ? asset('storage/' . $electricityReading->photo) : null,
                 ];
 
-                // Update previous closing
-                $previousClosings['electricity'][$meterId] = $closing;
+                // Simpan Opening hari ini → jadi Closing hari berikutnya
+                $previousClosings['electricity'][$meterId] = $opening;
             }
         } else {
             // Fallback to legacy utility_readings electricity if needed (or just empty)
@@ -175,23 +198,26 @@ class DailyUsageReportService
 
         foreach ($electricityReadingsSorted as $electricityReading) {
             $location = $electricityReading->location ?? 'default';
-            $wbpClosing = $electricityReading->meter_value_wbp ? round($electricityReading->meter_value_wbp, 2) : null;
-            $lwbpClosing = $electricityReading->meter_value_lwbp ? round($electricityReading->meter_value_lwbp, 2) : null;
+            // Opening = meter values input hari ini
+            $wbpOpening = $electricityReading->meter_value_wbp ? round($electricityReading->meter_value_wbp, 2) : null;
+            $lwbpOpening = $electricityReading->meter_value_lwbp ? round($electricityReading->meter_value_lwbp, 2) : null;
             $meterValue = $electricityReading->meter_value ? round($electricityReading->meter_value, 2) : null;
 
-            $wbpOpening = $previousClosings['electricity'][$location]['wbp'] ?? 0;
-            $lwbpOpening = $previousClosings['electricity'][$location]['lwbp'] ?? 0;
+            // Closing = Opening dari hari sebelumnya
+            $wbpClosing = $previousClosings['electricity'][$location]['wbp'] ?? 0;
+            $lwbpClosing = $previousClosings['electricity'][$location]['lwbp'] ?? 0;
 
             $wbpUsage = null;
             $lwbpUsage = null;
             $totalUsage = null;
 
-            if ($wbpClosing !== null) {
-                $wbpUsage = round($wbpClosing - $wbpOpening, 2);
+            // Total Pemakaian = Opening - Closing
+            if ($wbpOpening !== null) {
+                $wbpUsage = round($wbpOpening - $wbpClosing, 2);
             }
 
-            if ($lwbpClosing !== null) {
-                $lwbpUsage = round($lwbpClosing - $lwbpOpening, 2);
+            if ($lwbpOpening !== null) {
+                $lwbpUsage = round($lwbpOpening - $lwbpClosing, 2);
             }
 
             if ($wbpUsage !== null || $lwbpUsage !== null) {
@@ -213,9 +239,10 @@ class DailyUsageReportService
                 'photo_lwbp' => $electricityReading->photo_lwbp ? asset('storage/' . $electricityReading->photo_lwbp) : null,
             ];
 
+            // Simpan Opening hari ini → jadi Closing hari berikutnya
             $previousClosings['electricity'][$location] = [
-                'wbp' => $wbpClosing,
-                'lwbp' => $lwbpClosing,
+                'wbp' => $wbpOpening,
+                'lwbp' => $lwbpOpening,
                 'total' => $meterValue,
             ];
         }
@@ -234,8 +261,8 @@ class DailyUsageReportService
         ?string $category = null
     ): array {
         $rowData = [
-            'timestamp' => $dailyRecord->created_at->format('m/d/Y H:i:s'),
-            'tanggal' => $dailyRecord->created_at->format('m/d/Y'),
+            'timestamp' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y H:i:s'),
+            'tanggal' => $dailyRecord->date ? $dailyRecord->date->format('d/m/Y') : $dailyRecord->created_at->format('d/m/Y'),
             'nama' => $dailyRecord->user->name ?? '-',
             'outlet' => $dailyRecord->branch->name ?? '-',
             'total_customer' => $dailyRecord->total_customers ?? 0,

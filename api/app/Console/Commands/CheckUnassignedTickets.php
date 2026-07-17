@@ -47,7 +47,8 @@ class CheckUnassignedTickets extends Command
 
             $whatsAppService->sendUnassignedTicketAlert($ticket);
 
-            $ticket->update(['unassigned_alert_sent_at' => now()]);
+            $ticket->unassigned_alert_sent_at = now();
+            $ticket->save();
         }
 
         $this->info('Done.');

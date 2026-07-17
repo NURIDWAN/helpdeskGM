@@ -1,391 +1,453 @@
 <script setup>
-import { ref } from "vue";
-import { useAuthStore } from "@/stores/auth";
+import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
 import {
   Activity,
-  Home,
-  Tag,
-  Building,
-  Users,
-  LogOut,
-  ChevronDown,
-  File,
   BarChart3,
-  ClipboardList,
-  FileText,
-  Settings,
-  X,
+  Building,
   Calendar,
+  ChevronDown,
+  ClipboardList,
   FileSpreadsheet,
-  Shield,
+  FileText,
+  LogOut,
   MessageSquare,
+  ScrollText,
+  Settings,
+  Shield,
+  Tag,
+  Users,
+  X,
 } from "lucide-vue-next";
 import { can } from "@/helpers/permissionHelper";
+import { useAuthStore } from "@/stores/auth";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Sidebar as SidebarRoot,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar";
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     default: false,
   },
+  isCollapsed: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(["close"]);
-
+const route = useRoute();
 const authStore = useAuthStore();
+const { user } = storeToRefs(authStore);
 const { logout } = authStore;
 
-const isMasterDataOpen = ref(false);
-const isOperationsOpen = ref(false);
-const isManagementOpen = ref(false);
+const manuallyOpenGroups = ref({
+  masterData: false,
+  operations: false,
+  management: false,
+});
 
-const handleLogout = async () => {
-  await logout();
+const dashboardItem = {
+  label: "Dashboard",
+  icon: BarChart3,
+  to: { name: "admin.dashboard" },
+  isActive: () => route.name === "admin.dashboard",
 };
 
-const toggleMasterData = () => {
-  isMasterDataOpen.value = !isMasterDataOpen.value;
-};
+const menuGroups = computed(() => [
+  {
+    key: "masterData",
+    label: "Data Master",
+    triggerLabel: "Konfigurasi",
+    icon: Settings,
+    canShow: () =>
+      can("branch-menu") ||
+      can("job-template-menu") ||
+      can("whatsapp-setting-menu") ||
+      can("ticket-category-menu"),
+    isActive: () =>
+      route.name?.startsWith("admin.branch") ||
+      route.name?.startsWith("admin.job-template") ||
+      route.name?.startsWith("admin.ticket-categor") ||
+      route.name?.startsWith("admin.whatsapp"),
+    items: [
+      {
+        label: "Data Cabang",
+        icon: Building,
+        to: { name: "admin.branches" },
+        canShow: () => can("branch-menu"),
+        isActive: () => route.name?.startsWith("admin.branch"),
+      },
+      {
+        label: "Template Job",
+        icon: Tag,
+        to: { name: "admin.job-templates" },
+        canShow: () => can("job-template-menu"),
+        isActive: () => route.name?.startsWith("admin.job-template"),
+      },
+      {
+        label: "Kategori Tiket",
+        icon: Tag,
+        to: { name: "admin.ticket-categories" },
+        canShow: () => can("ticket-category-menu"),
+        isActive: () => route.name?.startsWith("admin.ticket-categor"),
+      },
+      {
+        label: "Pengaturan WhatsApp",
+        icon: MessageSquare,
+        to: { name: "admin.whatsapp-settings" },
+        canShow: () => can("whatsapp-setting-menu"),
+        isActive: () => route.name?.startsWith("admin.whatsapp"),
+      },
+    ],
+  },
+  {
+    key: "operations",
+    label: "Operasional",
+    triggerLabel: "Manajemen Kerja",
+    icon: Activity,
+    canShow: () =>
+      can("ticket-menu") ||
+      can("form-permintaan-view-all") ||
+      can("work-order-menu") ||
+      can("work-report-menu") ||
+      can("daily-record-menu"),
+    isActive: () =>
+      route.name?.startsWith("admin.ticket") ||
+      route.name?.startsWith("admin.form-permintaan") ||
+      route.name?.startsWith("admin.workorder") ||
+      route.name?.startsWith("admin.workreport") ||
+      route.name?.startsWith("admin.daily-record") ||
+      route.name === "admin.daily-usage-report",
+    items: [
+      {
+        label: "Data Tiket",
+        icon: Tag,
+        to: { name: "admin.tickets" },
+        canShow: () => can("ticket-menu"),
+        isActive: () => route.name?.startsWith("admin.ticket"),
+      },
+      {
+        label: "Form Permintaan",
+        icon: ScrollText,
+        to: { name: "admin.form-permintaan" },
+        canShow: () => can("form-permintaan-view-all"),
+        isActive: () => route.name?.startsWith("admin.form-permintaan"),
+      },
+      {
+        label: "Surat Perintah Kerja",
+        icon: ClipboardList,
+        to: { name: "admin.workorders" },
+        canShow: () => can("work-order-menu"),
+        isActive: () => route.name?.startsWith("admin.workorder"),
+      },
+      {
+        label: "Laporan Pekerjaan",
+        icon: FileText,
+        to: { name: "admin.workreports" },
+        canShow: () => can("work-report-menu"),
+        isActive: () => route.name?.startsWith("admin.workreport"),
+      },
+      {
+        label: "Laporan Harian Cabang",
+        icon: Calendar,
+        to: { name: "admin.daily-records" },
+        canShow: () => can("daily-record-menu"),
+        isActive: () =>
+          route.name?.startsWith("admin.daily-record") &&
+          route.name !== "admin.daily-usage-report",
+      },
+      {
+        label: "Laporan Daily Usage",
+        icon: FileSpreadsheet,
+        to: { name: "admin.daily-usage-report" },
+        canShow: () => can("daily-record-menu"),
+        isActive: () => route.name === "admin.daily-usage-report",
+      },
+    ],
+  },
+  {
+    key: "management",
+    label: "Manajemen",
+    triggerLabel: "Pengguna",
+    icon: Users,
+    canShow: () =>
+      can("user-menu") ||
+      can("role-menu") ||
+      can("user-activity-menu") ||
+      can("activity-log-menu"),
+    isActive: () =>
+      route.name?.startsWith("admin.user") ||
+      route.name?.startsWith("admin.role") ||
+      route.name?.startsWith("admin.activity-log"),
+    items: [
+      {
+        label: "Data User",
+        icon: Users,
+        to: { name: "admin.users" },
+        canShow: () => can("user-menu"),
+        isActive: () =>
+          route.name === "admin.users" || route.name?.startsWith("admin.user."),
+      },
+      {
+        label: "Data Role",
+        icon: Shield,
+        to: { name: "admin.roles" },
+        canShow: () => can("role-menu"),
+        isActive: () => route.name?.startsWith("admin.role"),
+      },
+      {
+        label: "Monitoring Aktivitas",
+        icon: Activity,
+        to: { name: "admin.user-activity" },
+        canShow: () => can("user-activity-menu"),
+        isActive: () => route.name === "admin.user-activity",
+      },
+      {
+        label: "Activity Log",
+        icon: ScrollText,
+        to: { name: "admin.activity-logs" },
+        canShow: () => can("activity-log-menu"),
+        isActive: () => route.name === "admin.activity-logs",
+      },
+    ],
+  },
+]);
 
-const toggleOperations = () => {
-  isOperationsOpen.value = !isOperationsOpen.value;
-};
+const visibleGroups = computed(() =>
+  menuGroups.value
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.canShow()),
+    }))
+    .filter((group) => group.canShow() && group.items.length > 0)
+);
 
-const toggleManagement = () => {
-  isManagementOpen.value = !isManagementOpen.value;
-};
+const userRoleLabel = computed(() => {
+  if (Array.isArray(user.value?.roles) && user.value.roles.length > 0) {
+    return user.value.roles[0];
+  }
+
+  if (typeof user.value?.role === "string") {
+    return user.value.role;
+  }
+
+  return user.value?.role?.name || user.value?.type || "Admin";
+});
+
+const avatarUrl = computed(
+  () =>
+    `https://ui-avatars.com/api/?name=${user.value?.name || "Admin"}&background=0D8ABC&color=fff`
+);
 
 const closeSidebar = () => {
   emit("close");
 };
+
+const toggleGroup = (key) => {
+  manuallyOpenGroups.value[key] = !manuallyOpenGroups.value[key];
+};
+
+const isGroupOpen = (group) => {
+  return props.isCollapsed || manuallyOpenGroups.value[group.key] || group.isActive();
+};
+
+const handleLogout = async () => {
+  await logout();
+};
 </script>
 
 <template>
-  <aside
-    :class="[
-      'w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out',
-      'fixed inset-y-0 left-0 z-50',
-      'lg:relative lg:translate-x-0 lg:z-auto lg:h-full',
-      isOpen ? 'translate-x-0' : '-translate-x-full',
-    ]"
-  >
-    <!-- Mobile Close Button -->
-    <div class="lg:hidden flex justify-end p-4 border-b border-gray-100">
-      <button
+  <SidebarRoot class="sidebar-container">
+    <div class="flex justify-end border-b border-sidebar-border p-4 lg:hidden">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        class="text-sidebar-foreground/70"
+        aria-label="Tutup sidebar"
         @click="closeSidebar"
-        class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
       >
         <X :size="24" />
-      </button>
+      </Button>
     </div>
 
-    <div class="p-4 lg:p-6 border-b border-gray-100">
-      <h1 class="text-xl lg:text-2xl font-bold text-blue-600 flex items-center">
-        <Activity :size="24" class="lg:w-8 lg:h-8 mr-2" />
-        <span class="hidden sm:block">GA Maintenance</span>
-        <span class="sm:hidden">TEAM GA</span>
-      </h1>
-    </div>
-    <nav class="mt-4 lg:mt-6">
-      <!-- Dashboard -->
-      <div class="mb-4 lg:mb-6">
+    <SidebarHeader :class="isCollapsed ? 'lg:px-2' : ''">
+      <div
+        class="flex h-10 items-center gap-2"
+        :class="isCollapsed ? 'lg:justify-center' : 'lg:justify-start'"
+      >
         <RouterLink
           :to="{ name: 'admin.dashboard' }"
+          class="flex min-w-0 items-center gap-2.5 rounded-md"
+          :class="{ 'lg:justify-center': isCollapsed }"
+          title="GA Maintenance"
           @click="closeSidebar"
-          class="flex items-center px-4 lg:px-6 py-3 text-gray-600 hover:bg-gray-50 hover:border-l-4 hover:border-gray-200"
-          :class="{
-            'bg-blue-50 border-l-4 border-blue-600':
-              $route.name === 'admin.dashboard',
-          }"
         >
-          <BarChart3 :size="18" class="lg:w-5 lg:h-5 mr-3" />
-          <span class="text-sm lg:text-base">Dashboard</span>
+          <img src="/logo.png" alt="GA Maintenance" class="h-8 w-8 shrink-0 rounded" />
+          <span
+            class="truncate text-base font-bold text-sidebar-primary"
+            :class="{ 'lg:hidden': isCollapsed }"
+          >
+            GA Maintenance
+          </span>
+        </RouterLink>
+
+      </div>
+    </SidebarHeader>
+
+    <SidebarContent>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <RouterLink
+            :to="dashboardItem.to"
+            custom
+            v-slot="{ href, navigate }"
+          >
+            <SidebarMenuButton
+              as="a"
+              :href="href"
+              :is-active="dashboardItem.isActive()"
+              :title="dashboardItem.label"
+              @click="
+                navigate($event);
+                closeSidebar();
+              "
+            >
+              <component :is="dashboardItem.icon" :size="18" />
+              <span :class="{ 'lg:hidden': isCollapsed }">
+                {{ dashboardItem.label }}
+              </span>
+            </SidebarMenuButton>
+          </RouterLink>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <SidebarGroup v-for="group in visibleGroups" :key="group.key">
+        <SidebarGroupLabel>{{ group.label }}</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                :is-active="group.isActive()"
+                :title="group.triggerLabel"
+                @click="toggleGroup(group.key)"
+              >
+                <component :is="group.icon" :size="18" />
+                <span :class="{ 'lg:hidden': isCollapsed }">
+                  {{ group.triggerLabel }}
+                </span>
+                <ChevronDown
+                  :size="16"
+                  class="ml-auto transition-transform duration-200"
+                  :class="[
+                    { 'rotate-180': isGroupOpen(group) },
+                    { 'lg:hidden': isCollapsed },
+                  ]"
+                />
+              </SidebarMenuButton>
+
+              <SidebarMenuSub v-show="isGroupOpen(group)">
+                <SidebarMenuSubItem v-for="item in group.items" :key="item.label">
+                  <RouterLink
+                    :to="item.to"
+                    custom
+                    v-slot="{ href, navigate }"
+                  >
+                    <SidebarMenuSubButton
+                      as="a"
+                      :href="href"
+                      :is-active="item.isActive()"
+                      :title="item.label"
+                      @click="
+                        navigate($event);
+                        closeSidebar();
+                      "
+                    >
+                      <component :is="item.icon" :size="17" />
+                      <span :class="{ 'lg:hidden': isCollapsed }">
+                        {{ item.label }}
+                      </span>
+                    </SidebarMenuSubButton>
+                  </RouterLink>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+
+    <SidebarFooter :class="isCollapsed ? 'lg:px-2' : ''">
+      <div v-if="isCollapsed" class="hidden justify-center lg:flex">
+        <RouterLink
+          :to="{ name: 'admin.profile' }"
+          title="Profil"
+          class="rounded-full ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2"
+          @click="closeSidebar"
+        >
+          <Avatar class="size-9">
+            <AvatarImage :src="avatarUrl" :alt="user?.name || 'Admin'" />
+          </Avatar>
         </RouterLink>
       </div>
 
-      <!-- Master Data Section -->
       <div
-        class="mb-4 lg:mb-6"
-        v-if="can('branch-menu') || can('job-template-menu') || can('whatsapp-setting-menu') || can('ticket-category-menu')"
+        class="flex items-center gap-3 rounded-lg bg-sidebar-accent/70 p-2"
+        :class="{ 'lg:hidden': isCollapsed }"
       >
-        <div class="px-4 lg:px-6 py-2">
-          <h3
-            class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
-          >
-            Data Master
-          </h3>
-        </div>
-
-        <button
-          @click="toggleMasterData"
-          class="flex items-center justify-between w-full px-4 lg:px-6 py-3 text-gray-600 hover:bg-gray-50 hover:border-l-4 hover:border-gray-200"
-          :class="{
-            'bg-blue-50 border-l-4 border-blue-600':
-              $route.name?.startsWith('admin.branch') ||
-              $route.name?.startsWith('admin.job-template') ||
-              $route.name?.startsWith('admin.ticket-categor') ||
-              $route.name?.startsWith('admin.whatsapp'),
-          }"
-          v-if="can('branch-menu') || can('job-template-menu') || can('whatsapp-setting-menu') || can('ticket-category-menu')"
+        <RouterLink
+          :to="{ name: 'admin.profile' }"
+          class="shrink-0 rounded-full"
+          title="Profil"
+          @click="closeSidebar"
         >
-          <div class="flex items-center">
-            <Settings :size="18" class="lg:w-5 lg:h-5 mr-3" />
-            <span class="text-sm lg:text-base">Konfigurasi</span>
-          </div>
-          <ChevronDown
-            :size="16"
-            :class="{ 'rotate-180': isMasterDataOpen }"
-            class="transition-transform duration-200"
-          />
-        </button>
+          <Avatar class="size-9">
+            <AvatarImage :src="avatarUrl" :alt="user?.name || 'Admin'" />
+          </Avatar>
+        </RouterLink>
 
-        <!-- Master Data Submenu -->
-        <div v-show="isMasterDataOpen" class="bg-gray-50">
-          <RouterLink
-            v-if="can('branch-menu')"
-            :to="{ name: 'admin.branches' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.branch'),
-            }"
-          >
-            <Building :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Data Cabang</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('job-template-menu')"
-            :to="{ name: 'admin.job-templates' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.job-template'),
-            }"
-          >
-            <Tag :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Template Job</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('ticket-category-menu')"
-            :to="{ name: 'admin.ticket-categories' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.ticket-categor'),
-            }"
-          >
-            <Tag :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Kategori Tiket</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('whatsapp-setting-menu')"
-            :to="{ name: 'admin.whatsapp-settings' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.whatsapp'),
-            }"
-          >
-            <MessageSquare :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Pengaturan WhatsApp</span>
-          </RouterLink>
-        </div>
-      </div>
-
-      <!-- Operations Section -->
-      <div
-        class="mb-4 lg:mb-6"
-        v-if="
-          can('ticket-menu') ||
-          can('work-order-menu') ||
-          can('work-report-menu') ||
-          can('daily-record-menu')
-        "
-      >
-        <div class="px-4 lg:px-6 py-2">
-          <h3
-            class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
-          >
-            Operasional
-          </h3>
-        </div>
-
-        <button
-          @click="toggleOperations"
-          class="flex items-center justify-between w-full px-4 lg:px-6 py-3 text-gray-600 hover:bg-gray-50 hover:border-l-4 hover:border-gray-200"
-          :class="{
-            'bg-blue-50 border-l-4 border-blue-600':
-              $route.name?.startsWith('admin.ticket') ||
-              $route.name?.startsWith('admin.workorder') ||
-              $route.name?.startsWith('admin.workreport') ||
-              $route.name?.startsWith('admin.daily-record'),
-          }"
-          v-if="
-            can('ticket-menu') ||
-            can('work-order-menu') ||
-            can('work-report-menu') ||
-            can('daily-record-menu')
-          "
+        <RouterLink
+          :to="{ name: 'admin.profile' }"
+          class="min-w-0 flex-1"
+          @click="closeSidebar"
         >
-          <div class="flex items-center">
-            <Activity :size="18" class="lg:w-5 lg:h-5 mr-3" />
-            <span class="text-sm lg:text-base">Manajemen Kerja</span>
-          </div>
-          <ChevronDown
-            :size="16"
-            :class="{ 'rotate-180': isOperationsOpen }"
-            class="transition-transform duration-200"
-          />
-        </button>
+          <span class="block truncate text-sm font-semibold leading-5 text-sidebar-foreground">
+            {{ user?.name || "Admin" }}
+          </span>
+          <span class="block truncate text-xs leading-5 text-sidebar-foreground/60">
+            {{ userRoleLabel }}
+          </span>
+        </RouterLink>
 
-        <!-- Operations Submenu -->
-        <div v-show="isOperationsOpen" class="bg-gray-50">
-          <RouterLink
-            v-if="can('ticket-menu')"
-            :to="{ name: 'admin.tickets' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.ticket'),
-            }"
-          >
-            <Tag :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Data Tiket</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('work-order-menu')"
-            :to="{ name: 'admin.workorders' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.workorder'),
-            }"
-          >
-            <ClipboardList :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Surat Perintah Kerja</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('work-report-menu')"
-            :to="{ name: 'admin.workreports' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.workreport'),
-            }"
-          >
-            <FileText :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Laporan Pekerjaan</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('daily-record-menu')"
-            :to="{ name: 'admin.daily-records' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.daily-record') &&
-                $route.name !== 'admin.daily-usage-report',
-            }"
-          >
-            <Calendar :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Laporan Harian Cabang</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('daily-record-menu')"
-            :to="{ name: 'admin.daily-usage-report' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name === 'admin.daily-usage-report',
-            }"
-          >
-            <FileSpreadsheet :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Laporan Daily Usage</span>
-          </RouterLink>
-        </div>
-      </div>
-
-      <!-- Management Section -->
-      <div class="mb-4 lg:mb-6" v-if="can('user-menu') || can('role-menu') || can('user-activity-menu')">
-        <div class="px-4 lg:px-6 py-2">
-          <h3
-            class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
-          >
-            Manajemen
-          </h3>
-        </div>
-
-        <button
-          @click="toggleManagement"
-          class="flex items-center justify-between w-full px-4 lg:px-6 py-3 text-gray-600 hover:bg-gray-50 hover:border-l-4 hover:border-gray-200"
-          :class="{
-            'bg-blue-50 border-l-4 border-blue-600':
-              $route.name?.startsWith('admin.user') ||
-              $route.name?.startsWith('admin.role'),
-          }"
-          v-if="can('user-menu') || can('role-menu') || can('user-activity-menu')"
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          class="size-8 shrink-0 text-sidebar-foreground/70 hover:bg-sidebar hover:text-red-600"
+          title="Keluar"
+          aria-label="Keluar"
+          @click.prevent="handleLogout"
         >
-          <div class="flex items-center">
-            <Users :size="18" class="lg:w-5 lg:h-5 mr-3" />
-            <span class="text-sm lg:text-base">Pengguna</span>
-          </div>
-          <ChevronDown
-            :size="16"
-            :class="{ 'rotate-180': isManagementOpen }"
-            class="transition-transform duration-200"
-          />
-        </button>
-
-        <!-- Management Submenu -->
-        <div v-show="isManagementOpen" class="bg-gray-50">
-          <RouterLink
-            v-if="can('user-menu')"
-            :to="{ name: 'admin.users' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name === 'admin.users' || $route.name?.startsWith('admin.user.'),
-            }"
-          >
-            <Users :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Data User</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('role-menu')"
-            :to="{ name: 'admin.roles' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name?.startsWith('admin.role'),
-            }"
-          >
-            <Shield :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Data Role</span>
-          </RouterLink>
-          <RouterLink
-            v-if="can('user-activity-menu')"
-            :to="{ name: 'admin.user-activity' }"
-            @click="closeSidebar"
-            class="flex items-center px-8 lg:px-12 py-2 text-gray-600 hover:bg-gray-100 hover:border-l-4 hover:border-gray-300"
-            :class="{
-              'bg-blue-50 border-l-4 border-blue-600':
-                $route.name === 'admin.user-activity',
-            }"
-          >
-            <Activity :size="16" class="mr-3" />
-            <span class="text-sm lg:text-base">Monitoring Aktivitas</span>
-          </RouterLink>
-        </div>
+          <LogOut :size="16" />
+        </Button>
       </div>
-    </nav>
-  </aside>
+    </SidebarFooter>
+  </SidebarRoot>
 </template>

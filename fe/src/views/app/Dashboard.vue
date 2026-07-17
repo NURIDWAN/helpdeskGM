@@ -1,35 +1,61 @@
 <script setup>
-import { onMounted, ref, watch, computed } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useTicketStore } from "@/stores/ticket";
 import { storeToRefs } from "pinia";
 import { debounce } from "lodash";
-import { useRouter } from "vue-router";
 import { useFilterStorage } from "@/composables/useFilterStorage";
+import { axiosInstance } from "@/plugins/axios";
 import Pagination from "@/components/common/Pagination.vue";
 import Alert from "@/components/common/Alert.vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Plus,
-  CheckCircle,
-  X,
-  Search,
-  MessageSquare,
-  Clock,
-  ChevronRight,
-  Filter,
-  Calendar,
-  User,
-  Building,
-  Ticket as TicketIcon,
-  FileText,
+  Card,
+  CardContent,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Select } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowUp,
   BarChart3,
+  BookOpen,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  FileText,
+  Filter,
+  Inbox,
+  Megaphone,
+  Monitor,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Ticket as TicketIcon,
+  User,
+  Wifi,
 } from "lucide-vue-next";
 import { DateTime } from "luxon";
 
 const ticketStore = useTicketStore();
 const { tickets, meta, loading, success, error } = storeToRefs(ticketStore);
 const { fetchTicketsPaginated } = ticketStore;
+const statsTickets = ref([]);
+const statsMeta = ref({
+  total: 0,
+});
 
-// Default values for filter storage
 const defaultFilters = {
   search: "",
   status: "",
@@ -42,34 +68,21 @@ const defaultPagination = {
   per_page: 10,
 };
 
-// Filter storage for persistence across navigation
 const { saveState, loadState, clearState } = useFilterStorage(
-  "ticket_filter_app",
+  "ticket_filter_app_dashboard_v2",
   defaultFilters,
   defaultPagination
 );
 
-// Filter state
-const filters = ref({
-  search: "",
-  status: "",
-  priority: "",
-  date: "",
-});
+const filters = ref({ ...defaultFilters });
+const pagination = ref({ ...defaultPagination });
 
-// Pagination state
-const pagination = ref({
-  current_page: 1,
-  per_page: 10,
-});
-
-// Computed properties
 const statusOptions = [
   { value: "", label: "Semua Status" },
-  { value: "open", label: "Open" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "resolved", label: "Resolved" },
-  { value: "closed", label: "Closed" },
+  { value: "open", label: "Menunggu" },
+  { value: "in_progress", label: "Diproses" },
+  { value: "resolved", label: "Selesai" },
+  { value: "closed", label: "Ditutup" },
 ];
 
 const priorityOptions = [
@@ -87,7 +100,128 @@ const dateOptions = [
   { value: "month", label: "Bulan Ini" },
 ];
 
-// Methods
+const ticketIconPool = [Monitor, FileText, Wifi, User];
+
+const totalTickets = computed(
+  () => statsMeta.value?.total || statsTickets.value.length || 0
+);
+
+const statusCounts = computed(() => {
+  const counts = {
+    open: 0,
+    in_progress: 0,
+    resolved: 0,
+    closed: 0,
+  };
+
+  statsTickets.value.forEach((ticket) => {
+    if (Object.prototype.hasOwnProperty.call(counts, ticket.status)) {
+      counts[ticket.status] += 1;
+    }
+  });
+
+  return counts;
+});
+
+const doneCount = computed(
+  () => statusCounts.value.resolved + statusCounts.value.closed
+);
+
+const metricCards = computed(() => [
+  {
+    label: "Total Tiket Saya",
+    value: totalTickets.value,
+    helper: "Semua waktu",
+    icon: FileText,
+    color: "blue",
+  },
+  {
+    label: "Menunggu",
+    value: statusCounts.value.open,
+    helper: "Perlu ditindaklanjuti",
+    icon: Clock3,
+    color: "amber",
+  },
+  {
+    label: "Diproses",
+    value: statusCounts.value.in_progress,
+    helper: "Sedang dikerjakan",
+    icon: RefreshCw,
+    color: "blue",
+  },
+  {
+    label: "Selesai",
+    value: doneCount.value,
+    helper: "Selesai",
+    icon: CheckCircle,
+    color: "green",
+  },
+]);
+
+const quickActions = [
+  {
+    to: { name: "app.ticket.create" },
+    label: "Buat Tiket Baru",
+    description: "Laporkan masalah baru",
+    icon: Plus,
+  },
+  {
+    to: { name: "app.tickets" },
+    label: "Cek Status Tiket",
+    description: "Lihat status tiket Anda",
+    icon: Search,
+  },
+  {
+    to: { name: "app.dashboard" },
+    label: "Knowledge Base",
+    description: "Cari solusi mandiri",
+    icon: BookOpen,
+  },
+  {
+    to: { name: "app.dashboard" },
+    label: "Pengumuman",
+    description: "Info terbaru",
+    icon: Megaphone,
+  },
+];
+
+const percentageOf = (value) => {
+  if (!totalTickets.value) return 0;
+  return Math.round((value / totalTickets.value) * 100);
+};
+
+const donutStyle = computed(() => {
+  const waiting = percentageOf(statusCounts.value.open);
+  const progress = percentageOf(statusCounts.value.in_progress);
+  const done = percentageOf(doneCount.value);
+
+  return {
+    background: `conic-gradient(#f59e0b 0 ${waiting}%, #3b82f6 ${waiting}% ${
+      waiting + progress
+    }%, #22c55e ${waiting + progress}% ${
+      waiting + progress + done
+    }%, #e2e8f0 ${waiting + progress + done}% 100%)`,
+  };
+});
+
+const slaPercent = computed(() => {
+  if (!totalTickets.value) return 0;
+  return Math.min(100, Math.round((doneCount.value / totalTickets.value) * 100));
+});
+
+const fetchTicketStats = async () => {
+  try {
+    const response = await axiosInstance.get("/tickets");
+
+    statsTickets.value = response.data.data || [];
+    statsMeta.value = { total: statsTickets.value.length };
+  } catch (err) {
+    console.error("Gagal memuat statistik tiket", err);
+    statsTickets.value = [];
+    statsMeta.value = { total: 0 };
+  }
+};
+
 const fetchTickets = async () => {
   const params = {
     search: filters.value.search,
@@ -97,42 +231,29 @@ const fetchTickets = async () => {
     page: pagination.value.current_page,
   };
 
-  // Add date filter logic
   if (filters.value.date) {
     const now = DateTime.now();
-    switch (filters.value.date) {
-      case "today":
-        params.start_date = now.toISODate();
-        params.end_date = now.toISODate();
-        break;
-      case "week":
-        params.start_date = now.startOf("week").toISODate();
-        params.end_date = now.endOf("week").toISODate();
-        break;
-      case "month":
-        params.start_date = now.startOf("month").toISODate();
-        params.end_date = now.endOf("month").toISODate();
-        break;
+    if (filters.value.date === "today") {
+      params.start_date = now.toISODate();
+      params.end_date = now.toISODate();
+    }
+    if (filters.value.date === "week") {
+      params.start_date = now.startOf("week").toISODate();
+      params.end_date = now.endOf("week").toISODate();
+    }
+    if (filters.value.date === "month") {
+      params.start_date = now.startOf("month").toISODate();
+      params.end_date = now.endOf("month").toISODate();
     }
   }
 
-  // Remove empty values
   Object.keys(params).forEach((key) => {
-    if (
-      params[key] === "" ||
-      params[key] === null ||
-      params[key] === undefined
-    ) {
+    if (params[key] === "" || params[key] === null || params[key] === undefined) {
       delete params[key];
     }
   });
 
   await fetchTicketsPaginated(params);
-};
-
-const handleSearch = () => {
-  pagination.value.current_page = 1;
-  fetchTickets();
 };
 
 const handleFilterChange = () => {
@@ -152,27 +273,61 @@ const handlePerPageChange = (newPerPage) => {
 };
 
 const handleCloseTicket = async (ticketId) => {
-  if (confirm('Apakah Anda yakin ingin menutup tiket ini? Tindakan ini tidak dapat dibatalkan.')) {
+  if (
+    confirm(
+      "Apakah Anda yakin ingin menutup tiket ini? Tindakan ini tidak dapat dibatalkan."
+    )
+  ) {
     const result = await ticketStore.closeTicket(ticketId);
     if (result) {
-      fetchTickets();
+      await Promise.all([fetchTickets(), fetchTicketStats()]);
     }
   }
 };
 
 const clearFilters = () => {
-  filters.value = {
-    search: "",
-    status: "",
-    priority: "",
-    date: "",
-  };
+  filters.value = { ...defaultFilters };
   pagination.value.current_page = 1;
-  clearState(); // Clear session storage
-  fetchTickets();
+  clearState();
 };
 
-// Watch for filter changes with debounce
+const ticketTitle = (ticket) =>
+  ticket.title || ticket.subject || ticket.category?.name || "Tiket";
+
+const statusLabel = (status) =>
+  statusOptions.find((option) => option.value === status)?.label || "-";
+
+const priorityLabel = (priority) =>
+  priorityOptions.find((option) => option.value === priority)?.label || "-";
+
+const statusBadgeVariant = (status) => {
+  if (status === "open") return "warning";
+  if (status === "in_progress") return "info";
+  if (status === "resolved") return "success";
+  return "muted";
+};
+
+const priorityBadgeVariant = (priority) => {
+  if (priority === "urgent" || priority === "high") return "destructive";
+  if (priority === "medium") return "warning";
+  return "success";
+};
+
+const formatDate = (date) => {
+  if (!date) return "-";
+  return DateTime.fromISO(date).setLocale("id").toFormat("dd LLL yyyy");
+};
+
+const formatTime = (date) => {
+  if (!date) return "-";
+  return DateTime.fromISO(date).toFormat("HH:mm");
+};
+
+const formatRelative = (date) => {
+  if (!date) return "-";
+  return DateTime.fromISO(date).setLocale("id").toRelative() || "-";
+};
+
 watch(
   filters,
   debounce(() => {
@@ -181,7 +336,6 @@ watch(
   { deep: true }
 );
 
-// Watch filters and pagination for auto-save to session storage
 watch(
   [filters, pagination],
   () => {
@@ -190,42 +344,19 @@ watch(
   { deep: true }
 );
 
-// Lifecycle
 onMounted(async () => {
-  // Load saved filter state from session storage
   const savedState = loadState();
   if (savedState.hasStoredState) {
     filters.value = { ...defaultFilters, ...savedState.filters };
     pagination.value = { ...defaultPagination, ...savedState.pagination };
   }
-  
-  await fetchTickets();
+
+  await Promise.all([fetchTickets(), fetchTicketStats()]);
 });
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Header -->
-    <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-    >
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-          <TicketIcon :size="32" class="mr-3 text-blue-600" />
-          Tiket Saya
-        </h1>
-        <p class="text-gray-600 mt-2">Kelola dan pantau status tiket Anda</p>
-      </div>
-      <RouterLink
-        :to="{ name: 'app.ticket.create' }"
-        class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-      >
-        <Plus :size="20" class="mr-2" />
-        Buat Tiket Baru
-      </RouterLink>
-    </div>
-
-    <!-- Alerts -->
+  <div class="mx-auto max-w-[1280px] space-y-4">
     <Alert
       v-if="success"
       type="success"
@@ -243,328 +374,412 @@ onMounted(async () => {
       @close="error = null"
     />
 
-    <!-- Quick Links / Menu Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <!-- Laporan Harian Cabang Card -->
-      <RouterLink
-        :to="{ name: 'app.daily-records' }"
-        class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all duration-200 p-6 group"
-      >
-        <div class="flex items-center gap-4">
-          <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-            <FileText :size="24" class="text-blue-600" />
+    <div class="xl:w-[113.636%] xl:origin-top-left xl:scale-[0.88]">
+      <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <section class="min-w-0 space-y-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600 shadow-sm">
+                <TicketIcon :size="24" />
+              </div>
+              <div>
+                <h1 class="text-xl font-bold tracking-normal text-slate-950">
+                  Tiket Saya
+                </h1>
+                <p class="mt-1 text-sm text-slate-600">
+                  Kelola dan pantau status tiket Anda dengan mudah.
+                </p>
+              </div>
+            </div>
+
+            <RouterLink
+              :to="{ name: 'app.ticket.create' }"
+              custom
+              v-slot="{ navigate }"
+            >
+              <Button type="button" @click="navigate">
+                <Plus :size="17" />
+                Buat Tiket Baru
+              </Button>
+            </RouterLink>
           </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-              Laporan Harian Cabang
-            </h3>
-            <p class="text-sm text-gray-500 mt-1">
-              Kelola laporan harian cabang
+
+          <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <Card
+              v-for="card in metricCards"
+              :key="card.label"
+              class="p-3"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="truncate text-[11px] font-medium text-slate-600">{{ card.label }}</p>
+                  <p class="mt-1.5 text-xl font-bold leading-none text-slate-950">
+                    {{ card.value }}
+                  </p>
+                  <p class="mt-2 truncate text-[11px] text-slate-600">{{ card.helper }}</p>
+                </div>
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                  :class="{
+                    'bg-blue-50 text-blue-600': card.color === 'blue',
+                    'bg-amber-50 text-amber-500': card.color === 'amber',
+                    'bg-green-50 text-green-600': card.color === 'green',
+                  }"
+                >
+                  <component :is="card.icon" :size="18" />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div class="grid gap-3 lg:grid-cols-2">
+            <RouterLink
+              :to="{ name: 'app.daily-records' }"
+              class="group flex items-center gap-3 rounded-lg border border-blue-100 bg-white p-3.5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+            >
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <FileText :size="23" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-bold text-slate-950">
+                  Laporan Harian Cabang
+                </span>
+                <span class="mt-0.5 block text-xs text-slate-600">
+                  Kelola laporan harian cabang
+                </span>
+              </span>
+              <ChevronRight :size="18" class="text-slate-500 transition group-hover:text-blue-600" />
+            </RouterLink>
+
+            <RouterLink
+              :to="{ name: 'app.daily-usage-report' }"
+              class="group flex items-center gap-3 rounded-lg border border-green-100 bg-white p-3.5 shadow-sm transition hover:border-green-200 hover:shadow-md"
+            >
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                <BarChart3 :size="23" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-bold text-slate-950">
+                  Laporan Daily Usage
+                </span>
+                <span class="mt-0.5 block text-xs text-slate-600">
+                  Laporan penggunaan utilitas harian
+                </span>
+              </span>
+              <ChevronRight :size="18" class="text-slate-500 transition group-hover:text-green-600" />
+            </RouterLink>
+          </div>
+
+          <Card>
+            <CardContent class="p-3.5">
+            <div class="flex items-center justify-between gap-3">
+              <CardTitle class="flex items-center gap-2 text-base">
+                <Filter :size="19" />
+                Filter Tiket
+              </CardTitle>
+              <Button
+                type="button"
+                @click="clearFilters"
+                variant="outline"
+                size="sm"
+                class="h-8 text-xs"
+              >
+                <RotateCcw :size="14" />
+                Reset Filter
+              </Button>
+            </div>
+
+            <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-700">
+                  Cari Tiket
+                </span>
+                <span class="relative block">
+                  <Search
+                    :size="16"
+                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <Input
+                    v-model="filters.search"
+                    type="search"
+                    placeholder="Cari berdasarkan judul atau kode."
+                    class="pl-9"
+                  />
+                </span>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-700">
+                  Status
+                </span>
+                <Select
+                  v-model="filters.status"
+                >
+                  <option
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </Select>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-700">
+                  Prioritas
+                </span>
+                <Select
+                  v-model="filters.priority"
+                >
+                  <option
+                    v-for="option in priorityOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </Select>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-medium text-slate-700">
+                  Periode
+                </span>
+                <Select
+                  v-model="filters.date"
+                >
+                  <option
+                    v-for="option in dateOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </Select>
+              </label>
+            </div>
+            </CardContent>
+          </Card>
+
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm text-slate-600">
+              <span v-if="meta.total > 0">
+                Menampilkan {{ tickets.length }} dari {{ meta.total }} tiket
+              </span>
+              <span v-else>Tidak ada tiket ditemukan</span>
             </p>
-          </div>
-          <ChevronRight :size="20" class="text-gray-400 group-hover:text-blue-600 transition-colors" />
-        </div>
-      </RouterLink>
 
-      <!-- Laporan Daily Usage Card -->
-      <RouterLink
-        :to="{ name: 'app.daily-usage-report' }"
-        class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-green-300 transition-all duration-200 p-6 group"
-      >
-        <div class="flex items-center gap-4">
-          <div class="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-            <BarChart3 :size="24" class="text-green-600" />
-          </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
-              Laporan Daily Usage
-            </h3>
-            <p class="text-sm text-gray-500 mt-1">
-              Laporan penggunaan utilitas harian
-            </p>
-          </div>
-          <ChevronRight :size="20" class="text-gray-400 group-hover:text-green-600 transition-colors" />
-        </div>
-      </RouterLink>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-      <div class="p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-            <Filter :size="20" class="mr-2" />
-            Filter Tiket
-          </h3>
-          <button
-            @click="clearFilters"
-            class="text-sm text-gray-500 hover:text-gray-700 flex items-center"
-          >
-            <X :size="16" class="mr-1" />
-            Reset Filter
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <!-- Search -->
-          <div class="relative">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Cari Tiket
-            </label>
-            <div class="relative">
-              <input
-                type="text"
-                placeholder="Cari berdasarkan judul atau kode..."
-                v-model="filters.search"
-                @input="handleSearch"
-                class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <Search
-                :size="18"
-                class="text-gray-400 absolute left-3 top-3.5"
-              />
+            <div class="flex shrink-0 items-center gap-2 text-sm text-slate-600">
+              <span>Tampilkan:</span>
+              <Select
+                :value="pagination.per_page"
+                @change="handlePerPageChange(parseInt($event.target.value))"
+                class="h-9 w-20"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </Select>
+              <span>per halaman</span>
             </div>
           </div>
 
-          <!-- Status -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <select
-              v-model="filters.status"
-              @change="handleFilterChange"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option
-                v-for="option in statusOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
+          <div v-if="loading" class="flex min-h-[180px] items-center justify-center">
+            <div class="h-8 w-8 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600"></div>
           </div>
 
-          <!-- Priority -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Prioritas
-            </label>
-            <select
-              v-model="filters.priority"
-              @change="handleFilterChange"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option
-                v-for="option in priorityOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Date -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Periode
-            </label>
-            <select
-              v-model="filters.date"
-              @change="handleFilterChange"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option
-                v-for="option in dateOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Results Summary -->
-    <div class="flex items-center justify-between">
-      <div class="text-sm text-gray-600">
-        <span v-if="meta.total > 0">
-          Menampilkan {{ tickets.length }} dari {{ meta.total }} tiket
-        </span>
-        <span v-else> Tidak ada tiket ditemukan </span>
-      </div>
-
-      <!-- Per Page Selector -->
-      <div class="flex items-center space-x-2">
-        <label class="text-sm text-gray-600">Tampilkan:</label>
-        <select
-          :value="pagination.per_page"
-          @change="handlePerPageChange(parseInt($event.target.value))"
-          class="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="5">5</option>
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-        </select>
-        <span class="text-sm text-gray-600">per halaman</span>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center py-12">
-      <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-      ></div>
-    </div>
-
-    <!-- Tickets List -->
-    <div v-else-if="tickets.length > 0" class="space-y-4">
-      <div
-        class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300"
-        v-for="ticket in tickets"
-        :key="ticket.id"
-      >
-        <RouterLink
-          :to="{ name: 'app.ticket.detail', params: { code: ticket.code } }"
-          class="block p-6"
-        >
-          <div class="flex items-start justify-between">
-            <div class="flex-1 min-w-0">
-              <!-- Title and Status -->
-              <div class="flex items-start gap-3 mb-3">
-                <h3 class="text-lg font-semibold text-gray-900 truncate">
-                  {{ ticket.category?.name || 'Tiket' }}
-                </h3>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <!-- Status Badge -->
-                  <span
-                    class="px-3 py-1 text-xs font-medium rounded-full"
-                    :class="{
-                      'text-blue-700 bg-blue-100': ticket.status === 'open',
-                      'text-yellow-700 bg-yellow-100':
-                        ticket.status === 'in_progress',
-                      'text-green-700 bg-green-100':
-                        ticket.status === 'resolved',
-                      'text-red-700 bg-red-100': ticket.status === 'closed',
-                    }"
+          <Card v-else-if="tickets.length > 0">
+            <div class="hidden overflow-x-auto lg:block">
+              <Table class="table-fixed">
+                <TableHeader class="bg-slate-50">
+                  <TableRow class="hover:bg-slate-50">
+                    <TableHead class="w-[34%] px-3">Tiket</TableHead>
+                    <TableHead class="w-[15%] px-3">Status</TableHead>
+                    <TableHead class="w-[15%] px-3">Prioritas</TableHead>
+                    <TableHead class="w-[15%] px-3">Tanggal</TableHead>
+                    <TableHead class="w-[18%] px-3">Terakhir Diupdate</TableHead>
+                    <TableHead class="w-12 px-3"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow
+                    v-for="(ticket, index) in tickets"
+                    :key="ticket.id"
                   >
-                    {{
-                      ticket.status
-                        ?.replace(/_/g, " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase()) || "-"
-                    }}
+                    <TableCell class="px-3 py-2.5">
+                      <RouterLink
+                        :to="{ name: 'app.ticket.detail', params: { code: ticket.code } }"
+                        class="flex min-w-0 items-center gap-3"
+                      >
+                        <span
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+                          :class="[
+                            index % 4 === 0 && 'bg-blue-50 text-blue-600',
+                            index % 4 === 1 && 'bg-amber-50 text-amber-600',
+                            index % 4 === 2 && 'bg-green-50 text-green-600',
+                            index % 4 === 3 && 'bg-violet-50 text-violet-600',
+                          ]"
+                        >
+                          <component :is="ticketIconPool[index % ticketIconPool.length]" :size="19" />
+                        </span>
+                        <span class="min-w-0">
+                          <span class="block truncate text-sm font-semibold text-slate-950">
+                            {{ ticketTitle(ticket) }}
+                          </span>
+                          <span class="mt-0.5 block text-xs text-slate-500">
+                            {{ ticket.code }} · {{ ticket.branch?.name || "Cabang" }}
+                          </span>
+                        </span>
+                      </RouterLink>
+                    </TableCell>
+                    <TableCell class="px-3 py-2.5">
+                      <Badge :variant="statusBadgeVariant(ticket.status)">
+                        {{ statusLabel(ticket.status) }}
+                      </Badge>
+                    </TableCell>
+                    <TableCell class="px-3 py-2.5">
+                      <Badge :variant="priorityBadgeVariant(ticket.priority)">
+                        {{ priorityLabel(ticket.priority) }}
+                      </Badge>
+                    </TableCell>
+                    <TableCell class="px-3 py-2.5 text-sm text-slate-700">
+                      <span class="block">{{ formatDate(ticket.created_at) }}</span>
+                      <span class="block text-xs text-slate-500">{{ formatTime(ticket.created_at) }}</span>
+                    </TableCell>
+                    <TableCell class="px-3 py-2.5">
+                      <span class="block truncate text-sm font-semibold text-slate-900">
+                        {{ ticket.updated_by?.name || ticket.user?.name || "User" }}
+                      </span>
+                      <span class="block text-xs text-slate-500">
+                        {{ formatRelative(ticket.updated_at) }}
+                      </span>
+                    </TableCell>
+                    <TableCell class="px-3 py-2.5 text-right">
+                      <RouterLink
+                        :to="{ name: 'app.ticket.detail', params: { code: ticket.code } }"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                        aria-label="Buka detail tiket"
+                      >
+                        <ChevronRight :size="18" />
+                      </RouterLink>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          <div v-else class="rounded-lg border border-transparent py-3 text-center">
+            <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+              <Inbox :size="42" />
+            </div>
+            <h3 class="mt-3 text-lg font-bold text-slate-950">Tidak ada tiket</h3>
+            <p class="mt-1 text-sm text-slate-600">
+              Belum ada tiket yang dibuat atau sesuai dengan filter yang dipilih.
+            </p>
+            <RouterLink
+              :to="{ name: 'app.ticket.create' }"
+              custom
+              v-slot="{ navigate }"
+            >
+              <Button type="button" class="mt-3" @click="navigate">
+                <Plus :size="17" />
+                Buat Tiket Pertama
+              </Button>
+            </RouterLink>
+          </div>
+        </section>
+
+        <aside class="space-y-3 xl:sticky xl:top-20 xl:self-start">
+          <Card>
+            <CardContent class="p-3.5">
+            <div class="flex items-center justify-between gap-2">
+              <CardTitle class="text-sm">Statistik Tiket</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="h-8 gap-1 px-2 text-xs"
+              >
+                7 hari
+                <ChevronDown :size="13" />
+              </Button>
+            </div>
+
+            <div class="mt-4 flex items-center gap-3">
+              <div class="relative h-20 w-20 shrink-0 rounded-full" :style="donutStyle">
+                <div class="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white">
+                  <span class="text-lg font-bold leading-none text-slate-950">
+                    {{ totalTickets }}
                   </span>
-
-                  <!-- Priority Badge -->
-                  <span
-                    class="px-3 py-1 text-xs font-medium rounded-full"
-                    :class="{
-                      'text-red-700 bg-red-100': ticket.priority === 'urgent',
-                      'text-orange-700 bg-orange-100':
-                        ticket.priority === 'high',
-                      'text-yellow-700 bg-yellow-100':
-                        ticket.priority === 'medium',
-                      'text-green-700 bg-green-100': ticket.priority === 'low',
-                    }"
-                  >
-                    {{
-                      ticket.priority
-                        ?.replace(/_/g, " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase()) || "-"
-                    }}
-                  </span>
-
-                  <!-- Close Button -->
-                  <button
-                    v-if="ticket.status === 'resolved'"
-                    @click.prevent.stop="handleCloseTicket(ticket.id)"
-                    class="ml-2 inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors z-10"
-                    title="Tutup Tiket"
-                  >
-                    <CheckCircle :size="12" class="mr-1" />
-                    Close
-                  </button>
+                  <span class="mt-0.5 text-[10px] text-slate-500">Total</span>
                 </div>
               </div>
 
-              <!-- Ticket Info -->
-              <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                <div class="flex items-center">
-                  <TicketIcon :size="16" class="mr-1" />
-                  <span class="font-mono">#{{ ticket.code }}</span>
+              <div class="min-w-0 flex-1 space-y-2 text-xs">
+                <div>
+                  <span class="inline-block h-2 w-2 rounded-full bg-amber-500"></span>
+                  <span class="ml-1 font-medium text-slate-800">Menunggu</span>
+                  <span class="block pl-3 text-slate-600">
+                    {{ statusCounts.open }} ({{ percentageOf(statusCounts.open) }}%)
+                  </span>
                 </div>
-                <div class="flex items-center">
-                  <Calendar :size="16" class="mr-1" />
-                  <span>{{
-                    DateTime.fromISO(ticket.created_at).toFormat(
-                      "dd MMM yyyy, HH:mm"
-                    )
-                  }}</span>
+                <div>
+                  <span class="inline-block h-2 w-2 rounded-full bg-blue-500"></span>
+                  <span class="ml-1 font-medium text-slate-800">Diproses</span>
+                  <span class="block pl-3 text-slate-600">
+                    {{ statusCounts.in_progress }} ({{ percentageOf(statusCounts.in_progress) }}%)
+                  </span>
                 </div>
-                <div v-if="ticket.branch" class="flex items-center">
-                  <Building :size="16" class="mr-1" />
-                  <span>{{ ticket.branch.name }}</span>
+                <div>
+                  <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
+                  <span class="ml-1 font-medium text-slate-800">Selesai</span>
+                  <span class="block pl-3 text-slate-600">
+                    {{ doneCount }} ({{ percentageOf(doneCount) }}%)
+                  </span>
                 </div>
               </div>
+            </div>
+            </CardContent>
+          </Card>
 
-              <!-- Description -->
-              <p class="text-gray-600 text-sm mb-4 line-clamp-2">
-                {{ ticket.description }}
+          <Card>
+            <CardContent class="p-3.5">
+            <div class="flex items-center justify-between gap-2">
+              <CardTitle class="text-sm">SLA Compliance</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="h-8 gap-1 px-2 text-xs"
+              >
+                7 hari
+                <ChevronDown :size="13" />
+              </Button>
+            </div>
+
+            <div class="mt-4">
+              <div class="flex items-end gap-2">
+                <span class="text-2xl font-bold leading-none text-slate-950">
+                  {{ slaPercent }}%
+                </span>
+                <span class="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+                  <ArrowUp :size="13" />
+                  8%
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-slate-600">SLA Terpenuhi</p>
+              <Progress class="mt-3" :model-value="slaPercent" />
+              <p class="mt-3 text-xs text-slate-500">
+                {{ doneCount }} dari {{ totalTickets }} tiket sesuai SLA
               </p>
-
-              <!-- Footer Info -->
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4 text-sm text-gray-500">
-                  <div class="flex items-center">
-                    <MessageSquare :size="16" class="mr-1" />
-                    <span>{{ ticket.replies_count || 0 }} balasan</span>
-                  </div>
-                  <div class="flex items-center">
-                    <Clock :size="16" class="mr-1" />
-                    <span
-                      >Terakhir diupdate
-                      {{
-                        DateTime.fromISO(ticket.updated_at).toFormat(
-                          "dd MMM yyyy"
-                        )
-                      }}</span
-                    >
-                  </div>
-                </div>
-                <ChevronRight :size="20" class="text-gray-400" />
-              </div>
             </div>
-          </div>
-        </RouterLink>
+            </CardContent>
+          </Card>
+        </aside>
       </div>
     </div>
-
-    <!-- Empty State -->
-    <div v-else class="text-center py-12">
-      <TicketIcon :size="64" class="mx-auto text-gray-300 mb-4" />
-      <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada tiket</h3>
-      <p class="text-gray-500 mb-6">
-        Belum ada tiket yang dibuat atau sesuai dengan filter yang dipilih.
-      </p>
-      <RouterLink
-        :to="{ name: 'app.ticket.create' }"
-        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <Plus :size="20" class="mr-2" />
-        Buat Tiket Pertama
-      </RouterLink>
-    </div>
-
-    <!-- Pagination -->
-    <Pagination
-      v-if="meta.last_page > 1"
-      :meta="meta"
-      @page-change="handlePageChange"
-    />
   </div>
 </template>

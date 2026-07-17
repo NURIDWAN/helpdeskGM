@@ -16,31 +16,31 @@ Document Path:          /api/v1/auth/me
 Document Length:        2263 bytes
 
 Concurrency Level:      20
-Time taken for tests:   4.044 seconds
+Time taken for tests:   3.930 seconds
 Complete requests:      100
 Failed requests:        0
 Keep-Alive requests:    0
-Total transferred:      245200 bytes
+Total transferred:      253000 bytes
 HTML transferred:       226300 bytes
-Requests per second:    24.73 [#/sec] (mean)
-Time per request:       808.714 [ms] (mean)
-Time per request:       40.436 [ms] (mean, across all concurrent requests)
-Transfer rate:          59.22 [Kbytes/sec] received
+Requests per second:    25.45 [#/sec] (mean)
+Time per request:       785.938 [ms] (mean)
+Time per request:       39.297 [ms] (mean, across all concurrent requests)
+Transfer rate:          62.87 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:        7   35  32.9     21     128
-Processing:    74  714 177.2    730     995
-Waiting:       57  712 177.6    730     995
-Total:         86  748 165.8    763    1124
+Connect:        6   30  29.2     16     108
+Processing:    72  695 156.0    746     888
+Waiting:       64  694 156.1    746     888
+Total:         79  724 146.3    763     996
 
 Percentage of the requests served within a certain time (ms)
   50%    763
-  66%    827
-  75%    852
-  80%    872
-  90%    939
-  95%    953
-  98%    983
-  99%   1124
- 100%   1124 (longest request)
+  66%    789
+  75%    810
+  80%    819
+  90%    846
+  95%    886
+  98%    974
+  99%    996
+ 100%    996 (longest request)

@@ -18,8 +18,8 @@ class WorkReportAttachmentStoreRequest extends FormRequest
                 'required',
                 'file',
                 'max:10240', // 10MB max
-                'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt,csv,zip,rar',
-                'mimetypes:image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/zip,application/x-rar-compressed',
+                'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt,csv',
+                'mimetypes:image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv',
             ],
         ];
     }
@@ -27,7 +27,7 @@ class WorkReportAttachmentStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'file.mimes' => 'File harus berupa: jpg, jpeg, png, gif, webp, pdf, doc, docx, xls, xlsx, txt, csv, zip, atau rar.',
+            'file.mimes' => 'File harus berupa: jpg, jpeg, png, gif, webp, pdf, doc, docx, xls, xlsx, txt, atau csv.',
             'file.mimetypes' => 'Tipe file tidak valid. Silakan upload file dengan format yang diizinkan.',
             'file.max' => 'Ukuran file tidak boleh lebih dari 10MB.',
         ];

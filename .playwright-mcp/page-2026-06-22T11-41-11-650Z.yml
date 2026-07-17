@@ -1,0 +1,40 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - link "GA Maintenance" [ref=e6] [cursor=pointer]:
+        - /url: /auth/login
+        - img [ref=e8]
+        - text: GA Maintenance
+      - paragraph [ref=e10]: Buat akun baru
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Nama Lengkap
+          - generic [ref=e15]:
+            - textbox "Nama Lengkap" [ref=e16]:
+              - /placeholder: John Doe
+            - generic:
+              - img
+        - generic [ref=e17]:
+          - generic [ref=e18]: Email
+          - generic [ref=e19]:
+            - textbox "Email" [ref=e20]:
+              - /placeholder: nama@perusahaan.com
+            - generic:
+              - img
+        - generic [ref=e21]:
+          - generic [ref=e22]: Password
+          - generic [ref=e23]:
+            - textbox "Password" [ref=e24]:
+              - /placeholder: ••••••••
+            - button "Toggle password visibility" [ref=e26]:
+              - img [ref=e27]
+        - button "Daftar" [ref=e31]:
+          - generic [ref=e32]: Daftar
+      - generic [ref=e38]: Atau
+      - paragraph [ref=e40]:
+        - text: Sudah punya akun?
+        - link "Masuk sekarang" [ref=e41] [cursor=pointer]:
+          - /url: /auth/login
+  - region "Notifications alt+T":
+    - list

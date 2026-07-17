@@ -1,11 +1,11 @@
 import axios from 'axios'
 import Cookies from 'js-cookie'
 import router from '@/router'
-import { useToast } from 'vue-toastification'
+import { useToastStore } from '@/stores/toast'
 
 const token = Cookies.get('token')
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'
 axios.defaults.headers.common['Accept'] = 'application/json'
 axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -25,7 +25,7 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
     response => response,
     error => {
-        const toast = useToast()
+        const toast = useToastStore()
         const status = error.response?.status
 
         // Handle different HTTP error codes
@@ -62,7 +62,10 @@ axios.interceptors.response.use(
             default:
                 // Other errors
                 if (!error.response) {
-                    toast.error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+                    // Don't show connection error for cancelled requests (e.g. during page refresh/navigation)
+                    if (error.code !== 'ERR_CANCELED' && error.name !== 'CanceledError') {
+                        toast.error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+                    }
                 }
                 break
         }
@@ -92,4 +95,3 @@ export const redirectToError = (code) => {
             router.push({ name: 'error.notfound' })
     }
 }
-

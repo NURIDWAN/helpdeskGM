@@ -1,0 +1,39 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - link "GA Maintenance" [ref=e6] [cursor=pointer]:
+      - /url: /auth/login
+      - img [ref=e8]
+      - text: GA Maintenance
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - heading "Masuk ke akun Anda" [level=3] [ref=e13]
+          - paragraph [ref=e14]: Gunakan email perusahaan untuk mengakses Helpdesk.
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]: Email
+            - generic [ref=e19]:
+              - textbox "Email" [ref=e20]:
+                - /placeholder: nama@perusahaan.com
+                - text: admin@gmail.com
+              - img
+          - generic [ref=e21]:
+            - generic [ref=e22]:
+              - generic [ref=e23]: Password
+              - link "Lupa password?" [ref=e24] [cursor=pointer]:
+                - /url: "#"
+            - generic [ref=e25]:
+              - textbox "Password" [ref=e26]:
+                - /placeholder: Masukkan password
+                - text: password
+              - button "Tampilkan password" [ref=e27]:
+                - img [ref=e28]
+          - generic [ref=e32]:
+            - checkbox "Ingat saya" [checked] [ref=e33]
+            - text: Ingat saya
+          - button "Memproses..." [disabled]:
+            - img
+            - generic: Memproses...
+      - paragraph [ref=e36]: Dengan masuk, Anda menyetujui penggunaan sistem Helpdesk GA Maintenance sesuai kebijakan perusahaan.
+  - region "Notifications alt+T":
+    - list

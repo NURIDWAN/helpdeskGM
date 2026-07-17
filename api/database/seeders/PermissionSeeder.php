@@ -156,6 +156,23 @@ class PermissionSeeder extends Seeder
             'edit',
             'delete'
         ],
+
+        'activity-log' => [
+            'menu',
+            'list',
+        ],
+
+        'form-permintaan' => [
+            'menu',
+            'create',
+            'list',
+            'confirm',
+            'view-all',
+            'review',
+            'reject',
+            'edit',
+            'delete',
+        ],
     ];
 
 

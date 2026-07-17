@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Ticket extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    protected static array $logExcept = ['unassigned_alert_sent_at', 'notif_staff_sent', 'notif_group_sent'];
     protected $fillable = [
         'user_id',
         'code',
@@ -19,9 +22,6 @@ class Ticket extends Model
         'branch_id',
         'category_id',
         'completed_at',
-        'unassigned_alert_sent_at',
-        'notif_staff_sent',
-        'notif_group_sent',
     ];
 
     protected $casts = [

@@ -1,45 +1,44 @@
 <template>
   <Transition
-    enter-active-class="transition ease-out duration-300"
-    enter-from-class="opacity-0 translate-y-2"
-    enter-to-class="opacity-100 translate-y-0"
-    leave-active-class="transition ease-in duration-200"
-    leave-from-class="opacity-100 translate-y-0"
-    leave-to-class="opacity-0 translate-y-2"
+    enter-active-class="transition ease-out duration-200"
+    enter-from-class="translate-y-1 opacity-0"
+    enter-to-class="translate-y-0 opacity-100"
+    leave-active-class="transition ease-in duration-150"
+    leave-from-class="translate-y-0 opacity-100"
+    leave-to-class="translate-y-1 opacity-0"
   >
-    <div v-if="show" :class="['rounded-lg border p-4 shadow-sm', alertClasses]">
-      <div class="flex items-start">
-        <!-- Icon -->
-        <div class="flex-shrink-0">
-          <component :is="alertIcon" :size="20" :class="iconClasses" />
-        </div>
+    <div
+      v-if="show"
+      :class="[
+        'rounded-lg border p-4 shadow-sm',
+        alertClasses,
+      ]"
+    >
+      <div class="flex gap-3">
+        <component :is="alertIcon" :size="20" :class="iconClasses" />
 
-        <!-- Content -->
-        <div class="ml-3 flex-1">
-          <div class="flex items-center justify-between">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 v-if="title" :class="titleClasses">
-                {{ title }}
-              </h3>
-              <p :class="messageClasses">
-                {{ message }}
-              </p>
+              <h3 v-if="title" :class="titleClasses">{{ title }}</h3>
+              <p :class="messageClasses">{{ message }}</p>
             </div>
 
-            <!-- Close Button -->
-            <button
-              type="button"
+            <Button
               v-if="dismissible"
-              @click="handleClose"
+              type="button"
+              variant="ghost"
+              size="icon"
+              class="-mr-2 -mt-2 size-8 shrink-0"
               :class="closeButtonClasses"
               aria-label="Tutup notifikasi"
+              @click="handleClose"
             >
               <X :size="16" />
-            </button>
+            </Button>
           </div>
 
-          <!-- Additional Content Slot -->
-          <div v-if="$slots.default" class="mt-2">
+          <div v-if="$slots.default" class="mt-3">
             <slot />
           </div>
         </div>
@@ -50,15 +49,15 @@
 
 <script setup>
 import { computed, ref, watch, onUnmounted } from "vue";
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-vue-next";
+import { AlertTriangle, CheckCircle, Info, X, XCircle } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
-// Props
 const props = defineProps({
   type: {
     type: String,
     default: "info",
     validator: (value) =>
-      ["success", "error", "warning", "info"].includes(value),
+      ["success", "error", "danger", "warning", "info"].includes(value),
   },
   title: {
     type: String,
@@ -82,13 +81,13 @@ const props = defineProps({
   },
 });
 
-// Emits
 const emit = defineEmits(["close"]);
-
-// Reactive data
 const show = ref(true);
 
-// Computed
+const normalizedType = computed(() =>
+  props.type === "danger" ? "error" : props.type
+);
+
 const alertIcon = computed(() => {
   const icons = {
     success: CheckCircle,
@@ -96,73 +95,69 @@ const alertIcon = computed(() => {
     warning: AlertTriangle,
     info: Info,
   };
-  return icons[props.type];
+  return icons[normalizedType.value];
 });
 
 const alertClasses = computed(() => {
   const classes = {
-    success: "bg-green-50 border-green-200",
-    error: "bg-red-50 border-red-200",
-    warning: "bg-yellow-50 border-yellow-200",
-    info: "bg-blue-50 border-blue-200",
+    success: "border-green-200 bg-green-50",
+    error: "border-red-200 bg-red-50",
+    warning: "border-amber-200 bg-amber-50",
+    info: "border-blue-200 bg-blue-50",
   };
-  return classes[props.type];
+  return classes[normalizedType.value];
 });
 
 const iconClasses = computed(() => {
   const classes = {
-    success: "text-green-500",
-    error: "text-red-500",
-    warning: "text-yellow-500",
-    info: "text-blue-500",
+    success: "mt-0.5 shrink-0 text-green-600",
+    error: "mt-0.5 shrink-0 text-red-600",
+    warning: "mt-0.5 shrink-0 text-amber-600",
+    info: "mt-0.5 shrink-0 text-blue-600",
   };
-  return classes[props.type];
+  return classes[normalizedType.value];
 });
 
 const titleClasses = computed(() => {
   const classes = {
-    success: "text-sm font-medium text-green-800",
-    error: "text-sm font-medium text-red-800",
-    warning: "text-sm font-medium text-yellow-800",
-    info: "text-sm font-medium text-blue-800",
+    success: "text-sm font-semibold text-green-900",
+    error: "text-sm font-semibold text-red-900",
+    warning: "text-sm font-semibold text-amber-900",
+    info: "text-sm font-semibold text-blue-900",
   };
-  return classes[props.type];
+  return classes[normalizedType.value];
 });
 
 const messageClasses = computed(() => {
   const classes = {
-    success: "text-sm text-green-700",
-    error: "text-sm text-red-700",
-    warning: "text-sm text-yellow-700",
-    info: "text-sm text-blue-700",
+    success: "text-sm leading-6 text-green-800",
+    error: "text-sm leading-6 text-red-800",
+    warning: "text-sm leading-6 text-amber-800",
+    info: "text-sm leading-6 text-blue-800",
   };
-  return classes[props.type];
+  return classes[normalizedType.value];
 });
 
 const closeButtonClasses = computed(() => {
   const classes = {
-    success: "text-green-400 hover:text-green-600",
-    error: "text-red-400 hover:text-red-600",
-    warning: "text-yellow-400 hover:text-yellow-600",
-    info: "text-blue-400 hover:text-blue-600",
+    success: "text-green-700 hover:bg-green-100 hover:text-green-900",
+    error: "text-red-700 hover:bg-red-100 hover:text-red-900",
+    warning: "text-amber-700 hover:bg-amber-100 hover:text-amber-900",
+    info: "text-blue-700 hover:bg-blue-100 hover:text-blue-900",
   };
-  return classes[props.type];
+  return classes[normalizedType.value];
 });
 
-// Methods
 const handleClose = () => {
   show.value = false;
   emit("close");
 };
 
-// Auto close functionality
 let autoCloseTimer = null;
 
 const startAutoClose = () => {
   if (props.autoClose && props.duration > 0) {
-    autoCloseTimer = setTimeout(() => {
-      handleClose();
-    }, props.duration);
+    autoCloseTimer = setTimeout(handleClose, props.duration);
   }
 };
 
@@ -173,34 +168,22 @@ const clearAutoClose = () => {
   }
 };
 
-// Watch for auto close changes
 watch(
   () => props.autoClose,
   (newVal) => {
-    if (newVal) {
-      startAutoClose();
-    } else {
-      clearAutoClose();
-    }
+    if (newVal) startAutoClose();
+    else clearAutoClose();
   }
 );
 
-// Lifecycle
 watch(show, (newVal) => {
-  if (newVal && props.autoClose) {
-    startAutoClose();
-  } else {
-    clearAutoClose();
-  }
+  if (newVal && props.autoClose) startAutoClose();
+  else clearAutoClose();
 });
 
-// Start auto close on mount if enabled
 if (props.autoClose) {
   startAutoClose();
 }
 
-// Cleanup on unmount
-onUnmounted(() => {
-  clearAutoClose();
-});
+onUnmounted(clearAutoClose);
 </script>

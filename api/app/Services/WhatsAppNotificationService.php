@@ -10,6 +10,7 @@ use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
 use App\Models\WorkReport;
 use App\Models\WorkOrder;
+use App\Models\FormPermintaan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -413,6 +414,50 @@ class WhatsAppNotificationService implements NotificationChannelInterface
             Log::error('Failed to send work order notification', [
                 'work_order_id' => $workOrder->id,
                 'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send notification for new form permintaan creation (to Group/Admin)
+     */
+    public function sendFormPermintaanNotification(FormPermintaan $formPermintaan): ?bool
+    {
+        try {
+            if (!$this->token || !$this->groupId) {
+                return null;
+            }
+
+            $ticket = $formPermintaan->ticket;
+            $ticketInfo = $ticket ? "Ticket: {$ticket->code}" : 'Tanpa ticket';
+            $branchName = $formPermintaan->branch ? $formPermintaan->branch->name : '-';
+            $userName = $formPermintaan->user ? $formPermintaan->user->name : '-';
+            $requestType = str_replace('_', ' ', $formPermintaan->request_type);
+
+            $message = "📝 *FORM PERMINTAAN BARU* 📝\n\n" .
+                "No. Permintaan: {$formPermintaan->request_number}\n" .
+                "📌 {$ticketInfo}\n" .
+                "👤 Pemohon: {$userName}\n" .
+                "🏢 Outlet: {$branchName}\n" .
+                "⚡ Prioritas: {$formPermintaan->priority}\n" .
+                "📋 Jenis: {$requestType}\n" .
+                "🕐 Tanggal: " . $formPermintaan->created_at->format('d/m/Y H:i') . "\n\n" .
+                "Silakan buka aplikasi untuk melakukan verifikasi.\n" .
+                $this->appUrl . '/admin/form-permintaan/' . $formPermintaan->id;
+
+            $this->sendMessageToGroup($message);
+
+            Log::info('Form permintaan notification sent to group', [
+                'form_permintaan_id' => $formPermintaan->id,
+                'group_id' => $this->groupId,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send form permintaan notification', [
+                'form_permintaan_id' => $formPermintaan->id,
+                'error' => $e->getMessage(),
             ]);
             return false;
         }

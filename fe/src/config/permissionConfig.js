@@ -309,6 +309,51 @@ export const featureGroups = {
     }
   },
 
+  formPermintaan: {
+    label: "Form Permintaan",
+    icon: "ScrollText",
+    description: "Kelola form permintaan outlet",
+    color: "blue",
+    permissions: {
+      "form-permintaan-menu": {
+        label: "Akses Menu",
+        description: "Menampilkan menu form permintaan di sidebar"
+      },
+      "form-permintaan-list": {
+        label: "Lihat Daftar",
+        description: "Melihat daftar form permintaan"
+      },
+      "form-permintaan-create": {
+        label: "Buat Form",
+        description: "Membuat form permintaan baru"
+      },
+      "form-permintaan-confirm": {
+        label: "Konfirmasi Form",
+        description: "Mengubah status form permintaan menjadi approved"
+      },
+      "form-permintaan-view-all": {
+        label: "Lihat Semua",
+        description: "Akses form permintaan semua user dan outlet"
+      },
+      "form-permintaan-review": {
+        label: "Review Form",
+        description: "Mereview form permintaan sebelum disetujui"
+      },
+      "form-permintaan-reject": {
+        label: "Tolak Form",
+        description: "Menolak form permintaan"
+      },
+      "form-permintaan-edit": {
+        label: "Edit Form",
+        description: "Mengedit form permintaan yang sudah dibuat"
+      },
+      "form-permintaan-delete": {
+        label: "Hapus Form",
+        description: "Menghapus form permintaan"
+      }
+    }
+  },
+
   workOrder: {
     label: "Surat Perintah Kerja",
     icon: "ClipboardList",
@@ -641,6 +686,16 @@ export const permissionDependencies = {
   "ticket-category-edit": ["ticket-category-list", "ticket-category-menu"],
   "ticket-category-delete": ["ticket-category-list", "ticket-category-menu"],
 
+  // Form Permintaan dependencies
+  "form-permintaan-list": ["form-permintaan-menu"],
+  "form-permintaan-create": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-confirm": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-view-all": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-review": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-reject": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-edit": ["form-permintaan-list", "form-permintaan-menu"],
+  "form-permintaan-delete": ["form-permintaan-list", "form-permintaan-menu"],
+
   // Work Order dependencies
   "work-order-list": ["work-order-menu"],
   "work-order-create": ["work-order-list", "work-order-menu"],
@@ -745,7 +800,13 @@ export const rolePresets = {
       "work-report-edit",
       "work-report-attachment-list",
       "work-report-attachment-create",
-      "work-report-attachment-delete"
+      "work-report-attachment-delete",
+      // form permintaan
+      "form-permintaan-menu",
+      "form-permintaan-list",
+      "form-permintaan-confirm",
+      "form-permintaan-view-all",
+      "form-permintaan-reject"
     ]
   },
   "user": {
@@ -808,6 +869,8 @@ export const rolePresets = {
       "ticket-menu", "ticket-list", "ticket-create", "ticket-edit", "ticket-delete", "ticket-update-status", "ticket-view-all",
       "ticket-reply-list", "ticket-reply-create", "ticket-reply-edit", "ticket-reply-delete",
       "ticket-attachment-list", "ticket-attachment-create", "ticket-attachment-delete",
+      // Form Permintaan
+      "form-permintaan-menu", "form-permintaan-list", "form-permintaan-create", "form-permintaan-confirm", "form-permintaan-view-all",
       // Work Order
       "work-order-menu", "work-order-list", "work-order-create", "work-order-edit", "work-order-delete", "work-order-update-status", "work-order-view-all",
       // Work Report
@@ -819,6 +882,29 @@ export const rolePresets = {
       // Electricity
       "electricity-meter-menu", "electricity-meter-list", "electricity-meter-create", "electricity-meter-edit", "electricity-meter-delete",
       "electricity-reading-list", "electricity-reading-create", "electricity-reading-edit", "electricity-reading-delete"
+    ]
+  },
+  "approver-permintaan": {
+    label: "Approver Permintaan",
+    description: "Menyetujui atau menolak form permintaan",
+    icon: "CheckCircle",
+    permissions: [
+      "form-permintaan-menu",
+      "form-permintaan-list",
+      "form-permintaan-confirm",
+      "form-permintaan-view-all",
+      "form-permintaan-reject"
+    ]
+  },
+  "reviewer-permintaan": {
+    label: "Reviewer Permintaan",
+    description: "Mereview form permintaan sebelum approval",
+    icon: "Eye",
+    permissions: [
+      "form-permintaan-menu",
+      "form-permintaan-list",
+      "form-permintaan-review",
+      "form-permintaan-view-all"
     ]
   }
 };

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useBranchStore } from "@/stores/branch";
 import { useUserStore } from "@/stores/user";
@@ -15,11 +15,16 @@ import {
   FileText,
   ChevronRight,
   ArrowLeft,
+  RotateCcw,
+  Flame,
+  Droplets,
+  Zap,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 import Alert from "@/components/common/Alert.vue";
 import { axiosInstance } from "@/plugins/axios";
 import AttachmentViewDialog from "@/components/common/AttachmentViewDialog.vue";
+import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
 
 const route = useRoute();
 const branchStore = useBranchStore();
@@ -42,19 +47,114 @@ const isUser = computed(() => {
   return (currentUser.value?.roles || []).includes("user");
 });
 
+const isSuperAdmin = computed(() => {
+  return (currentUser.value?.roles || []).includes("superadmin");
+});
+
+const resetCategory = ref("");
+
+// Meter selector state for electricity reset
+const meterList = ref([]);
+const selectedMeterIds = ref([]);
+const meterLoading = ref(false);
+const meterError = ref(null);
+
+// Computed: true iff all meters are selected
+const allMetersSelected = computed(() =>
+  meterList.value.length > 0 && selectedMeterIds.value.length === meterList.value.length
+);
+
+// Computed: reset button disabled when electricity selected with no meters chosen, or loading/error
+const resetButtonDisabled = computed(() => {
+  if (resetCategory.value === 'electricity') {
+    return selectedMeterIds.value.length === 0 || meterLoading.value || !!meterError.value;
+  }
+  return false;
+});
+
+// Toggle all meters on/off
+const toggleSelectAll = (checked) => {
+  if (checked) {
+    selectedMeterIds.value = meterList.value.map(m => m.id);
+  } else {
+    selectedMeterIds.value = [];
+  }
+};
+
+// Toggle individual meter selection
+const toggleMeter = (meterId) => {
+  const idx = selectedMeterIds.value.indexOf(meterId);
+  if (idx > -1) {
+    selectedMeterIds.value.splice(idx, 1);
+  } else {
+    selectedMeterIds.value.push(meterId);
+  }
+};
+
+const resetCategoryLabel = computed(() => {
+  const labels = {
+    gas: "Gas",
+    water: "Air",
+    electricity: "Listrik",
+  };
+
+  return resetCategory.value
+    ? labels[resetCategory.value]
+    : "Gas, Air, dan Listrik";
+});
+
 const reportData = ref([]);
 const loading = ref(false);
+const resetLoading = ref(false);
 const error = ref(null);
+const success = ref(null);
 const showFilters = ref(false);
 const showPhotoDialog = ref(false);
+const showResetModal = ref(false);
 const selectedPhoto = ref(null);
+
+const getMonthValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+};
+
+const getMonthDateRange = (monthValue) => {
+  if (!monthValue) {
+    return { startDate: "", endDate: "" };
+  }
+
+  const [year, month] = monthValue.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+
+  return {
+    startDate: `${year}-${String(month).padStart(2, "0")}-01`,
+    endDate: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+  };
+};
+
+const currentMonth = getMonthValue();
+const currentMonthRange = getMonthDateRange(currentMonth);
 
 const filters = ref({
   user_id: "",
   branch_id: "",
-  start_date: "",
-  end_date: "",
+  month: currentMonth,
+  start_date: currentMonthRange.startDate,
+  end_date: currentMonthRange.endDate,
   category: "", // Filter berdasarkan category
+});
+
+const selectedMonthLabel = computed(() => {
+  if (!filters.value.month) {
+    return "Semua tanggal";
+  }
+
+  const [year, month] = filters.value.month.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
 });
 
 const loadReportData = async () => {
@@ -62,6 +162,12 @@ const loadReportData = async () => {
   if (!filters.value.branch_id) {
     error.value =
       "Silakan pilih cabang terlebih dahulu untuk menampilkan laporan";
+    reportData.value = [];
+    return;
+  }
+
+  if (!filters.value.month) {
+    error.value = "Silakan pilih bulan terlebih dahulu untuk menampilkan laporan";
     reportData.value = [];
     return;
   }
@@ -95,21 +201,55 @@ const handleFilterChange = () => {
   loadReportData();
 };
 
+const categoryOptions = [
+  { value: '', label: 'Semua Kategori', icon: null },
+  { value: 'gas', label: 'Gas', icon: Flame },
+  { value: 'water', label: 'Air', icon: Droplets },
+  { value: 'electricity', label: 'Listrik', icon: Zap },
+];
+
+const selectCategory = (categoryValue) => {
+  filters.value.category = categoryValue;
+  handleFilterChange();
+};
+
+const handleMonthChange = () => {
+  const { startDate, endDate } = getMonthDateRange(filters.value.month);
+  filters.value.start_date = startDate;
+  filters.value.end_date = endDate;
+  handleFilterChange();
+};
+
 const clearFilters = () => {
-  // Clear filters for everyone
+  const defaultMonth = getMonthValue();
+  const { startDate, endDate } = getMonthDateRange(defaultMonth);
+
   filters.value = {
     user_id: "",
-    branch_id: "",
-    start_date: "",
-    end_date: "",
+    branch_id: isUser.value && currentUser.value?.branch?.id
+      ? String(currentUser.value.branch.id)
+      : "",
+    month: defaultMonth,
+    start_date: startDate,
+    end_date: endDate,
     category: "",
   };
+
+  // Auto-reload if branch is set (user role)
+  if (filters.value.branch_id) {
+    loadReportData();
+  }
 };
 
 const handleExport = async () => {
   // Validasi: branch_id harus dipilih
   if (!filters.value.branch_id) {
     error.value = "Silakan pilih cabang terlebih dahulu untuk export laporan";
+    return;
+  }
+
+  if (!filters.value.month) {
+    error.value = "Silakan pilih bulan terlebih dahulu untuk export laporan";
     return;
   }
 
@@ -136,7 +276,7 @@ const handleExport = async () => {
     link.href = url;
     link.setAttribute(
       "download",
-      `laporan-daily-usage-${new Date().toISOString().split("T")[0]}.xlsx`
+      `laporan-daily-usage-${filters.value.month || new Date().toISOString().split("T")[0]}.xlsx`
     );
     document.body.appendChild(link);
     link.click();
@@ -152,6 +292,11 @@ const handleExportPdf = async () => {
   // Validasi: branch_id dan category harus dipilih
   if (!filters.value.branch_id) {
     error.value = "Silakan pilih cabang terlebih dahulu untuk export PDF";
+    return;
+  }
+
+  if (!filters.value.month) {
+    error.value = "Silakan pilih bulan terlebih dahulu untuk export PDF";
     return;
   }
 
@@ -178,9 +323,7 @@ const handleExportPdf = async () => {
     link.href = url;
     link.setAttribute(
       "download",
-      `laporan-daily-usage-${filters.value.category}-${
-        new Date().toISOString().split("T")[0]
-      }.pdf`
+      `laporan-daily-usage-${filters.value.category || "all"}-${filters.value.month || new Date().toISOString().split("T")[0]}.pdf`
     );
     document.body.appendChild(link);
     link.click();
@@ -189,6 +332,59 @@ const handleExportPdf = async () => {
     error.value =
       err.response?.data?.message || "Terjadi kesalahan saat export PDF";
     console.error("Error exporting PDF:", err);
+  }
+};
+
+const openResetModal = () => {
+  if (!filters.value.branch_id) {
+    error.value = "Silakan pilih cabang terlebih dahulu untuk reset daily usage";
+    return;
+  }
+
+  if (!filters.value.month) {
+    error.value = "Silakan pilih bulan terlebih dahulu untuk reset daily usage";
+    return;
+  }
+
+  // Reset the modal category to empty (all) when opening
+  resetCategory.value = "";
+  showResetModal.value = true;
+};
+
+const handleResetDailyUsage = async () => {
+  resetLoading.value = true;
+  error.value = null;
+  success.value = null;
+
+  try {
+    const payload = {
+      branch_id: filters.value.branch_id,
+    };
+
+    if (filters.value.user_id) payload.user_id = filters.value.user_id;
+    if (filters.value.start_date) payload.start_date = filters.value.start_date;
+    if (filters.value.end_date) payload.end_date = filters.value.end_date;
+    if (resetCategory.value) payload.category = resetCategory.value;
+
+    // Include electricity_meter_ids when resetting electricity with specific meters selected
+    if (resetCategory.value === 'electricity' && selectedMeterIds.value.length > 0) {
+      payload.electricity_meter_ids = selectedMeterIds.value;
+    }
+
+    const response = await axiosInstance.post(
+      "/daily-records/report/daily-usage/reset",
+      payload
+    );
+
+    success.value = response.data.message || "Daily usage berhasil direset ke 0";
+    showResetModal.value = false;
+    await loadReportData();
+  } catch (err) {
+    error.value =
+      err.response?.data?.message || "Terjadi kesalahan saat reset daily usage";
+    console.error("Error resetting daily usage:", err);
+  } finally {
+    resetLoading.value = false;
   }
 };
 
@@ -211,7 +407,7 @@ const closePhotoDialog = () => {
 };
 
 const getColspan = () => {
-  let cols = 5; // Timestamp, Tanggal, Nama, Outlet, Total Customer
+  let cols = 4; // Tanggal, Nama, Outlet, Total Customer
   if (!filters.value.category || filters.value.category === "gas") {
     cols += 7; // LAPORAN GAS
   }
@@ -267,14 +463,46 @@ onMounted(() => {
   // Also fetch users for everyone
   fetchUsers();
 
-  // For user role, OPTIONALLY auto-select their branch but DON'T force user_id
-  // and DON't auto-load so they can change filters first if they want
+  // For user role, auto-set their branch and load report
   if (isUser.value && currentUser.value) {
     if (currentUser.value?.branch?.id) {
       filters.value.branch_id = String(currentUser.value.branch.id);
-      // Auto-load IS convenient if branch is set, but user can change it now
-      loadReportData(); 
+      loadReportData();
     }
+  }
+});
+
+// Watch resetCategory to fetch meters when "Listrik" is selected
+watch(resetCategory, async (newVal) => {
+  if (newVal === 'electricity') {
+    // Fetch meters for the selected branch
+    const branchId = filters.value.branch_id;
+    if (!branchId) {
+      meterError.value = 'Cabang belum dipilih';
+      return;
+    }
+
+    meterLoading.value = true;
+    meterError.value = null;
+    selectedMeterIds.value = [];
+    meterList.value = [];
+
+    try {
+      const response = await axiosInstance.get(`/branches/${branchId}/electricity-meters`);
+      // Filter to only include active meters
+      const allMeters = response.data.data || response.data;
+      meterList.value = allMeters.filter(meter => meter.is_active === true);
+    } catch (err) {
+      meterError.value = err.response?.data?.message || 'Gagal memuat data meter listrik';
+      console.error('Error fetching electricity meters:', err);
+    } finally {
+      meterLoading.value = false;
+    }
+  } else {
+    // Clear meter state when category changes away from electricity
+    meterList.value = [];
+    selectedMeterIds.value = [];
+    meterError.value = null;
   }
 });
 </script>
@@ -318,6 +546,15 @@ onMounted(() => {
       </div>
       <div class="flex gap-3">
         <button
+          v-if="isSuperAdmin"
+          @click="openResetModal"
+          :disabled="loading || resetLoading"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+        >
+          <RotateCcw :size="18" />
+          Reset Usage
+        </button>
+        <button
           @click="showFilters = !showFilters"
           class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
         >
@@ -344,6 +581,12 @@ onMounted(() => {
     </div>
 
     <!-- Alert -->
+    <Alert
+      v-if="success"
+      type="success"
+      :message="success"
+      @close="success = null"
+    />
     <Alert v-if="error" type="danger" :message="error" @close="error = null" />
 
     <!-- Filters -->
@@ -384,55 +627,70 @@ onMounted(() => {
           </select>
         </div>
 
-        <!-- Branch Filter - Show for ALL -->
+        <!-- Branch Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
             >Cabang <span class="text-red-500">*</span></label
           >
-          <select
-            v-model="filters.branch_id"
-            @change="handleFilterChange"
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Pilih Cabang</option>
-            <option
-              v-for="branch in branches"
-              :key="branch.id"
-              :value="branch.id"
+          <template v-if="isUser">
+            <div
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
             >
-              {{ branch.name }}
-            </option>
-          </select>
+              {{ currentUser?.branch?.name ?? "-" }}
+            </div>
+          </template>
+          <template v-else>
+            <select
+              v-model="filters.branch_id"
+              @change="handleFilterChange"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Pilih Cabang</option>
+              <option
+                v-for="branch in branches"
+                :key="branch.id"
+                :value="branch.id"
+              >
+                {{ branch.name }}
+              </option>
+            </select>
+          </template>
           <p class="mt-1 text-xs text-gray-500">
             Cabang wajib dipilih untuk menghitung opening/closing yang akurat
           </p>
         </div>
 
-        <!-- Start Date Filter -->
+        <!-- Month Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
-            >Tanggal Mulai</label
+            >Bulan</label
           >
           <input
-            v-model="filters.start_date"
-            @change="handleFilterChange"
-            type="date"
+            v-model="filters.month"
+            @change="handleMonthChange"
+            type="month"
+            required
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+          <p class="mt-1 text-xs text-gray-500">
+            Menampilkan data untuk bulan {{ selectedMonthLabel }}.
+          </p>
         </div>
 
-        <!-- End Date Filter -->
+        <!-- Date Range Summary -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
-            >Tanggal Akhir</label
+            >Periode Tanggal</label
           >
-          <input
-            v-model="filters.end_date"
-            @change="handleFilterChange"
-            type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div
+            class="flex min-h-[42px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+          >
+            {{ filters.start_date || "-" }} s/d {{ filters.end_date || "-" }}
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            Rentang tanggal otomatis mengikuti bulan yang dipilih.
+          </p>
         </div>
 
         <!-- Category Filter -->
@@ -502,12 +760,6 @@ onMounted(() => {
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
-                rowspan="2"
-              >
-                Timestamp
-              </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border"
                 rowspan="2"
@@ -654,12 +906,6 @@ onMounted(() => {
                 <template v-if="filters.category !== 'electricity'">
                   <tr class="hover:bg-gray-50">
                     <!-- Common columns with rowspan for multi-meter -->
-                    <td 
-                      class="px-4 py-3 text-sm text-gray-900 border align-top"
-                      :rowspan="hasMultipleMeters(row.electricity) && (!filters.category || filters.category === 'electricity') ? getElectricityRowspan(row.electricity) : 1"
-                    >
-                      {{ row.timestamp }}
-                    </td>
                     <td 
                       class="px-4 py-3 text-sm text-gray-900 border align-top"
                       :rowspan="hasMultipleMeters(row.electricity) && (!filters.category || filters.category === 'electricity') ? getElectricityRowspan(row.electricity) : 1"
@@ -948,12 +1194,6 @@ onMounted(() => {
                           :rowspan="row.electricity.filter((e) => e).length"
                           class="px-4 py-3 text-sm text-gray-900 border"
                         >
-                          {{ row.timestamp }}
-                        </td>
-                        <td
-                          :rowspan="row.electricity.filter((e) => e).length"
-                          class="px-4 py-3 text-sm text-gray-900 border"
-                        >
                           {{ row.tanggal }}
                         </td>
                         <td
@@ -1055,9 +1295,6 @@ onMounted(() => {
                     class="hover:bg-gray-50"
                   >
                     <td class="px-4 py-3 text-sm text-gray-900 border">
-                      {{ row.timestamp }}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-900 border">
                       {{ row.tanggal }}
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-900 border">
@@ -1092,5 +1329,141 @@ onMounted(() => {
       :attachment="selectedPhoto"
       @close="closePhotoDialog"
     />
+
+    <ConfirmationModal
+      :show="showResetModal"
+      title="Reset Daily Usage"
+      :message="`Reset ${resetCategoryLabel} pada cabang terpilih ke 0?`"
+      subtitle="Nilai meter pada data yang sesuai filter akan diubah menjadi 0. Foto dan record laporan tidak akan dihapus."
+      confirm-text="Ya, Reset ke 0"
+      cancel-text="Batal"
+      loading-text="Mereset..."
+      type="warning"
+      :loading="resetLoading"
+      :disabled="resetButtonDisabled"
+      @close="showResetModal = false"
+      @confirm="handleResetDailyUsage"
+    >
+      <template #body>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Kategori yang akan di-reset</label>
+          <div class="grid grid-cols-1 gap-2">
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors"
+              :class="resetCategory === '' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+            >
+              <input
+                v-model="resetCategory"
+                type="radio"
+                name="resetCategory"
+                value=""
+                class="text-amber-600 focus:ring-amber-500"
+              />
+              <div class="flex items-center gap-2">
+                <Flame :size="16" class="text-orange-500" />
+                <Droplets :size="16" class="text-blue-500" />
+                <Zap :size="16" class="text-yellow-500" />
+              </div>
+              <span class="text-sm font-medium text-gray-900">Semua (Gas, Air, Listrik)</span>
+            </label>
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors"
+              :class="resetCategory === 'gas' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+            >
+              <input
+                v-model="resetCategory"
+                type="radio"
+                name="resetCategory"
+                value="gas"
+                class="text-amber-600 focus:ring-amber-500"
+              />
+              <Flame :size="16" class="text-orange-500" />
+              <span class="text-sm font-medium text-gray-900">Gas</span>
+            </label>
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors"
+              :class="resetCategory === 'water' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+            >
+              <input
+                v-model="resetCategory"
+                type="radio"
+                name="resetCategory"
+                value="water"
+                class="text-amber-600 focus:ring-amber-500"
+              />
+              <Droplets :size="16" class="text-blue-500" />
+              <span class="text-sm font-medium text-gray-900">Air</span>
+            </label>
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors"
+              :class="resetCategory === 'electricity' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+            >
+              <input
+                v-model="resetCategory"
+                type="radio"
+                name="resetCategory"
+                value="electricity"
+                class="text-amber-600 focus:ring-amber-500"
+              />
+              <Zap :size="16" class="text-yellow-500" />
+              <span class="text-sm font-medium text-gray-900">Listrik</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Meter Selector Panel (shown when electricity is selected) -->
+        <div v-if="resetCategory === 'electricity'" class="mt-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Meter Listrik</label>
+
+          <!-- Loading state -->
+          <div v-if="meterLoading" class="flex items-center justify-center py-4">
+            <span class="size-5 animate-spin rounded-full border-2 border-amber-600 border-t-transparent"></span>
+            <span class="ml-2 text-sm text-gray-600">Memuat data meter...</span>
+          </div>
+
+          <!-- Error state -->
+          <div v-else-if="meterError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-700">{{ meterError }}</p>
+          </div>
+
+          <!-- No active meters -->
+          <div v-else-if="meterList.length === 0" class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <p class="text-sm text-gray-600">Tidak ada meter listrik aktif untuk cabang ini.</p>
+          </div>
+
+          <!-- Meter list with checkboxes -->
+          <div v-else class="space-y-2">
+            <!-- Select All checkbox -->
+            <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors border-gray-300 bg-gray-50 hover:bg-gray-100">
+              <input
+                type="checkbox"
+                :checked="allMetersSelected"
+                @change="toggleSelectAll($event.target.checked)"
+                class="text-amber-600 focus:ring-amber-500 rounded"
+              />
+              <span class="text-sm font-semibold text-gray-900">Pilih Semua</span>
+            </label>
+
+            <!-- Individual meter checkboxes -->
+            <div class="max-h-48 overflow-y-auto space-y-1">
+              <label
+                v-for="meter in meterList"
+                :key="meter.id"
+                class="flex items-center gap-3 p-2 pl-3 border rounded-lg cursor-pointer transition-colors"
+                :class="selectedMeterIds.includes(meter.id) ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+              >
+                <input
+                  type="checkbox"
+                  :checked="selectedMeterIds.includes(meter.id)"
+                  @change="toggleMeter(meter.id)"
+                  class="text-amber-600 focus:ring-amber-500 rounded"
+                />
+                <span class="text-sm text-gray-900">{{ meter.meter_name }} ({{ meter.location }})</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </template>
+    </ConfirmationModal>
   </div>
 </template>

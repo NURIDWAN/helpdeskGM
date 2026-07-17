@@ -1,26 +1,18 @@
 <template>
-  <div
-    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-  >
-    <!-- Form Header -->
-    <div
-      class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200"
-    >
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-200 px-5 py-4">
       <div class="flex items-center gap-3">
-        <div
-          class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"
-        >
-          <component :is="icon" :size="20" class="text-blue-600" />
+        <div class="flex size-10 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+          <component :is="icon" :size="20" />
         </div>
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">{{ title }}</h2>
-          <p class="text-sm text-gray-600">{{ subtitle }}</p>
+        <div class="min-w-0">
+          <h2 class="truncate text-base font-semibold text-slate-950">{{ title }}</h2>
+          <p class="mt-0.5 text-sm text-slate-500">{{ subtitle }}</p>
         </div>
       </div>
     </div>
 
-    <!-- Form Content -->
-    <div class="p-6">
+    <div class="p-5 sm:p-6">
       <slot />
     </div>
   </div>

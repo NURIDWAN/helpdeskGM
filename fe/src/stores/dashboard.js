@@ -15,6 +15,9 @@ export const useDashboardStore = defineStore("dashboard", {
         unconfirmedTickets: [],
         unconfirmedWorkOrders: [],
         userRecentTickets: [],
+        topOutletUsage: null,
+        topOutletUsageLoading: false,
+        topOutletUsageError: null,
         loading: false,
         error: null,
         success: null,
@@ -42,6 +45,11 @@ export const useDashboardStore = defineStore("dashboard", {
                         this.unconfirmedTickets = data.unconfirmed_tickets || [];
                         this.unconfirmedWorkOrders = data.unconfirmed_work_orders || [];
                         this.userRecentTickets = data.user_recent_tickets || [];
+                    }
+
+                    // Fetch top outlet usage separately (not included in /dashboard/all)
+                    if (can('dashboard-view-outlet-usage')) {
+                        this.fetchTopOutletUsage();
                     }
                 } else {
                     // Fetch data based on individual permissions
@@ -79,6 +87,11 @@ export const useDashboardStore = defineStore("dashboard", {
             if (can('dashboard-view-trends')) {
                 promises.push(this.fetchTicketsTrend(period));
                 promises.push(this.fetchStaffReportsTrend(period));
+            }
+
+            // Fetch top outlet usage if user has permission
+            if (can('dashboard-view-outlet-usage')) {
+                promises.push(this.fetchTopOutletUsage());
             }
 
             await Promise.all(promises);
@@ -200,6 +213,23 @@ export const useDashboardStore = defineStore("dashboard", {
                 console.error("Staff reports trend fetch error:", error);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async fetchTopOutletUsage() {
+            this.topOutletUsageLoading = true;
+            this.topOutletUsageError = null;
+
+            try {
+                const response = await axiosInstance.get('/dashboard/top-outlet-usage');
+                if (response.data.success) {
+                    this.topOutletUsage = response.data.data;
+                }
+            } catch (error) {
+                this.topOutletUsageError = handleError(error);
+                console.error('Top outlet usage fetch error:', error);
+            } finally {
+                this.topOutletUsageLoading = false;
             }
         },
     },

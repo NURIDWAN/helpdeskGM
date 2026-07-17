@@ -7,6 +7,8 @@ export const useRoleStore = defineStore("role", {
         roles: [],
         role: null,
         permissions: {},
+        matrix: null,
+        presets: {},
         loading: false,
         success: null,
         error: null,
@@ -107,6 +109,40 @@ export const useRoleStore = defineStore("role", {
                 this.roles = this.roles.filter((r) => r.id !== id);
                 return true;
             } catch (error) {
+                this.error = handleError(error);
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async fetchMatrix() {
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await axiosInstance.get("/roles/matrix");
+                this.matrix = response.data.data || null;
+                return this.matrix;
+            } catch (error) {
+                this.matrix = null;
+                this.error = handleError(error);
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async fetchPresets() {
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await axiosInstance.get("/roles/presets");
+                this.presets = response.data.data?.presets || {};
+                return this.presets;
+            } catch (error) {
+                this.presets = {};
                 this.error = handleError(error);
                 throw error;
             } finally {

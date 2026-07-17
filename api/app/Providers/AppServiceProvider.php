@@ -37,9 +37,9 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        // Rate limiter for login endpoint - 5 attempts per minute per IP
+        // Rate limiter for login endpoint - 5 attempts per minute per IP+email
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip())->response(function () {
+            return Limit::perMinute(5)->by($request->ip() . '|' . $request->input('email', ''))->response(function () {
                 return response()->json([
                     'success' => false,
                     'message' => 'Terlalu banyak percobaan login. Silakan coba lagi dalam 1 menit.',

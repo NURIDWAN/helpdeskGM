@@ -23,9 +23,9 @@ import {
   MessageCircle,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
-import { useToast } from "vue-toastification";
+import { useToastStore } from "@/stores/toast";
 
-const toast = useToast();
+const toast = useToastStore();
 
 const route = useRoute();
 const router = useRouter();

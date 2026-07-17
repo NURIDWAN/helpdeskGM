@@ -13,34 +13,35 @@ Server Temp Key:        X25519 253 bits
 TLS Server Name:        api.ddev.site
 
 Document Path:          /api/v1/work-reports
-Document Length:        72 bytes
+Document Length:        39 bytes
 
 Concurrency Level:      20
-Time taken for tests:   3.075 seconds
+Time taken for tests:   2.720 seconds
 Complete requests:      100
 Failed requests:        0
+Non-2xx responses:      100
 Keep-Alive requests:    0
-Total transferred:      26100 bytes
-HTML transferred:       7200 bytes
-Requests per second:    32.52 [#/sec] (mean)
-Time per request:       614.933 [ms] (mean)
-Time per request:       30.747 [ms] (mean, across all concurrent requests)
-Transfer rate:          8.29 [Kbytes/sec] received
+Total transferred:      39500 bytes
+HTML transferred:       3900 bytes
+Requests per second:    36.77 [#/sec] (mean)
+Time per request:       543.923 [ms] (mean)
+Time per request:       27.196 [ms] (mean, across all concurrent requests)
+Transfer rate:          14.18 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:        6   28  35.5     13     133
-Processing:    68  526 120.7    550     710
-Waiting:       61  525 121.0    549     706
-Total:         81  553 110.6    574     726
+Connect:        7   28  27.3     16      92
+Processing:    42  471 112.3    500     625
+Waiting:       29  470 112.9    500     624
+Total:         50  498  99.0    518     670
 
 Percentage of the requests served within a certain time (ms)
-  50%    574
-  66%    604
-  75%    629
-  80%    637
-  90%    656
-  95%    691
-  98%    712
-  99%    726
- 100%    726 (longest request)
+  50%    518
+  66%    541
+  75%    552
+  80%    562
+  90%    585
+  95%    603
+  98%    644
+  99%    670
+ 100%    670 (longest request)

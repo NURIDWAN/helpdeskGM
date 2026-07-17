@@ -12,14 +12,6 @@ vi.mock('@/plugins/axios', () => ({
     },
 }))
 
-// Mock toast
-vi.mock('vue-toastification', () => ({
-    useToast: () => ({
-        success: vi.fn(),
-        error: vi.fn(),
-    }),
-}))
-
 import { axiosInstance } from '@/plugins/axios'
 
 describe('Ticket Store', () => {

@@ -6,10 +6,20 @@ use App\Helpers\ResponseHelper;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Middleware\PermissionMiddleware;
 
-class TelegramBotController extends Controller
+class TelegramBotController extends Controller implements HasMiddleware
 {
+    public static function middleware()
+    {
+        return [
+            new Middleware(PermissionMiddleware::using(['whatsapp-setting-edit']), only: ['setWebhook', 'getWebhookInfo']),
+        ];
+    }
+
     /**
      * Handle incoming webhook from Telegram Bot
      * This is called when users interact with the bot
@@ -17,6 +27,16 @@ class TelegramBotController extends Controller
     public function webhook(Request $request)
     {
         try {
+            // Verify Telegram webhook signature via secret_token header
+            $secretToken = config('services.telegram.webhook_secret');
+            if ($secretToken) {
+                $headerToken = $request->header('X-Telegram-Bot-Api-Secret-Token');
+                if (!$headerToken || !hash_equals($secretToken, $headerToken)) {
+                    Log::warning('Telegram webhook rejected: invalid secret token');
+                    return response()->json(['ok' => false], 403);
+                }
+            }
+
             $update = $request->all();
 
             Log::info('Telegram webhook received', ['update' => $update]);
@@ -293,9 +313,15 @@ class TelegramBotController extends Controller
 
             $url = "https://api.telegram.org/bot{$botToken}/setWebhook";
 
-            $response = \Illuminate\Support\Facades\Http::timeout(30)->post($url, [
-                'url' => $webhookUrl,
-            ]);
+            $payload = ['url' => $webhookUrl];
+
+            // Include secret_token so Telegram sends X-Telegram-Bot-Api-Secret-Token header
+            $webhookSecret = config('services.telegram.webhook_secret');
+            if ($webhookSecret) {
+                $payload['secret_token'] = $webhookSecret;
+            }
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->post($url, $payload);
 
             $result = $response->json();
 

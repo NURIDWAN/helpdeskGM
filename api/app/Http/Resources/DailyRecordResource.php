@@ -19,6 +19,7 @@ class DailyRecordResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'date' => $this->date?->format('Y-m-d'),
             'total_customers' => $this->total_customers,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

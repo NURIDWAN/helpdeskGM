@@ -16,6 +16,7 @@ const UserForm = () => import('@/views/admin/user/UserForm.vue')
 const TicketList = () => import('@/views/admin/ticket/TicketList.vue')
 const TicketForm = () => import('@/views/admin/ticket/TicketForm.vue')
 const TicketDetail = () => import('@/views/admin/ticket/TicketDetail.vue')
+const AdminFormPermintaanList = () => import('@/views/admin/formpermintaan/FormPermintaanList.vue')
 const TicketCategoryList = () => import('@/views/admin/ticketcategory/TicketCategoryList.vue')
 const TicketCategoryForm = () => import('@/views/admin/ticketcategory/TicketCategoryForm.vue')
 const AdminProfile = () => import('@/views/admin/Profile.vue')
@@ -33,8 +34,10 @@ const JobTemplateList = () => import('@/views/admin/jobtemplate/JobTemplateList.
 const JobTemplateForm = () => import('@/views/admin/jobtemplate/JobTemplateForm.vue')
 const RoleList = () => import('@/views/admin/role/RoleList.vue')
 const RoleForm = () => import('@/views/admin/role/RoleForm.vue')
+const PermissionMatrix = () => import('@/views/admin/role/PermissionMatrix.vue')
 const WhatsAppSettings = () => import('@/views/admin/whatsapp/WhatsAppSettings.vue')
 const UserActivityMonitor = () => import('@/views/admin/user/UserActivityMonitor.vue')
+const ActivityLogList = () => import('@/views/admin/activitylog/ActivityLogList.vue')
 
 // Auth Views
 const Login = () => import('@/views/auth/Login.vue')
@@ -42,9 +45,13 @@ const Register = () => import('@/views/auth/Register.vue')
 
 // App Views
 const AppDashboard = () => import('@/views/app/Dashboard.vue')
+const AppTicketList = () => import('@/views/app/TicketList.vue')
 const AppTicketDetail = () => import('@/views/app/TicketDetail.vue')
 const AppTicketCreate = () => import('@/views/app/TicketCreate.vue')
 const AppProfile = () => import('@/views/app/Profile.vue')
+const AppFormPermintaanDetail = () => import('@/views/app/FormPermintaanDetail.vue')
+const AppFormPermintaanList = () => import('@/views/app/FormPermintaanList.vue')
+const AppFormPermintaanCreate = () => import('@/views/app/FormPermintaanCreate.vue')
 
 // Error Views
 const Forbidden = () => import('@/views/errors/Forbidden.vue')
@@ -69,6 +76,16 @@ const router = createRouter({
           },
         },
 
+        {
+          path: 'tickets',
+          name: 'app.tickets',
+          component: AppTicketList,
+          meta: {
+            requiresAuth: true,
+            title: 'Tiket Saya',
+            permission: 'ticket-list',
+          },
+        },
         {
           path: 'ticket/:code',
           name: 'app.ticket.detail',
@@ -124,6 +141,30 @@ const router = createRouter({
           name: 'app.daily-usage-report',
           component: DailyUsageReport,
           meta: { requiresAuth: true, title: 'Laporan Daily Usage', permission: 'daily-record-list' }
+        },
+        {
+          path: 'form-permintaan',
+          name: 'app.form-permintaan',
+          component: AppFormPermintaanList,
+          meta: { requiresAuth: true, title: 'Form Permintaan', permission: 'form-permintaan-list' }
+        },
+        {
+          path: 'form-permintaan/create',
+          name: 'app.form-permintaan.create',
+          component: AppFormPermintaanCreate,
+          meta: { requiresAuth: true, title: 'Buat Form Permintaan', permission: 'form-permintaan-create' }
+        },
+        {
+          path: 'form-permintaan/:id/edit',
+          name: 'app.form-permintaan.edit',
+          component: AppFormPermintaanCreate,
+          meta: { requiresAuth: true, title: 'Edit Form Permintaan', permission: 'form-permintaan-edit' }
+        },
+        {
+          path: 'form-permintaan/:id',
+          name: 'app.form-permintaan.detail',
+          component: AppFormPermintaanDetail,
+          meta: { requiresAuth: true, title: 'Detail Form Permintaan', permission: 'form-permintaan-list' }
         },
       ],
     },
@@ -282,6 +323,46 @@ const router = createRouter({
           },
         },
         {
+          path: 'form-permintaan',
+          name: 'admin.form-permintaan',
+          component: AdminFormPermintaanList,
+          meta: {
+            requiresAuth: true,
+            title: 'Daftar Form Permintaan',
+            permission: 'form-permintaan-view-all',
+          },
+        },
+        {
+          path: 'form-permintaan/create',
+          name: 'admin.form-permintaan.create',
+          component: AppFormPermintaanCreate,
+          meta: {
+            requiresAuth: true,
+            title: 'Buat Form Permintaan',
+            permission: 'form-permintaan-create',
+          },
+        },
+        {
+          path: 'form-permintaan/:id/edit',
+          name: 'admin.form-permintaan.edit',
+          component: AppFormPermintaanCreate,
+          meta: {
+            requiresAuth: true,
+            title: 'Edit Form Permintaan',
+            permission: 'form-permintaan-edit',
+          },
+        },
+        {
+          path: 'form-permintaan/:id',
+          name: 'admin.form-permintaan.detail',
+          component: AppFormPermintaanDetail,
+          meta: {
+            requiresAuth: true,
+            title: 'Detail Form Permintaan',
+            permission: 'form-permintaan-view-all',
+          },
+        },
+        {
           path: 'work-orders',
           name: 'admin.workorders',
           component: WorkOrderList,
@@ -384,6 +465,12 @@ const router = createRouter({
           meta: { requiresAuth: true, title: 'Data Role', permissions: ['role-list', 'role-create', 'role-edit', 'role-delete'] }
         },
         {
+          path: 'roles/matrix',
+          name: 'admin.roles.matrix',
+          component: PermissionMatrix,
+          meta: { requiresAuth: true, title: 'Permission Matrix', permission: 'role-list' }
+        },
+        {
           path: 'role/create',
           name: 'admin.role.create',
           component: RoleForm,
@@ -406,6 +493,12 @@ const router = createRouter({
           name: 'admin.user-activity',
           component: UserActivityMonitor,
           meta: { requiresAuth: true, title: 'Monitoring Aktivitas User', permission: 'user-activity-list' }
+        },
+        {
+          path: 'activity-logs',
+          name: 'admin.activity-logs',
+          component: ActivityLogList,
+          meta: { requiresAuth: true, title: 'Activity Log', permission: 'activity-log-list' }
         },
       ],
     },
@@ -485,20 +578,45 @@ router.beforeEach(async (to, from, next) => {
           const routeMapping = {
             'app.dashboard': 'admin.dashboard',
             'app.profile': 'admin.profile',
+            'app.tickets': 'admin.tickets',
+            'app.ticket.detail': 'admin.ticket.detail',
+            'app.ticket.create': 'admin.ticket.create',
+            'app.form-permintaan': 'admin.form-permintaan',
+            'app.form-permintaan.create': 'admin.form-permintaan.create',
+            'app.form-permintaan.detail': 'admin.form-permintaan.detail',
+            'app.daily-records': 'admin.daily-records',
+            'app.daily-record.create': 'admin.daily-record.create',
+            'app.daily-record.edit': 'admin.daily-record.edit',
+            'app.daily-record.detail': 'admin.daily-record.detail',
+            'app.daily-usage-report': 'admin.daily-usage-report',
           }
 
           if (routeMapping[to.name]) {
-            return next({ name: routeMapping[to.name] })
+            return next({ name: routeMapping[to.name], params: to.params, query: to.query })
           }
+
+          // Any other app.* route that has no admin equivalent -> redirect to admin dashboard
+          return next({ name: 'admin.dashboard' })
         } else if (!hasAdminPanelAccess && to.name?.startsWith('admin.')) {
           // User doesn't have admin access but trying to access admin routes -> redirect to app routes or forbidden
           const routeMapping = {
             'admin.dashboard': 'app.dashboard',
             'admin.profile': 'app.profile',
+            'admin.tickets': 'app.tickets',
+            'admin.ticket.detail': 'app.ticket.detail',
+            'admin.ticket.create': 'app.ticket.create',
+            'admin.form-permintaan': 'app.form-permintaan',
+            'admin.form-permintaan.create': 'app.form-permintaan.create',
+            'admin.form-permintaan.detail': 'app.form-permintaan.detail',
+            'admin.daily-records': 'app.daily-records',
+            'admin.daily-record.create': 'app.daily-record.create',
+            'admin.daily-record.edit': 'app.daily-record.edit',
+            'admin.daily-record.detail': 'app.daily-record.detail',
+            'admin.daily-usage-report': 'app.daily-usage-report',
           }
 
           if (routeMapping[to.name]) {
-            return next({ name: routeMapping[to.name] })
+            return next({ name: routeMapping[to.name], params: to.params, query: to.query })
           } else {
             // No equivalent app route, show forbidden
             return next({ name: 'error.forbidden' })

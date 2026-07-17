@@ -3,7 +3,16 @@ import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { Eye, EyeOff, Mail } from "lucide-vue-next";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-vue-next";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const authStore = useAuthStore();
 const toast = useToastStore();
@@ -32,86 +41,102 @@ const togglePassword = () => {
 </script>
 
 <template>
-  <form class="space-y-6" @submit.prevent="handleSubmit">
-    <!-- Email -->
-    <div>
-      <label for="email" class="block text-sm font-medium text-gray-700"
-        >Email</label
-      >
-      <div class="mt-1 relative">
-        <input
-          v-model="form.email"
-          type="email"
-          id="email"
-          name="email"
-          required
-          class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="nama@perusahaan.com"
-        />
-        <div
-          class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"
-        >
-          <Mail :size="16" class="w-4 h-4 text-gray-400" />
-        </div>
-      </div>
-    </div>
+  <div class="flex flex-col gap-6">
+    <Card>
+      <CardHeader class="text-center">
+        <CardTitle class="text-xl">Masuk ke akun Anda</CardTitle>
+        <CardDescription>
+          Gunakan email perusahaan untuk mengakses Helpdesk.
+        </CardDescription>
+      </CardHeader>
 
-    <!-- Password -->
-    <div>
-      <label for="password" class="block text-sm font-medium text-gray-700"
-        >Password</label
-      >
-      <div class="mt-1 relative">
-        <input
-          v-model="form.password"
-          :type="showPassword ? 'text' : 'password'"
-          id="password"
-          name="password"
-          required
-          class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="••••••••"
-        />
-        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
-          <button
-            type="button"
-            @click="togglePassword"
-            class="text-gray-400 hover:text-gray-600 focus:outline-none"
-            aria-label="Toggle password visibility"
-          >
-            <Eye v-if="!showPassword" :size="16" class="w-4 h-4" />
-            <EyeOff v-else :size="16" class="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+      <CardContent>
+        <form class="grid gap-6" @submit.prevent="handleSubmit">
+          <div class="grid gap-2">
+            <label for="email" class="text-sm font-medium leading-none text-slate-950">
+              Email
+            </label>
+            <div class="relative">
+              <Input
+                id="email"
+                v-model="form.email"
+                type="email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="nama@perusahaan.com"
+                class="pr-10"
+              />
+              <Mail
+                :size="16"
+                class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
+          </div>
 
-    <!-- Remember Me & Forgot Password -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center">
-        <input
-          type="checkbox"
-          id="remember"
-          name="remember"
-          class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-        />
-        <label for="remember" class="ml-2 block text-sm text-gray-700"
-          >Ingat saya</label
-        >
-      </div>
-      <a href="#" class="text-sm text-blue-600 hover:text-blue-800"
-        >Lupa password?</a
-      >
-    </div>
+          <div class="grid gap-2">
+            <div class="flex items-center">
+              <label
+                for="password"
+                class="text-sm font-medium leading-none text-slate-950"
+              >
+                Password
+              </label>
+              <a
+                href="#"
+                class="ml-auto text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Lupa password?
+              </a>
+            </div>
+            <div class="relative">
+              <Input
+                id="password"
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                name="password"
+                required
+                autocomplete="current-password"
+                placeholder="Masukkan password"
+                class="pr-10"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                :aria-label="
+                  showPassword ? 'Sembunyikan password' : 'Tampilkan password'
+                "
+                @click="togglePassword"
+              >
+                <Eye v-if="!showPassword" :size="16" />
+                <EyeOff v-else :size="16" />
+              </button>
+            </div>
+          </div>
 
-    <!-- Submit Button -->
-    <div>
-      <button
-        type="submit"
-        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-      >
-        <span v-if="!loading"> Masuk </span>
-        <span v-else> Loading... </span>
-      </button>
-    </div>
-  </form>
+          <div class="flex items-center justify-between gap-3">
+            <label for="remember" class="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                id="remember"
+                type="checkbox"
+                name="remember"
+                class="size-4 rounded border-slate-300 text-primary focus:ring-primary"
+              />
+              Ingat saya
+            </label>
+          </div>
+
+          <Button type="submit" class="w-full" :disabled="loading">
+            <Loader2 v-if="loading" :size="16" class="animate-spin" />
+            <span>{{ loading ? "Memproses..." : "Masuk" }}</span>
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+
+    <p class="px-6 text-center text-xs text-muted-foreground">
+      Dengan masuk, Anda menyetujui penggunaan sistem Helpdesk GA Maintenance
+      sesuai kebijakan perusahaan.
+    </p>
+  </div>
 </template>

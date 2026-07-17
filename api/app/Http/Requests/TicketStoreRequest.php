@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Support\RichTextSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class TicketStoreRequest extends FormRequest
@@ -46,6 +47,7 @@ class TicketStoreRequest extends FormRequest
     {
         $this->merge([
             'user_id' => $this->user()->id,
+            'description' => RichTextSanitizer::clean($this->input('description')),
         ]);
 
         // Only auto-assign branch_id for non-admin users when not provided

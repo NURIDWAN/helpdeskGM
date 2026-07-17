@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WorkOrder;
 use App\Models\WorkReport;
+use App\Models\FormPermintaan;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -165,6 +166,18 @@ class NotificationService
         }
 
         return $this->channel->sendWorkOrderNotification($workOrder);
+    }
+
+    /**
+     * Send notification for new form permintaan creation
+     */
+    public function sendFormPermintaanNotification(FormPermintaan $formPermintaan): ?bool
+    {
+        if (!$this->channel) {
+            return null;
+        }
+
+        return $this->channel->sendFormPermintaanNotification($formPermintaan);
     }
 
     /**

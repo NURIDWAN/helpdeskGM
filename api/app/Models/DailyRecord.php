@@ -2,17 +2,23 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DailyRecord extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
     protected $fillable = [
         'user_id',
         'branch_id',
+        'date',
         'total_customers',
+    ];
+
+    protected $casts = [
+        'date' => 'date',
     ];
 
     public function scopeSearch($query, $search)

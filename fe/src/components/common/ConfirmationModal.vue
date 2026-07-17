@@ -1,107 +1,88 @@
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-opacity duration-300"
+      enter-active-class="transition-opacity duration-200"
       enter-from-class="opacity-0"
       enter-to-class="opacity-100"
-      leave-active-class="transition-opacity duration-200"
+      leave-active-class="transition-opacity duration-150"
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
       <div
         v-if="show"
-        class="fixed inset-0 z-50 overflow-y-auto"
+        class="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm"
         @click.self="$emit('close')"
       >
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black bg-opacity-50"></div>
-
-        <!-- Modal -->
         <div class="flex min-h-full items-center justify-center p-4">
           <Transition
-            enter-active-class="transition-all duration-300"
-            enter-from-class="opacity-0 scale-95 translate-y-4"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition-all duration-200"
-            leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-to-class="opacity-0 scale-95 translate-y-4"
+            enter-active-class="transition-all duration-200"
+            enter-from-class="translate-y-2 scale-95 opacity-0"
+            enter-to-class="translate-y-0 scale-100 opacity-100"
+            leave-active-class="transition-all duration-150"
+            leave-from-class="translate-y-0 scale-100 opacity-100"
+            leave-to-class="translate-y-2 scale-95 opacity-0"
           >
             <div
               v-if="show"
-              class="relative w-full max-w-md bg-white rounded-xl shadow-xl"
+              class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
               @click.stop
             >
-              <!-- Header -->
-              <div
-                class="flex items-center justify-between p-6 border-b border-gray-200"
-              >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  {{ title }}
-                </h3>
-                <button
+              <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <h3 class="text-base font-semibold text-slate-950">{{ title }}</h3>
+                <Button
                   type="button"
-                  @click="$emit('close')"
-                  class="text-gray-400 hover:text-gray-600 transition-colors"
+                  variant="ghost"
+                  size="icon"
+                  class="size-8 text-slate-500 hover:text-slate-900"
                   aria-label="Tutup dialog"
+                  @click="$emit('close')"
                 >
-                  <X :size="20" />
-                </button>
+                  <X :size="18" />
+                </Button>
               </div>
 
-              <!-- Content -->
-              <div class="p-6">
-                <div class="flex items-start space-x-4">
-                  <!-- Icon -->
+              <div class="px-5 py-5">
+                <div class="flex gap-4">
                   <div
                     :class="[
-                      'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
+                      'flex size-10 shrink-0 items-center justify-center rounded-full',
                       iconBgClass,
                     ]"
                   >
                     <component :is="icon" :size="20" :class="iconClass" />
                   </div>
 
-                  <!-- Message -->
-                  <div class="flex-1">
-                    <p class="text-sm text-gray-600 leading-relaxed">
-                      {{ message }}
-                    </p>
-                    <p v-if="subtitle" class="text-xs text-gray-500 mt-1">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm leading-6 text-slate-700">{{ message }}</p>
+                    <p v-if="subtitle" class="mt-1 text-xs leading-5 text-slate-500">
                       {{ subtitle }}
                     </p>
                   </div>
                 </div>
+                <slot name="body" />
               </div>
 
-              <!-- Footer -->
-              <div
-                class="flex justify-end space-x-3 p-6 bg-gray-50 rounded-b-xl"
-              >
-                <button
+              <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <Button
                   type="button"
-                  @click="$emit('close')"
+                  variant="outline"
                   :disabled="loading"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  @click="$emit('close')"
                 >
                   {{ cancelText }}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  :variant="type === 'danger' ? 'destructive' : 'default'"
+                  :disabled="loading || disabled"
                   @click="$emit('confirm')"
-                  :disabled="loading"
-                  :class="[
-                    'px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-                    confirmButtonClass,
-                  ]"
                 >
-                  <div v-if="loading" class="flex items-center space-x-2">
-                    <div
-                      class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-                    ></div>
-                    <span>{{ loadingText }}</span>
-                  </div>
+                  <span v-if="loading" class="flex items-center gap-2">
+                    <span class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                    {{ loadingText }}
+                  </span>
                   <span v-else>{{ confirmText }}</span>
-                </button>
+                </Button>
               </div>
             </div>
           </Transition>
@@ -113,9 +94,9 @@
 
 <script setup>
 import { computed } from "vue";
-import { X, AlertTriangle, Info, CheckCircle } from "lucide-vue-next";
+import { AlertTriangle, CheckCircle, Info, X } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
-// Props
 const props = defineProps({
   show: {
     type: Boolean,
@@ -151,16 +132,18 @@ const props = defineProps({
   },
   type: {
     type: String,
-    default: "danger", // danger, warning, info, success
+    default: "danger",
     validator: (value) =>
       ["danger", "warning", "info", "success"].includes(value),
   },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-// Emits
 defineEmits(["close", "confirm"]);
 
-// Computed
 const icon = computed(() => {
   const icons = {
     danger: AlertTriangle,
@@ -173,10 +156,10 @@ const icon = computed(() => {
 
 const iconBgClass = computed(() => {
   const classes = {
-    danger: "bg-red-100",
-    warning: "bg-yellow-100",
-    info: "bg-blue-100",
-    success: "bg-green-100",
+    danger: "bg-red-50",
+    warning: "bg-amber-50",
+    info: "bg-blue-50",
+    success: "bg-green-50",
   };
   return classes[props.type];
 });
@@ -184,19 +167,9 @@ const iconBgClass = computed(() => {
 const iconClass = computed(() => {
   const classes = {
     danger: "text-red-600",
-    warning: "text-yellow-600",
+    warning: "text-amber-600",
     info: "text-blue-600",
     success: "text-green-600",
-  };
-  return classes[props.type];
-});
-
-const confirmButtonClass = computed(() => {
-  const classes = {
-    danger: "bg-red-600 hover:bg-red-700 focus:ring-red-500",
-    warning: "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500",
-    info: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
-    success: "bg-green-600 hover:bg-green-700 focus:ring-green-500",
   };
   return classes[props.type];
 });

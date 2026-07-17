@@ -26,6 +26,7 @@ class DashboardController extends Controller implements HasMiddleware
             new Middleware(PermissionMiddleware::using(['dashboard-view-charts']), only: ['getStatusDistribution', 'getTicketsPerBranch']),
             new Middleware(PermissionMiddleware::using(['dashboard-view-staff-rankings']), only: ['getTopStaffResolved', 'getFastestStaff']),
             new Middleware(PermissionMiddleware::using(['dashboard-view-trends']), only: ['getTicketsTrend', 'getStaffReportsTrend']),
+            new Middleware(PermissionMiddleware::using(['dashboard-view-outlet-usage']), only: ['getTopOutletUsage']),
         ];
     }
 
@@ -100,7 +101,10 @@ class DashboardController extends Controller implements HasMiddleware
     public function getTicketsTrend(Request $request)
     {
         try {
-            $period = $request->get('period', 'day'); // day or week
+            $period = $request->get('period', 'day');
+            if (!in_array($period, ['day', 'week'], true)) {
+                return ResponseHelper::jsonResponse(false, 'Period harus berupa: day, week', null, 422);
+            }
             $data = $this->dashboardRepository->getTicketsTrend($period);
             return ResponseHelper::jsonResponse(true, 'Tickets trend berhasil diambil', $data, 200);
         } catch (\Throwable $e) {
@@ -114,9 +118,25 @@ class DashboardController extends Controller implements HasMiddleware
     public function getStaffReportsTrend(Request $request)
     {
         try {
-            $period = $request->get('period', 'day'); // day or week
+            $period = $request->get('period', 'day');
+            if (!in_array($period, ['day', 'week'], true)) {
+                return ResponseHelper::jsonResponse(false, 'Period harus berupa: day, week', null, 422);
+            }
             $data = $this->dashboardRepository->getStaffReportsTrend($period);
             return ResponseHelper::jsonResponse(true, 'Staff reports trend berhasil diambil', $data, 200);
+        } catch (\Throwable $e) {
+            return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
+        }
+    }
+
+    /**
+     * Get top outlet usage data for the current month
+     */
+    public function getTopOutletUsage()
+    {
+        try {
+            $data = $this->dashboardRepository->getTopOutletUsage();
+            return ResponseHelper::jsonResponse(true, 'Top outlet usage berhasil diambil', $data, 200);
         } catch (\Throwable $e) {
             return ResponseHelper::jsonResponse(false, 'Terjadi kesalahan', null, 500);
         }
@@ -129,6 +149,9 @@ class DashboardController extends Controller implements HasMiddleware
     {
         try {
             $period = $request->get('period', 'day');
+            if (!in_array($period, ['day', 'week'], true)) {
+                return ResponseHelper::jsonResponse(false, 'Period harus berupa: day, week', null, 422);
+            }
 
             $data = [
                 'metrics' => $this->dashboardRepository->getMetrics(),

@@ -24,7 +24,8 @@ class RoleUpdateRequest extends FormRequest
             'name' => [
                 'sometimes',
                 'string',
-                'max:255',
+                'min:3',
+                'max:50',
                 Rule::unique('roles', 'name')->ignore($this->route('role')),
             ],
             'permissions' => 'nullable|array',
@@ -38,9 +39,12 @@ class RoleUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'name.min' => 'Nama role minimal 3 karakter',
+            'name.max' => 'Nama role maksimal 50 karakter',
             'name.unique' => 'Nama role sudah digunakan',
             'permissions.array' => 'Format permissions tidak valid',
-            'permissions.*.exists' => 'Permission tidak valid',
+            'permissions.*.string' => 'Setiap permission harus berupa string',
+            'permissions.*.exists' => 'Permission :input tidak valid',
         ];
     }
 }

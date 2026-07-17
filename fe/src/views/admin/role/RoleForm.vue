@@ -1,12 +1,13 @@
 <script setup>
-import { reactive, onMounted, computed, ref } from "vue";
+import { reactive, onMounted, computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useRoleStore } from "@/stores/role";
 import { usePermissionManager } from "@/composables/usePermissionManager";
-import { featureGroups, colorMap, rolePresets } from "@/config/permissionConfig";
+import { featureGroups, colorMap, rolePresets, getPermissionInfo } from "@/config/permissionConfig";
 import FormCard from "@/components/common/FormCard.vue";
 import FormField from "@/components/common/FormField.vue";
 import Alert from "@/components/common/Alert.vue";
+import DependencyConfirmDialog from "@/components/admin/DependencyConfirmDialog.vue";
 import { 
   ArrowLeft, 
   ChevronRight, 
@@ -38,7 +39,8 @@ import {
   Gauge,
   Eye,
   Wrench,
-  UserCheck
+  UserCheck,
+  Copy
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
 
@@ -58,11 +60,16 @@ const { fetchRole, createRole, updateRole } = roleStore;
 
 const isEditMode = computed(() => !!route.params.id);
 const roleId = computed(() => route.params.id);
+const isDuplicateMode = ref(false);
+const duplicateSourceName = ref("");
 const isProtectedRole = ref(false);
 
 const form = reactive({
   name: "",
 });
+
+// Computed: validasi nama role untuk duplicate mode (min 3, max 50 karakter)
+const isNameValid = computed(() => form.name.length >= 3 && form.name.length <= 50);
 
 // Permission Manager
 const permissionManager = usePermissionManager();
@@ -75,6 +82,7 @@ const {
   selectAll,
   resetAll,
   setPermissions,
+  forceDeselect,
   isSelected,
   isLocked,
   getLockedBy,
@@ -90,6 +98,19 @@ const expandedFeatures = ref({});
 const searchQuery = ref("");
 const showPresetDropdown = ref(false);
 const toggleWarning = ref(null);
+
+// Inline name error (for duplicate name 422 response)
+const nameError = ref("");
+
+// Clear inline name error when name changes
+watch(() => form.name, () => {
+  nameError.value = "";
+});
+
+// Dependency Confirm Dialog state
+const showDependencyDialog = ref(false);
+const pendingDeselectPermission = ref("");
+const pendingDeselectDependents = ref([]);
 
 // Initialize expanded state
 Object.keys(featureGroups).forEach(key => {
@@ -160,10 +181,16 @@ const expandAllMatches = () => {
   }
 };
 
-// Handle permission toggle with warning
+// Handle permission toggle with dependency dialog
 const handleTogglePermission = (permissionName) => {
   const result = togglePermission(permissionName);
-  if (!result.success) {
+  if (!result.success && result.dependents && result.dependents.length > 0) {
+    // Show dependency confirmation dialog
+    pendingDeselectPermission.value = permissionName;
+    pendingDeselectDependents.value = result.dependents;
+    showDependencyDialog.value = true;
+  } else if (!result.success) {
+    // Fallback: show inline warning if no dependents info
     toggleWarning.value = {
       permission: permissionName,
       message: result.message
@@ -173,6 +200,48 @@ const handleTogglePermission = (permissionName) => {
     }, 3000);
   }
 };
+
+// Handle dependency dialog confirm — force cascading deselection
+const handleDependencyConfirm = () => {
+  if (pendingDeselectPermission.value) {
+    forceDeselect(pendingDeselectPermission.value);
+  }
+  closeDependencyDialog();
+};
+
+// Handle dependency dialog cancel — close without changes
+const handleDependencyCancel = () => {
+  closeDependencyDialog();
+};
+
+// Close and reset dialog state
+const closeDependencyDialog = () => {
+  showDependencyDialog.value = false;
+  pendingDeselectPermission.value = "";
+  pendingDeselectDependents.value = [];
+};
+
+// Build permission labels map for readable names in dialog
+const permissionLabels = computed(() => {
+  const labels = {};
+  Object.values(featureGroups).forEach(feature => {
+    if (feature.permissions) {
+      Object.entries(feature.permissions).forEach(([key, perm]) => {
+        labels[key] = perm.label;
+      });
+    }
+    if (feature.subFeatures) {
+      Object.values(feature.subFeatures).forEach(sub => {
+        if (sub.permissions) {
+          Object.entries(sub.permissions).forEach(([key, perm]) => {
+            labels[key] = perm.label;
+          });
+        }
+      });
+    }
+  });
+  return labels;
+});
 
 // Handle preset selection
 const handlePresetSelect = (presetKey) => {
@@ -213,6 +282,30 @@ const loadRoleData = async () => {
   }
 };
 
+// Load duplicate data
+const loadDuplicateData = async (duplicateId) => {
+  try {
+    const sourceRole = await fetchRole(duplicateId);
+    duplicateSourceName.value = sourceRole.name;
+    isDuplicateMode.value = true;
+    
+    // Set permissions from source role but leave name empty
+    setPermissions(sourceRole.permissions || []);
+    form.name = "";
+    
+    // Expand features that have selected permissions
+    Object.entries(featureGroups).forEach(([key]) => {
+      const counts = featureCounts.value[key];
+      if (counts && counts.selected > 0) {
+        expandedFeatures.value[key] = true;
+      }
+    });
+  } catch (e) {
+    console.error("Error loading duplicate source:", e);
+    router.push({ name: "admin.roles" });
+  }
+};
+
 const handleSubmit = async () => {
   try {
     const data = {
@@ -228,6 +321,12 @@ const handleSubmit = async () => {
 
     router.push({ name: "admin.roles" });
   } catch (e) {
+    // Check for duplicate name validation error (422 with name field)
+    if (e.response && e.response.status === 422 && e.response.data.errors && e.response.data.errors.name) {
+      nameError.value = Array.isArray(e.response.data.errors.name)
+        ? e.response.data.errors.name[0]
+        : e.response.data.errors.name;
+    }
     console.error("Error saving role:", e);
   }
 };
@@ -235,6 +334,12 @@ const handleSubmit = async () => {
 onMounted(() => {
   if (isEditMode.value) {
     loadRoleData();
+  } else {
+    // Check for duplicate query param
+    const duplicateId = route.query.duplicate;
+    if (duplicateId) {
+      loadDuplicateData(duplicateId);
+    }
   }
 });
 </script>
@@ -251,12 +356,14 @@ onMounted(() => {
       </RouterLink>
       <div>
         <h1 class="text-3xl font-bold text-gray-900">
-          {{ isEditMode ? "Edit Role" : "Tambah Role" }}
+          {{ isEditMode ? "Edit Role" : isDuplicateMode ? "Duplikasi Role" : "Tambah Role" }}
         </h1>
         <p class="text-gray-600 mt-1">
           {{
             isEditMode
               ? "Perbarui informasi dan permission role"
+              : isDuplicateMode
+              ? "Buat role baru berdasarkan duplikasi role yang sudah ada"
               : "Buat role baru dengan permission yang sesuai"
           }}
         </p>
@@ -274,7 +381,7 @@ onMounted(() => {
       </RouterLink>
       <ChevronRight :size="16" />
       <span class="text-gray-900 font-medium">{{
-        isEditMode ? "Edit" : "Tambah"
+        isEditMode ? "Edit" : isDuplicateMode ? "Duplikasi" : "Tambah"
       }}</span>
     </nav>
   </div>
@@ -287,6 +394,7 @@ onMounted(() => {
     :auto-close="true"
     :duration="5000"
     class="mb-6"
+    @close="error = null"
   />
 
   <!-- Toggle Warning -->
@@ -320,6 +428,22 @@ onMounted(() => {
     </div>
   </div>
 
+  <!-- Duplicate Mode Info Banner -->
+  <div
+    v-if="isDuplicateMode"
+    class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+  >
+    <div class="flex items-center gap-3">
+      <Copy :size="20" class="text-blue-600" />
+      <div>
+        <h4 class="font-medium text-blue-800">Duplikasi Role</h4>
+        <p class="text-sm text-blue-700">
+          Form ini adalah duplikasi dari role: <strong>{{ duplicateSourceName }}</strong>. Silakan masukkan nama baru untuk role ini.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <form @submit.prevent="handleSubmit" class="space-y-6">
     <!-- Basic Info -->
     <FormCard
@@ -337,6 +461,18 @@ onMounted(() => {
           :disabled="isProtectedRole"
           :icon="Shield"
         />
+        <p
+          v-if="isDuplicateMode && form.name.length > 0 && !isNameValid"
+          class="text-xs text-red-500 -mt-4"
+        >
+          Nama role harus memiliki panjang antara 3 sampai 50 karakter
+        </p>
+        <p
+          v-if="nameError"
+          class="text-xs text-red-500 -mt-4"
+        >
+          {{ nameError }}
+        </p>
       </div>
     </FormCard>
 
@@ -675,7 +811,7 @@ onMounted(() => {
       </RouterLink>
       <button
         type="submit"
-        :disabled="loading || !form.name"
+        :disabled="loading || !form.name || (isDuplicateMode && !isNameValid)"
         class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium"
       >
         <div
@@ -694,4 +830,14 @@ onMounted(() => {
     class="fixed inset-0 z-0"
     @click="showPresetDropdown = false"
   ></div>
+
+  <!-- Dependency Confirm Dialog -->
+  <DependencyConfirmDialog
+    :show="showDependencyDialog"
+    :permission-name="pendingDeselectPermission"
+    :dependents="pendingDeselectDependents"
+    :permission-labels="permissionLabels"
+    @confirm="handleDependencyConfirm"
+    @cancel="handleDependencyCancel"
+  />
 </template>
