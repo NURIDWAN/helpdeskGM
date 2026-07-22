@@ -66,8 +66,8 @@ const validationErrors = ref({});
 const canPickBranch = computed(() => can('form-permintaan-view-all'));
 const selectedBranchId = ref(null);
 
-// Hanya superadmin yang bisa pilih user (pemohon), admin default sesuai cabang sendiri
-const canPickUser = computed(() => hasRole('superadmin'));
+// Admin dan superadmin bisa pilih user (pemohon)
+const canPickUser = computed(() => hasRole('superadmin') || hasRole('admin'));
 const selectedUserId = ref(null);
 
 // Form data
@@ -511,7 +511,7 @@ onMounted(async () => {
     await branchStore.fetchBranches({ limit: 200 });
   }
 
-  // Superadmin perlu list semua user untuk dropdown pemohon
+  // Admin dan superadmin perlu list semua user untuk dropdown pemohon
   if (canPickUser.value) {
     await userStore.fetchUsers({ limit: 200 });
   }
@@ -525,7 +525,7 @@ onMounted(async () => {
       if (canPickBranch.value && data?.branch_id) {
         selectedBranchId.value = data.branch_id;
       }
-      // Set selectedUserId dari data yang ada jika edit mode superadmin
+      // Set selectedUserId dari data yang ada jika edit mode admin/superadmin
       if (canPickUser.value && data?.user_id) {
         selectedUserId.value = data.user_id;
       }
@@ -603,7 +603,7 @@ onMounted(async () => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">User</label>
-          <!-- Superadmin: dropdown pilih user -->
+          <!-- Admin/Superadmin: dropdown pilih user -->
           <select
             v-if="canPickUser"
             v-model="selectedUserId"
