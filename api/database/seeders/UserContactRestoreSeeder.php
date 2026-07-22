@@ -10,7 +10,7 @@ class UserContactRestoreSeeder extends Seeder
     /**
      * Restore phone_number and telegram_chat_id from SQL backup.
      * Lookup berdasarkan email agar tidak bergantung pada ID.
-     * Hanya update field yang belum terisi (NULL).
+     * Force update - overwrite data yang ada.
      */
     public function run(): void
     {
@@ -85,29 +85,17 @@ class UserContactRestoreSeeder extends Seeder
         $notFound = [];
 
         foreach ($contacts as $email => [$phone, $telegramId]) {
-            $user = User::where('email', $email)->first();
+            $user = User::whereRaw('LOWER(email) = ?', [strtolower($email)])->first();
 
             if (!$user) {
                 $notFound[] = $email;
                 continue;
             }
 
-            $changed = false;
-
-            if ($phone && !$user->phone_number) {
-                $user->phone_number = $phone;
-                $changed = true;
-            }
-
-            if ($telegramId && !$user->telegram_chat_id) {
-                $user->telegram_chat_id = $telegramId;
-                $changed = true;
-            }
-
-            if ($changed) {
-                $user->save();
-                $updated++;
-            }
+            $user->phone_number = $phone;
+            $user->telegram_chat_id = $telegramId;
+            $user->save();
+            $updated++;
         }
 
         $this->command->info("Updated contact info for {$updated} users.");
