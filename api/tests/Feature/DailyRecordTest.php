@@ -36,7 +36,10 @@ test('admin can list paginated daily records', function () {
     $admin = User::factory()->create();
     $admin->assignRole('admin');
 
-    DailyRecord::factory()->count(15)->create();
+    // Create records with unique branch+date combinations
+    for ($i = 0; $i < 15; $i++) {
+        DailyRecord::factory()->create(['date' => now()->subDays($i)->format('Y-m-d')]);
+    }
 
     actingAs($admin)
         ->getJson('/api/v1/daily-records/all/paginated?row_per_page=10')
@@ -59,7 +62,9 @@ test('can filter daily records by branch', function () {
     $admin->assignRole('admin');
 
     $branch = Branch::factory()->create();
-    DailyRecord::factory()->count(3)->create(['branch_id' => $branch->id]);
+    DailyRecord::factory()->create(['branch_id' => $branch->id, 'date' => '2024-01-01']);
+    DailyRecord::factory()->create(['branch_id' => $branch->id, 'date' => '2024-01-02']);
+    DailyRecord::factory()->create(['branch_id' => $branch->id, 'date' => '2024-01-03']);
     DailyRecord::factory()->count(2)->create();
 
     actingAs($admin)
@@ -95,7 +100,8 @@ test('staff can create daily record for branch', function () {
     actingAs($user)
         ->postJson('/api/v1/daily-records', [
             'branch_id' => $branch->id,
-            'notes' => 'Daily record notes',
+            'date' => now()->format('Y-m-d'),
+            'total_customers' => 10,
         ])
         ->assertCreated()
         ->assertJsonPath('success', true);
@@ -107,7 +113,9 @@ test('daily record requires branch_id', function () {
     $user->assignRole('user');
 
     actingAs($user)
-        ->postJson('/api/v1/daily-records', [])
+        ->postJson('/api/v1/daily-records', [
+            'date' => now()->format('Y-m-d'),
+        ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['branch_id']);
 });
@@ -179,14 +187,13 @@ test('can get previous readings for branch', function () {
     $admin->assignRole('admin');
 
     $branch = Branch::factory()->create();
-    // Use created_at instead of record_date since column doesn't exist
     DailyRecord::factory()->create([
         'branch_id' => $branch->id,
-        'created_at' => now()->subDay(),
+        'date' => now()->subDay()->format('Y-m-d'),
     ]);
 
     actingAs($admin)
-        ->getJson("/api/v1/daily-records/previous-readings?branch_id={$branch->id}")
+        ->getJson("/api/v1/daily-records/previous-readings?branch_id={$branch->id}&date=" . now()->format('Y-m-d'))
         ->assertOk()
         ->assertJsonStructure([
             'success',
@@ -203,7 +210,12 @@ test('can get daily usage report', function () {
     $admin->assignRole('admin');
 
     $branch = Branch::factory()->create();
-    DailyRecord::factory()->count(5)->create(['branch_id' => $branch->id]);
+    for ($i = 0; $i < 5; $i++) {
+        DailyRecord::factory()->create([
+            'branch_id' => $branch->id,
+            'date' => now()->subDays($i)->format('Y-m-d'),
+        ]);
+    }
 
     // The endpoint requires branch_id parameter
     actingAs($admin)

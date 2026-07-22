@@ -7,32 +7,35 @@ use App\Models\User;
 use App\Models\DailyRecord;
 use App\Models\UtilityReading;
 use App\Enums\UtilityCategory;
-use App\Enums\UtilitySubType;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class UtilityReadingFormatTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(PermissionSeeder::class);
+        $this->seed(RoleSeeder::class);
+    }
+
     public function test_previous_readings_have_object_category()
     {
-        // 1. Create a user and authenticate
-        $user = User::factory()->create();
-        
-        // Setup permissions
-        $permission = \Spatie\Permission\Models\Permission::create(['name' => 'daily-record-list', 'guard_name' => 'sanctum']);
-        $user->givePermissionTo($permission);
-        
-        // Create a Branch
+        // 1. Create a user with proper role and branch
         $branch = \App\Models\Branch::factory()->create();
+        $user = User::factory()->create(['branch_id' => $branch->id]);
+        $user->assignRole('user');
 
         // 2. Create a "Previous" DailyRecord with UtilityReadings
         $prevRecord = DailyRecord::factory()->create([
             'branch_id' => $branch->id,
-            'created_at' => now()->subDay(),
+            'date' => now()->subDay()->format('Y-m-d'),
         ]);
         
-        $prevUtility = UtilityReading::factory()->create([
+        UtilityReading::factory()->create([
             'daily_record_id' => $prevRecord->id,
             'category' => UtilityCategory::GAS, 
             'meter_value' => 100,
@@ -42,7 +45,7 @@ class UtilityReadingFormatTest extends TestCase
         // 3. Create a "Current" DailyRecord (so we can call show($current->id))
         $currentRecord = DailyRecord::factory()->create([
             'branch_id' => $branch->id,
-            'created_at' => now(),
+            'date' => now()->format('Y-m-d'),
         ]);
 
         // 4. Call the API
@@ -57,9 +60,8 @@ class UtilityReadingFormatTest extends TestCase
         $this->assertArrayHasKey('previous_readings', $data);
         $this->assertArrayHasKey('utility', $data['previous_readings']);
         
-        // DEBUG: Dump the structure if needed or just assert strict type
-        // Ensure 'utility' is a direct list (indexed array), NOT an associative array with 'data' key
-        $this->assertIsList($data['previous_readings']['utility'], "previous_readings.utility should be a list, maybe it is wrapped in 'data'?");
+        // Ensure 'utility' is a direct list (indexed array)
+        $this->assertIsList($data['previous_readings']['utility'], "previous_readings.utility should be a list");
         
         $prevUtilityData = $data['previous_readings']['utility'][0];
         

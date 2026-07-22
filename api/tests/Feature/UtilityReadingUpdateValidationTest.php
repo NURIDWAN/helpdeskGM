@@ -9,18 +9,17 @@ use App\Models\UtilityReading;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Permission;
 use function Pest\Laravel\{actingAs, putJson};
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->user = User::factory()->create();
-    // Assign permissions
-    Permission::create(['name' => 'utility-reading-edit']);
-    $this->user->givePermissionTo(['utility-reading-edit']);
+    $this->seed(\Database\Seeders\PermissionSeeder::class);
+    $this->seed(\Database\Seeders\RoleSeeder::class);
 
     $this->branch = Branch::factory()->create();
+    $this->user = User::factory()->create(['branch_id' => $this->branch->id]);
+    $this->user->assignRole('user');
     $this->dailyRecord = DailyRecord::factory()->create(['branch_id' => $this->branch->id]);
 });
 

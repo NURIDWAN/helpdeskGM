@@ -6,13 +6,20 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\DailyRecord;
 use App\Models\Branch;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 
 class DailyRecordVisibilityTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(PermissionSeeder::class);
+        $this->seed(RoleSeeder::class);
+    }
 
     public function test_user_role_can_see_all_daily_records()
     {
@@ -21,18 +28,16 @@ class DailyRecordVisibilityTest extends TestCase
         
         // Create User A (The viewer) - assign 'user' role
         $userA = User::factory()->create(['branch_id' => $branch->id]);
-        $roleUser = Role::create(['name' => 'user', 'guard_name' => 'sanctum']);
-        $permissionList = Permission::create(['name' => 'daily-record-list', 'guard_name' => 'sanctum']);
-        $userA->assignRole($roleUser);
-        $userA->givePermissionTo($permissionList);
+        $userA->assignRole('user');
 
         // Create User B (The other user)
         $userB = User::factory()->create(['branch_id' => $branch->id]);
         
-        // Create Daily Record for User B
+        // Create Daily Record for User B (same branch as User A)
         $recordB = DailyRecord::factory()->create([
             'user_id' => $userB->id,
             'branch_id' => $branch->id,
+            'date' => now()->format('Y-m-d'),
             'total_customers' => 50
         ]);
 
@@ -42,7 +47,7 @@ class DailyRecordVisibilityTest extends TestCase
         // 3. Assert
         $response->assertStatus(200);
         
-        // Assert that User A can see User B's record
+        // Assert that User A can see User B's record (same branch)
         $response->assertJsonFragment(['id' => $recordB->id]);
         $response->assertJsonFragment(['total_customers' => 50]);
     }

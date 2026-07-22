@@ -35,11 +35,11 @@ test('initialize previous closings returns empty array when no previous records'
 });
 
 test('initialize previous closings finds last record before start date', function () {
-    // Create a previous day record - use created_at instead of record_date
+    // Create a previous day record
     $previousRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'created_at' => now()->subDays(2),
+        'date' => now()->subDays(2)->format('Y-m-d'),
     ]);
 
     // Create utility reading for it
@@ -73,6 +73,7 @@ test('process electricity readings handles multi-meter data', function () {
     $dailyRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
+        'date' => now()->format('Y-m-d'),
     ]);
 
     ElectricityReading::factory()->create([
@@ -102,7 +103,7 @@ test('process electricity readings calculates usage from previous readings', fun
     $previousRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'created_at' => now()->subDay(),
+        'date' => now()->subDay()->format('Y-m-d'),
     ]);
 
     ElectricityReading::factory()->create([
@@ -114,7 +115,7 @@ test('process electricity readings calculates usage from previous readings', fun
     $currentRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
-        'created_at' => now(),
+        'date' => now()->format('Y-m-d'),
     ]);
 
     ElectricityReading::factory()->create([
@@ -145,6 +146,7 @@ test('build report row creates complete data structure', function () {
     $dailyRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
+        'date' => now()->subDays(3)->format('Y-m-d'),
     ]);
 
     $gasData = [
@@ -184,6 +186,7 @@ test('build report row handles empty electricity data', function () {
     $dailyRecord = DailyRecord::factory()->create([
         'branch_id' => $this->branch->id,
         'user_id' => $this->user->id,
+        'date' => now()->subDays(4)->format('Y-m-d'),
     ]);
 
     $result = $this->service->buildReportRow($dailyRecord, [], [], []);

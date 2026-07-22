@@ -16,6 +16,7 @@ class DailyRecordFactory extends Factory
         return [
             'branch_id' => Branch::factory(),
             'user_id' => User::factory(),
+            'date' => $this->faker->unique()->dateTimeBetween('-1 year', 'now')->format('Y-m-d'),
             'total_customers' => $this->faker->numberBetween(0, 100),
             'created_at' => now(),
             'updated_at' => now(),
